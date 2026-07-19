@@ -1,0 +1,1312 @@
+{
+  "score": 23.3,
+  "distance": 1.821143,
+  "feedback": "F2를 조금 더 높이세요. 혀 위치를 앞쪽으로 조정해 보세요.",
+  "user_formants": {
+    "F1": 1000,
+    "F2": 1312.5,
+    "F3": 2937.5
+  },
+  "target_formants": {
+    "F1": 406.25,
+    "F2": 3125
+  },
+  "delta": {
+    "F1": 593.75,
+    "F2": -1812.5
+  },
+  "graph": {
+    "user": [
+      {
+        "frequency_hz": 0,
+        "magnitude_db": -16.497
+      },
+      {
+        "frequency_hz": 31.25,
+        "magnitude_db": -16.496
+      },
+      {
+        "frequency_hz": 62.5,
+        "magnitude_db": -16.491
+      },
+      {
+        "frequency_hz": 93.75,
+        "magnitude_db": -16.482
+      },
+      {
+        "frequency_hz": 125,
+        "magnitude_db": -16.467
+      },
+      {
+        "frequency_hz": 156.25,
+        "magnitude_db": -16.442
+      },
+      {
+        "frequency_hz": 187.5,
+        "magnitude_db": -16.407
+      },
+      {
+        "frequency_hz": 218.75,
+        "magnitude_db": -16.357
+      },
+      {
+        "frequency_hz": 250,
+        "magnitude_db": -16.288
+      },
+      {
+        "frequency_hz": 281.25,
+        "magnitude_db": -16.197
+      },
+      {
+        "frequency_hz": 312.5,
+        "magnitude_db": -16.081
+      },
+      {
+        "frequency_hz": 343.75,
+        "magnitude_db": -15.935
+      },
+      {
+        "frequency_hz": 375,
+        "magnitude_db": -15.755
+      },
+      {
+        "frequency_hz": 406.25,
+        "magnitude_db": -15.537
+      },
+      {
+        "frequency_hz": 437.5,
+        "magnitude_db": -15.278
+      },
+      {
+        "frequency_hz": 468.75,
+        "magnitude_db": -14.973
+      },
+      {
+        "frequency_hz": 500,
+        "magnitude_db": -14.617
+      },
+      {
+        "frequency_hz": 531.25,
+        "magnitude_db": -14.205
+      },
+      {
+        "frequency_hz": 562.5,
+        "magnitude_db": -13.734
+      },
+      {
+        "frequency_hz": 593.75,
+        "magnitude_db": -13.196
+      },
+      {
+        "frequency_hz": 625,
+        "magnitude_db": -12.587
+      },
+      {
+        "frequency_hz": 656.25,
+        "magnitude_db": -11.9
+      },
+      {
+        "frequency_hz": 687.5,
+        "magnitude_db": -11.128
+      },
+      {
+        "frequency_hz": 718.75,
+        "magnitude_db": -10.264
+      },
+      {
+        "frequency_hz": 750,
+        "magnitude_db": -9.302
+      },
+      {
+        "frequency_hz": 781.25,
+        "magnitude_db": -8.241
+      },
+      {
+        "frequency_hz": 812.5,
+        "magnitude_db": -7.083
+      },
+      {
+        "frequency_hz": 843.75,
+        "magnitude_db": -5.85
+      },
+      {
+        "frequency_hz": 875,
+        "magnitude_db": -4.587
+      },
+      {
+        "frequency_hz": 906.25,
+        "magnitude_db": -3.39
+      },
+      {
+        "frequency_hz": 937.5,
+        "magnitude_db": -2.4
+      },
+      {
+        "frequency_hz": 968.75,
+        "magnitude_db": -1.766
+      },
+      {
+        "frequency_hz": 1000,
+        "magnitude_db": -1.543
+      },
+      {
+        "frequency_hz": 1031.25,
+        "magnitude_db": -1.645
+      },
+      {
+        "frequency_hz": 1062.5,
+        "magnitude_db": -1.903
+      },
+      {
+        "frequency_hz": 1093.75,
+        "magnitude_db": -2.162
+      },
+      {
+        "frequency_hz": 1125,
+        "magnitude_db": -2.315
+      },
+      {
+        "frequency_hz": 1156.25,
+        "magnitude_db": -2.297
+      },
+      {
+        "frequency_hz": 1187.5,
+        "magnitude_db": -2.071
+      },
+      {
+        "frequency_hz": 1218.75,
+        "magnitude_db": -1.624
+      },
+      {
+        "frequency_hz": 1250,
+        "magnitude_db": -0.99
+      },
+      {
+        "frequency_hz": 1281.25,
+        "magnitude_db": -0.32
+      },
+      {
+        "frequency_hz": 1312.5,
+        "magnitude_db": 0
+      },
+      {
+        "frequency_hz": 1343.75,
+        "magnitude_db": -0.57
+      },
+      {
+        "frequency_hz": 1375,
+        "magnitude_db": -2.141
+      },
+      {
+        "frequency_hz": 1406.25,
+        "magnitude_db": -4.24
+      },
+      {
+        "frequency_hz": 1437.5,
+        "magnitude_db": -6.412
+      },
+      {
+        "frequency_hz": 1468.75,
+        "magnitude_db": -8.454
+      },
+      {
+        "frequency_hz": 1500,
+        "magnitude_db": -10.312
+      },
+      {
+        "frequency_hz": 1531.25,
+        "magnitude_db": -11.988
+      },
+      {
+        "frequency_hz": 1562.5,
+        "magnitude_db": -13.501
+      },
+      {
+        "frequency_hz": 1593.75,
+        "magnitude_db": -14.869
+      },
+      {
+        "frequency_hz": 1625,
+        "magnitude_db": -16.111
+      },
+      {
+        "frequency_hz": 1656.25,
+        "magnitude_db": -17.242
+      },
+      {
+        "frequency_hz": 1687.5,
+        "magnitude_db": -18.275
+      },
+      {
+        "frequency_hz": 1718.75,
+        "magnitude_db": -19.22
+      },
+      {
+        "frequency_hz": 1750,
+        "magnitude_db": -20.084
+      },
+      {
+        "frequency_hz": 1781.25,
+        "magnitude_db": -20.877
+      },
+      {
+        "frequency_hz": 1812.5,
+        "magnitude_db": -21.602
+      },
+      {
+        "frequency_hz": 1843.75,
+        "magnitude_db": -22.265
+      },
+      {
+        "frequency_hz": 1875,
+        "magnitude_db": -22.869
+      },
+      {
+        "frequency_hz": 1906.25,
+        "magnitude_db": -23.42
+      },
+      {
+        "frequency_hz": 1937.5,
+        "magnitude_db": -23.918
+      },
+      {
+        "frequency_hz": 1968.75,
+        "magnitude_db": -24.366
+      },
+      {
+        "frequency_hz": 2000,
+        "magnitude_db": -24.767
+      },
+      {
+        "frequency_hz": 2031.25,
+        "magnitude_db": -25.122
+      },
+      {
+        "frequency_hz": 2062.5,
+        "magnitude_db": -25.432
+      },
+      {
+        "frequency_hz": 2093.75,
+        "magnitude_db": -25.698
+      },
+      {
+        "frequency_hz": 2125,
+        "magnitude_db": -25.92
+      },
+      {
+        "frequency_hz": 2156.25,
+        "magnitude_db": -26.1
+      },
+      {
+        "frequency_hz": 2187.5,
+        "magnitude_db": -26.238
+      },
+      {
+        "frequency_hz": 2218.75,
+        "magnitude_db": -26.333
+      },
+      {
+        "frequency_hz": 2250,
+        "magnitude_db": -26.385
+      },
+      {
+        "frequency_hz": 2281.25,
+        "magnitude_db": -26.394
+      },
+      {
+        "frequency_hz": 2312.5,
+        "magnitude_db": -26.359
+      },
+      {
+        "frequency_hz": 2343.75,
+        "magnitude_db": -26.278
+      },
+      {
+        "frequency_hz": 2375,
+        "magnitude_db": -26.15
+      },
+      {
+        "frequency_hz": 2406.25,
+        "magnitude_db": -25.973
+      },
+      {
+        "frequency_hz": 2437.5,
+        "magnitude_db": -25.745
+      },
+      {
+        "frequency_hz": 2468.75,
+        "magnitude_db": -25.463
+      },
+      {
+        "frequency_hz": 2500,
+        "magnitude_db": -25.123
+      },
+      {
+        "frequency_hz": 2531.25,
+        "magnitude_db": -24.722
+      },
+      {
+        "frequency_hz": 2562.5,
+        "magnitude_db": -24.254
+      },
+      {
+        "frequency_hz": 2593.75,
+        "magnitude_db": -23.712
+      },
+      {
+        "frequency_hz": 2625,
+        "magnitude_db": -23.09
+      },
+      {
+        "frequency_hz": 2656.25,
+        "magnitude_db": -22.379
+      },
+      {
+        "frequency_hz": 2687.5,
+        "magnitude_db": -21.567
+      },
+      {
+        "frequency_hz": 2718.75,
+        "magnitude_db": -20.643
+      },
+      {
+        "frequency_hz": 2750,
+        "magnitude_db": -19.595
+      },
+      {
+        "frequency_hz": 2781.25,
+        "magnitude_db": -18.416
+      },
+      {
+        "frequency_hz": 2812.5,
+        "magnitude_db": -17.111
+      },
+      {
+        "frequency_hz": 2843.75,
+        "magnitude_db": -15.728
+      },
+      {
+        "frequency_hz": 2875,
+        "magnitude_db": -14.411
+      },
+      {
+        "frequency_hz": 2906.25,
+        "magnitude_db": -13.459
+      },
+      {
+        "frequency_hz": 2937.5,
+        "magnitude_db": -13.236
+      },
+      {
+        "frequency_hz": 2968.75,
+        "magnitude_db": -13.824
+      },
+      {
+        "frequency_hz": 3000,
+        "magnitude_db": -14.922
+      },
+      {
+        "frequency_hz": 3031.25,
+        "magnitude_db": -16.178
+      },
+      {
+        "frequency_hz": 3062.5,
+        "magnitude_db": -17.394
+      },
+      {
+        "frequency_hz": 3093.75,
+        "magnitude_db": -18.491
+      },
+      {
+        "frequency_hz": 3125,
+        "magnitude_db": -19.451
+      },
+      {
+        "frequency_hz": 3156.25,
+        "magnitude_db": -20.277
+      },
+      {
+        "frequency_hz": 3187.5,
+        "magnitude_db": -20.98
+      },
+      {
+        "frequency_hz": 3218.75,
+        "magnitude_db": -21.569
+      },
+      {
+        "frequency_hz": 3250,
+        "magnitude_db": -22.055
+      },
+      {
+        "frequency_hz": 3281.25,
+        "magnitude_db": -22.445
+      },
+      {
+        "frequency_hz": 3312.5,
+        "magnitude_db": -22.746
+      },
+      {
+        "frequency_hz": 3343.75,
+        "magnitude_db": -22.961
+      },
+      {
+        "frequency_hz": 3375,
+        "magnitude_db": -23.094
+      },
+      {
+        "frequency_hz": 3406.25,
+        "magnitude_db": -23.147
+      },
+      {
+        "frequency_hz": 3437.5,
+        "magnitude_db": -23.119
+      },
+      {
+        "frequency_hz": 3468.75,
+        "magnitude_db": -23.01
+      },
+      {
+        "frequency_hz": 3500,
+        "magnitude_db": -22.816
+      },
+      {
+        "frequency_hz": 3531.25,
+        "magnitude_db": -22.534
+      },
+      {
+        "frequency_hz": 3562.5,
+        "magnitude_db": -22.157
+      },
+      {
+        "frequency_hz": 3593.75,
+        "magnitude_db": -21.677
+      },
+      {
+        "frequency_hz": 3625,
+        "magnitude_db": -21.084
+      },
+      {
+        "frequency_hz": 3656.25,
+        "magnitude_db": -20.366
+      },
+      {
+        "frequency_hz": 3687.5,
+        "magnitude_db": -19.507
+      },
+      {
+        "frequency_hz": 3718.75,
+        "magnitude_db": -18.495
+      },
+      {
+        "frequency_hz": 3750,
+        "magnitude_db": -17.326
+      },
+      {
+        "frequency_hz": 3781.25,
+        "magnitude_db": -16.034
+      },
+      {
+        "frequency_hz": 3812.5,
+        "magnitude_db": -14.753
+      },
+      {
+        "frequency_hz": 3843.75,
+        "magnitude_db": -13.816
+      },
+      {
+        "frequency_hz": 3875,
+        "magnitude_db": -13.699
+      },
+      {
+        "frequency_hz": 3906.25,
+        "magnitude_db": -14.553
+      },
+      {
+        "frequency_hz": 3937.5,
+        "magnitude_db": -16.001
+      },
+      {
+        "frequency_hz": 3968.75,
+        "magnitude_db": -17.602
+      },
+      {
+        "frequency_hz": 4000,
+        "magnitude_db": -19.134
+      },
+      {
+        "frequency_hz": 4031.25,
+        "magnitude_db": -20.523
+      },
+      {
+        "frequency_hz": 4062.5,
+        "magnitude_db": -21.76
+      },
+      {
+        "frequency_hz": 4093.75,
+        "magnitude_db": -22.855
+      },
+      {
+        "frequency_hz": 4125,
+        "magnitude_db": -23.825
+      },
+      {
+        "frequency_hz": 4156.25,
+        "magnitude_db": -24.684
+      },
+      {
+        "frequency_hz": 4187.5,
+        "magnitude_db": -25.446
+      },
+      {
+        "frequency_hz": 4218.75,
+        "magnitude_db": -26.121
+      },
+      {
+        "frequency_hz": 4250,
+        "magnitude_db": -26.718
+      },
+      {
+        "frequency_hz": 4281.25,
+        "magnitude_db": -27.245
+      },
+      {
+        "frequency_hz": 4312.5,
+        "magnitude_db": -27.707
+      },
+      {
+        "frequency_hz": 4343.75,
+        "magnitude_db": -28.11
+      },
+      {
+        "frequency_hz": 4375,
+        "magnitude_db": -28.457
+      },
+      {
+        "frequency_hz": 4406.25,
+        "magnitude_db": -28.751
+      },
+      {
+        "frequency_hz": 4437.5,
+        "magnitude_db": -28.995
+      },
+      {
+        "frequency_hz": 4468.75,
+        "magnitude_db": -29.192
+      },
+      {
+        "frequency_hz": 4500,
+        "magnitude_db": -29.341
+      },
+      {
+        "frequency_hz": 4531.25,
+        "magnitude_db": -29.446
+      },
+      {
+        "frequency_hz": 4562.5,
+        "magnitude_db": -29.507
+      },
+      {
+        "frequency_hz": 4593.75,
+        "magnitude_db": -29.525
+      },
+      {
+        "frequency_hz": 4625,
+        "magnitude_db": -29.5
+      },
+      {
+        "frequency_hz": 4656.25,
+        "magnitude_db": -29.432
+      },
+      {
+        "frequency_hz": 4687.5,
+        "magnitude_db": -29.322
+      },
+      {
+        "frequency_hz": 4718.75,
+        "magnitude_db": -29.171
+      },
+      {
+        "frequency_hz": 4750,
+        "magnitude_db": -28.979
+      },
+      {
+        "frequency_hz": 4781.25,
+        "magnitude_db": -28.749
+      },
+      {
+        "frequency_hz": 4812.5,
+        "magnitude_db": -28.481
+      },
+      {
+        "frequency_hz": 4843.75,
+        "magnitude_db": -28.18
+      },
+      {
+        "frequency_hz": 4875,
+        "magnitude_db": -27.852
+      },
+      {
+        "frequency_hz": 4906.25,
+        "magnitude_db": -27.507
+      },
+      {
+        "frequency_hz": 4937.5,
+        "magnitude_db": -27.159
+      },
+      {
+        "frequency_hz": 4968.75,
+        "magnitude_db": -26.827
+      },
+      {
+        "frequency_hz": 5000,
+        "magnitude_db": -26.537
+      }
+    ],
+    "target": [
+      {
+        "frequency_hz": 0,
+        "magnitude_db": -11.59
+      },
+      {
+        "frequency_hz": 31.25,
+        "magnitude_db": -11.538
+      },
+      {
+        "frequency_hz": 62.5,
+        "magnitude_db": -11.378
+      },
+      {
+        "frequency_hz": 93.75,
+        "magnitude_db": -11.106
+      },
+      {
+        "frequency_hz": 125,
+        "magnitude_db": -10.715
+      },
+      {
+        "frequency_hz": 156.25,
+        "magnitude_db": -10.191
+      },
+      {
+        "frequency_hz": 187.5,
+        "magnitude_db": -9.516
+      },
+      {
+        "frequency_hz": 218.75,
+        "magnitude_db": -8.663
+      },
+      {
+        "frequency_hz": 250,
+        "magnitude_db": -7.594
+      },
+      {
+        "frequency_hz": 281.25,
+        "magnitude_db": -6.259
+      },
+      {
+        "frequency_hz": 312.5,
+        "magnitude_db": -4.601
+      },
+      {
+        "frequency_hz": 343.75,
+        "magnitude_db": -2.618
+      },
+      {
+        "frequency_hz": 375,
+        "magnitude_db": -0.647
+      },
+      {
+        "frequency_hz": 406.25,
+        "magnitude_db": 0
+      },
+      {
+        "frequency_hz": 437.5,
+        "magnitude_db": -1.665
+      },
+      {
+        "frequency_hz": 468.75,
+        "magnitude_db": -4.304
+      },
+      {
+        "frequency_hz": 500,
+        "magnitude_db": -6.837
+      },
+      {
+        "frequency_hz": 531.25,
+        "magnitude_db": -9.046
+      },
+      {
+        "frequency_hz": 562.5,
+        "magnitude_db": -10.962
+      },
+      {
+        "frequency_hz": 593.75,
+        "magnitude_db": -12.648
+      },
+      {
+        "frequency_hz": 625,
+        "magnitude_db": -14.156
+      },
+      {
+        "frequency_hz": 656.25,
+        "magnitude_db": -15.523
+      },
+      {
+        "frequency_hz": 687.5,
+        "magnitude_db": -16.78
+      },
+      {
+        "frequency_hz": 718.75,
+        "magnitude_db": -17.948
+      },
+      {
+        "frequency_hz": 750,
+        "magnitude_db": -19.043
+      },
+      {
+        "frequency_hz": 781.25,
+        "magnitude_db": -20.076
+      },
+      {
+        "frequency_hz": 812.5,
+        "magnitude_db": -21.058
+      },
+      {
+        "frequency_hz": 843.75,
+        "magnitude_db": -21.994
+      },
+      {
+        "frequency_hz": 875,
+        "magnitude_db": -22.891
+      },
+      {
+        "frequency_hz": 906.25,
+        "magnitude_db": -23.752
+      },
+      {
+        "frequency_hz": 937.5,
+        "magnitude_db": -24.581
+      },
+      {
+        "frequency_hz": 968.75,
+        "magnitude_db": -25.379
+      },
+      {
+        "frequency_hz": 1000,
+        "magnitude_db": -26.149
+      },
+      {
+        "frequency_hz": 1031.25,
+        "magnitude_db": -26.891
+      },
+      {
+        "frequency_hz": 1062.5,
+        "magnitude_db": -27.607
+      },
+      {
+        "frequency_hz": 1093.75,
+        "magnitude_db": -28.297
+      },
+      {
+        "frequency_hz": 1125,
+        "magnitude_db": -28.962
+      },
+      {
+        "frequency_hz": 1156.25,
+        "magnitude_db": -29.603
+      },
+      {
+        "frequency_hz": 1187.5,
+        "magnitude_db": -30.22
+      },
+      {
+        "frequency_hz": 1218.75,
+        "magnitude_db": -30.813
+      },
+      {
+        "frequency_hz": 1250,
+        "magnitude_db": -31.383
+      },
+      {
+        "frequency_hz": 1281.25,
+        "magnitude_db": -31.929
+      },
+      {
+        "frequency_hz": 1312.5,
+        "magnitude_db": -32.452
+      },
+      {
+        "frequency_hz": 1343.75,
+        "magnitude_db": -32.953
+      },
+      {
+        "frequency_hz": 1375,
+        "magnitude_db": -33.431
+      },
+      {
+        "frequency_hz": 1406.25,
+        "magnitude_db": -33.886
+      },
+      {
+        "frequency_hz": 1437.5,
+        "magnitude_db": -34.319
+      },
+      {
+        "frequency_hz": 1468.75,
+        "magnitude_db": -34.731
+      },
+      {
+        "frequency_hz": 1500,
+        "magnitude_db": -35.12
+      },
+      {
+        "frequency_hz": 1531.25,
+        "magnitude_db": -35.488
+      },
+      {
+        "frequency_hz": 1562.5,
+        "magnitude_db": -35.834
+      },
+      {
+        "frequency_hz": 1593.75,
+        "magnitude_db": -36.159
+      },
+      {
+        "frequency_hz": 1625,
+        "magnitude_db": -36.463
+      },
+      {
+        "frequency_hz": 1656.25,
+        "magnitude_db": -36.745
+      },
+      {
+        "frequency_hz": 1687.5,
+        "magnitude_db": -37.007
+      },
+      {
+        "frequency_hz": 1718.75,
+        "magnitude_db": -37.247
+      },
+      {
+        "frequency_hz": 1750,
+        "magnitude_db": -37.467
+      },
+      {
+        "frequency_hz": 1781.25,
+        "magnitude_db": -37.665
+      },
+      {
+        "frequency_hz": 1812.5,
+        "magnitude_db": -37.843
+      },
+      {
+        "frequency_hz": 1843.75,
+        "magnitude_db": -38
+      },
+      {
+        "frequency_hz": 1875,
+        "magnitude_db": -38.137
+      },
+      {
+        "frequency_hz": 1906.25,
+        "magnitude_db": -38.252
+      },
+      {
+        "frequency_hz": 1937.5,
+        "magnitude_db": -38.346
+      },
+      {
+        "frequency_hz": 1968.75,
+        "magnitude_db": -38.42
+      },
+      {
+        "frequency_hz": 2000,
+        "magnitude_db": -38.472
+      },
+      {
+        "frequency_hz": 2031.25,
+        "magnitude_db": -38.503
+      },
+      {
+        "frequency_hz": 2062.5,
+        "magnitude_db": -38.513
+      },
+      {
+        "frequency_hz": 2093.75,
+        "magnitude_db": -38.501
+      },
+      {
+        "frequency_hz": 2125,
+        "magnitude_db": -38.468
+      },
+      {
+        "frequency_hz": 2156.25,
+        "magnitude_db": -38.412
+      },
+      {
+        "frequency_hz": 2187.5,
+        "magnitude_db": -38.334
+      },
+      {
+        "frequency_hz": 2218.75,
+        "magnitude_db": -38.233
+      },
+      {
+        "frequency_hz": 2250,
+        "magnitude_db": -38.11
+      },
+      {
+        "frequency_hz": 2281.25,
+        "magnitude_db": -37.964
+      },
+      {
+        "frequency_hz": 2312.5,
+        "magnitude_db": -37.794
+      },
+      {
+        "frequency_hz": 2343.75,
+        "magnitude_db": -37.6
+      },
+      {
+        "frequency_hz": 2375,
+        "magnitude_db": -37.382
+      },
+      {
+        "frequency_hz": 2406.25,
+        "magnitude_db": -37.14
+      },
+      {
+        "frequency_hz": 2437.5,
+        "magnitude_db": -36.873
+      },
+      {
+        "frequency_hz": 2468.75,
+        "magnitude_db": -36.581
+      },
+      {
+        "frequency_hz": 2500,
+        "magnitude_db": -36.264
+      },
+      {
+        "frequency_hz": 2531.25,
+        "magnitude_db": -35.923
+      },
+      {
+        "frequency_hz": 2562.5,
+        "magnitude_db": -35.556
+      },
+      {
+        "frequency_hz": 2593.75,
+        "magnitude_db": -35.167
+      },
+      {
+        "frequency_hz": 2625,
+        "magnitude_db": -34.754
+      },
+      {
+        "frequency_hz": 2656.25,
+        "magnitude_db": -34.32
+      },
+      {
+        "frequency_hz": 2687.5,
+        "magnitude_db": -33.867
+      },
+      {
+        "frequency_hz": 2718.75,
+        "magnitude_db": -33.399
+      },
+      {
+        "frequency_hz": 2750,
+        "magnitude_db": -32.92
+      },
+      {
+        "frequency_hz": 2781.25,
+        "magnitude_db": -32.435
+      },
+      {
+        "frequency_hz": 2812.5,
+        "magnitude_db": -31.953
+      },
+      {
+        "frequency_hz": 2843.75,
+        "magnitude_db": -31.483
+      },
+      {
+        "frequency_hz": 2875,
+        "magnitude_db": -31.035
+      },
+      {
+        "frequency_hz": 2906.25,
+        "magnitude_db": -30.621
+      },
+      {
+        "frequency_hz": 2937.5,
+        "magnitude_db": -30.253
+      },
+      {
+        "frequency_hz": 2968.75,
+        "magnitude_db": -29.941
+      },
+      {
+        "frequency_hz": 3000,
+        "magnitude_db": -29.691
+      },
+      {
+        "frequency_hz": 3031.25,
+        "magnitude_db": -29.509
+      },
+      {
+        "frequency_hz": 3062.5,
+        "magnitude_db": -29.391
+      },
+      {
+        "frequency_hz": 3093.75,
+        "magnitude_db": -29.332
+      },
+      {
+        "frequency_hz": 3125,
+        "magnitude_db": -29.322
+      },
+      {
+        "frequency_hz": 3156.25,
+        "magnitude_db": -29.349
+      },
+      {
+        "frequency_hz": 3187.5,
+        "magnitude_db": -29.401
+      },
+      {
+        "frequency_hz": 3218.75,
+        "magnitude_db": -29.465
+      },
+      {
+        "frequency_hz": 3250,
+        "magnitude_db": -29.529
+      },
+      {
+        "frequency_hz": 3281.25,
+        "magnitude_db": -29.585
+      },
+      {
+        "frequency_hz": 3312.5,
+        "magnitude_db": -29.625
+      },
+      {
+        "frequency_hz": 3343.75,
+        "magnitude_db": -29.643
+      },
+      {
+        "frequency_hz": 3375,
+        "magnitude_db": -29.632
+      },
+      {
+        "frequency_hz": 3406.25,
+        "magnitude_db": -29.589
+      },
+      {
+        "frequency_hz": 3437.5,
+        "magnitude_db": -29.51
+      },
+      {
+        "frequency_hz": 3468.75,
+        "magnitude_db": -29.393
+      },
+      {
+        "frequency_hz": 3500,
+        "magnitude_db": -29.235
+      },
+      {
+        "frequency_hz": 3531.25,
+        "magnitude_db": -29.033
+      },
+      {
+        "frequency_hz": 3562.5,
+        "magnitude_db": -28.785
+      },
+      {
+        "frequency_hz": 3593.75,
+        "magnitude_db": -28.488
+      },
+      {
+        "frequency_hz": 3625,
+        "magnitude_db": -28.142
+      },
+      {
+        "frequency_hz": 3656.25,
+        "magnitude_db": -27.742
+      },
+      {
+        "frequency_hz": 3687.5,
+        "magnitude_db": -27.287
+      },
+      {
+        "frequency_hz": 3718.75,
+        "magnitude_db": -26.775
+      },
+      {
+        "frequency_hz": 3750,
+        "magnitude_db": -26.203
+      },
+      {
+        "frequency_hz": 3781.25,
+        "magnitude_db": -25.572
+      },
+      {
+        "frequency_hz": 3812.5,
+        "magnitude_db": -24.88
+      },
+      {
+        "frequency_hz": 3843.75,
+        "magnitude_db": -24.134
+      },
+      {
+        "frequency_hz": 3875,
+        "magnitude_db": -23.343
+      },
+      {
+        "frequency_hz": 3906.25,
+        "magnitude_db": -22.528
+      },
+      {
+        "frequency_hz": 3937.5,
+        "magnitude_db": -21.724
+      },
+      {
+        "frequency_hz": 3968.75,
+        "magnitude_db": -20.988
+      },
+      {
+        "frequency_hz": 4000,
+        "magnitude_db": -20.393
+      },
+      {
+        "frequency_hz": 4031.25,
+        "magnitude_db": -20.019
+      },
+      {
+        "frequency_hz": 4062.5,
+        "magnitude_db": -19.918
+      },
+      {
+        "frequency_hz": 4093.75,
+        "magnitude_db": -20.088
+      },
+      {
+        "frequency_hz": 4125,
+        "magnitude_db": -20.475
+      },
+      {
+        "frequency_hz": 4156.25,
+        "magnitude_db": -21
+      },
+      {
+        "frequency_hz": 4187.5,
+        "magnitude_db": -21.59
+      },
+      {
+        "frequency_hz": 4218.75,
+        "magnitude_db": -22.19
+      },
+      {
+        "frequency_hz": 4250,
+        "magnitude_db": -22.766
+      },
+      {
+        "frequency_hz": 4281.25,
+        "magnitude_db": -23.301
+      },
+      {
+        "frequency_hz": 4312.5,
+        "magnitude_db": -23.786
+      },
+      {
+        "frequency_hz": 4343.75,
+        "magnitude_db": -24.217
+      },
+      {
+        "frequency_hz": 4375,
+        "magnitude_db": -24.598
+      },
+      {
+        "frequency_hz": 4406.25,
+        "magnitude_db": -24.931
+      },
+      {
+        "frequency_hz": 4437.5,
+        "magnitude_db": -25.223
+      },
+      {
+        "frequency_hz": 4468.75,
+        "magnitude_db": -25.478
+      },
+      {
+        "frequency_hz": 4500,
+        "magnitude_db": -25.706
+      },
+      {
+        "frequency_hz": 4531.25,
+        "magnitude_db": -25.915
+      },
+      {
+        "frequency_hz": 4562.5,
+        "magnitude_db": -26.113
+      },
+      {
+        "frequency_hz": 4593.75,
+        "magnitude_db": -26.309
+      },
+      {
+        "frequency_hz": 4625,
+        "magnitude_db": -26.514
+      },
+      {
+        "frequency_hz": 4656.25,
+        "magnitude_db": -26.737
+      },
+      {
+        "frequency_hz": 4687.5,
+        "magnitude_db": -26.985
+      },
+      {
+        "frequency_hz": 4718.75,
+        "magnitude_db": -27.265
+      },
+      {
+        "frequency_hz": 4750,
+        "magnitude_db": -27.58
+      },
+      {
+        "frequency_hz": 4781.25,
+        "magnitude_db": -27.932
+      },
+      {
+        "frequency_hz": 4812.5,
+        "magnitude_db": -28.318
+      },
+      {
+        "frequency_hz": 4843.75,
+        "magnitude_db": -28.735
+      },
+      {
+        "frequency_hz": 4875,
+        "magnitude_db": -29.177
+      },
+      {
+        "frequency_hz": 4906.25,
+        "magnitude_db": -29.638
+      },
+      {
+        "frequency_hz": 4937.5,
+        "magnitude_db": -30.11
+      },
+      {
+        "frequency_hz": 4968.75,
+        "magnitude_db": -30.588
+      },
+      {
+        "frequency_hz": 5000,
+        "magnitude_db": -31.064
+      }
+    ]
+  }
+}

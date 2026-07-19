@@ -1,0 +1,42 @@
+{
+  "session_id": "11f5ab04-832e-4c7d-9c10-4515d01defb2",
+  "step": 2,
+  "created_at": "2026-07-11T19:18:25.344130",
+  "latestSpeech": "xr 발표 훈련 환경에서의 발표 수행 평가기반 ai 청중",
+  "summary_before": "발표 시작, 인사와 소속 소개를 전달.",
+  "gpt_output": {
+    "summary_delta": "발표 시작, 인사와 소속 소개를 전달.",
+    "audiences": [
+      {
+        "id": 1,
+        "state": {
+          "E": 0.35,
+          "V": 0.0,
+          "C": 0.25
+        },
+        "currentThought": "발표자가 발표 훈련 환경에 대해 이야기하고 있다.",
+        "overallImpression": ""
+      },
+      {
+        "id": 2,
+        "state": {
+          "E": 0.3,
+          "V": 0.0,
+          "C": 0.15
+        },
+        "currentThought": "아직 내용이 어렵지 않게 전달되고 있다.",
+        "overallImpression": ""
+      },
+      {
+        "id": 3,
+        "state": {
+          "E": 0.3,
+          "V": 0.0,
+          "C": 0.15
+        },
+        "currentThought": "평가자는 아직 내용을 검토 중이다.",
+        "overallImpression": ""
+      }
+    ]
+  }
+}

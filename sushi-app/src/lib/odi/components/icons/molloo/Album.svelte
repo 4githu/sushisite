@@ -1,0 +1,11 @@
+<script lang="ts">
+</script>
+
+<svg
+	width="1em"
+	height="1em"
+	viewBox="0 0 24 24"
+	fill="none"
+>
+<path d="M1.5 3.5C1.5 2.39543 2.39543 1.5 3.5 1.5H6.5C7.60457 1.5 8.5 2.39543 8.5 3.5V6.5C8.5 7.60457 7.60457 8.5 6.5 8.5H3.5C2.39543 8.5 1.5 7.60457 1.5 6.5V3.5Z" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" /><path d="M10.5 3.5V7.5C10.5 9.15685 9.15685 10.5 7.5 10.5H3.5" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" /><path d="M1.5 6.18751L2.98039 4.70711C3.37092 4.31658 4.00408 4.31658 4.39461 4.70711L5.4375 5.75M5.4375 5.75L6.26165 4.92585C6.65218 4.53533 7.28535 4.53533 7.67587 4.92586L8.5 5.75M5.4375 5.75L6.42188 6.73438" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

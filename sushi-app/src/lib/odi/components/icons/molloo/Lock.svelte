@@ -1,0 +1,11 @@
+<script lang="ts">
+</script>
+
+<svg
+	width="1em"
+	height="1em"
+	viewBox="0 0 24 24"
+	fill="none"
+>
+<path d="M6 7V8M4 4.5V3C4 1.89543 4.89543 1 6 1C7.10457 1 8 1.89543 8 3V4.5M4.5 10.5H7.5C8.60457 10.5 9.5 9.60457 9.5 8.5V6.5C9.5 5.39543 8.60457 4.5 7.5 4.5H4.5C3.39543 4.5 2.5 5.39543 2.5 6.5V8.5C2.5 9.60457 3.39543 10.5 4.5 10.5Z" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

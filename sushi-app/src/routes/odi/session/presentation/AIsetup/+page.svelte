@@ -1,0 +1,211 @@
+<!-- src/routes/odi/session/presentation/audience/+page.svelte -->
+<script lang="ts">
+	import { goto } from "$app/navigation";
+	import { onMount } from "svelte";
+
+	import { template, type PresentationTemplate } from "$lib/odi/stores";
+	import ProgressStepper from "$lib/odi/components/session/ProgressStepper.svelte";
+	import Button from "$lib/odi/components/common/Button.svelte";
+	import TipCard from "$lib/odi/components/session/TipCard.svelte";
+	import PresentationAISettingCard from "$lib/odi/components/session/PresentationAISettingCard.svelte";
+	import {Check, whiteright as grayright} from "$lib/odi/icons"
+
+	type PersonaType = "general" | "student" | "judge" | "mixed";
+
+	const steps = [
+		{ label: "발표 기본 정보" },
+		{ label: "자료 업로드" },
+		{ label: "AI 청중 설정" },
+		{ label: "세션 확인" }
+	];
+
+	let ready = $state(false);
+
+	let personaType = $state("general" as PersonaType);
+	let audienceSize = $state(6);
+	let expertiseLevel = $state(2);
+	let interestLevel = $state(2);
+
+	function ensurePresentationDraft(): PresentationTemplate {
+		const current = template.get();
+
+		if (current?.type === "presentation") {
+			return current;
+		}
+
+		return template.loadOrCreate("presentation") as PresentationTemplate;
+	}
+
+	function toPersonaType(value: string): PersonaType {
+		if (value === "general" || value === "student" || value === "judge" || value === "mixed") {
+			return value;
+		}
+
+		if (value === "일반 청중") return "general";
+		if (value === "학생 중심") return "student";
+		if (value === "심사위원 중심") return "judge";
+		if (value === "혼합") return "mixed";
+
+		return "general";
+	}
+
+	function toAudienceType(value: PersonaType) {
+		if (value === "general") return "일반 청중";
+		if (value === "student") return "학생 중심";
+		if (value === "judge") return "심사위원 중심";
+		return "혼합";
+	}
+
+	function toLevelNumber(value: string) {
+		if (value === "낮음") return 1;
+		if (value === "높음") return 3;
+		return 2;
+	}
+
+	function toLevelText(value: number) {
+		if (value === 1) return "낮음";
+		if (value === 3) return "높음";
+		return "중간";
+	}
+
+	onMount(() => {
+		const draft = ensurePresentationDraft();
+
+		personaType = toPersonaType(draft.audience.audience_type);
+		audienceSize = draft.audience.audience_count;
+		expertiseLevel = toLevelNumber(draft.audience.expertise_level);
+		interestLevel = toLevelNumber(draft.audience.interest_level);
+
+		ready = true;
+	});
+
+	$effect(() => {
+		if (!ready) return;
+
+		template.patchAudience({
+			audience_type: toAudienceType(personaType),
+			audience_count: audienceSize,
+			expertise_level: toLevelText(expertiseLevel),
+			interest_level: toLevelText(interestLevel)
+		});
+	});
+</script>
+
+<main class="session-page">
+	<header class="page-header">
+		<p class="page-label text-caption-main">Session Setup</p>
+
+		<div class="title-group">
+			<h1 class="text-title-main">AI 청중 설정</h1>
+			<p class="subtitle text-caption-main">청중 페르소나를 설정하여 원하는 발표 분위기를 구성할 수 있어요.</p>
+		</div>
+	</header>
+
+	<ProgressStepper {steps} currentStep={2} />
+
+	<section class="content-grid">
+		<PresentationAISettingCard
+			bind:personaType
+			bind:audienceSize
+			bind:expertiseLevel
+			bind:interestLevel
+		/>
+
+		<TipCard
+			title="청중 페르소나 선택 TIP"
+			description="AI 청중은 실시간으로 발표에 반응합니다."
+			tips={[
+				{
+					icon: Check,
+					description: "청중 유형에 따라 질문 수준과 반응이 달라집니다."
+				},
+				{
+					icon: Check,
+					description: "발표 내용에 맞춰 피드백을 제공합니다."
+				},
+				{
+					icon: Check,
+					description: "실제 청중처럼 다양한 반응을 경험할 수 있습니다."
+				},
+				{
+					icon: Check,
+					description: "전문성을 고려한 현실적인 질의를 제공합니다."
+				},
+				{
+					icon: Check,
+					description: "청중 규모와 분위기에 따라 발표 몰입도와 대응력을 효과적으로 훈련할 수 있습니다."
+				}
+			]}
+		/>
+	</section>
+
+	<footer class="page-actions">
+		<Button
+			variant="primary"
+			width="212px"
+			onclick={() => goto("/odi/session/presentation/upload")}
+		>
+			이전 단계
+		</Button>
+
+		<Button
+			variant="primary"
+			width="212px"
+			trailingIcon={grayright}
+			onclick={() => goto("/odi/session/presentation/confirm")}
+		>
+			다음 단계
+		</Button>
+	</footer>
+</main>
+
+<style>
+	.session-page {
+		width: 100%;
+		min-height: 100vh;
+		padding: 36px 48px 40px;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+		background: var(--surface);
+	}
+
+	.page-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+	}
+
+	.page-label {
+		color: var(--primary);
+	}
+
+	.title-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.subtitle {
+		color: var(--text-secondary);
+	}
+
+	.content-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 432px;
+		gap: var(--space-5);
+		align-items: stretch;
+	}
+
+	.page-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--space-4);
+	}
+
+	@media (max-width: 1280px) {
+		.content-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

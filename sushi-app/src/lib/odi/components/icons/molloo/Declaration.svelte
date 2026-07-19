@@ -1,0 +1,11 @@
+<script lang="ts">
+</script>
+
+<svg
+	width="1em"
+	height="1em"
+	viewBox="0 0 24 24"
+	fill="none"
+>
+<g clip-path="url(#clip0_596_2776)"><path d="M4 8V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4C6.53043 4 7.03914 4.21071 7.41421 4.58579C7.78929 4.96086 8 5.46957 8 6V8" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" /><path d="M1.5 6H2M6 1.5V2M10 6H10.5M2.8 2.8L3.15 3.15M9.2 2.8L8.85 3.15" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" /><path d="M3 8.5C3 8.36739 3.05268 8.24021 3.14645 8.14645C3.24021 8.05268 3.36739 8 3.5 8H8.5C8.63261 8 8.75979 8.05268 8.85355 8.14645C8.94732 8.24021 9 8.36739 9 8.5V9.5C9 9.63261 8.94732 9.75979 8.85355 9.85355C8.75979 9.94732 8.63261 10 8.5 10H3.5C3.36739 10 3.24021 9.94732 3.14645 9.85355C3.05268 9.75979 3 9.63261 3 9.5V8.5Z" stroke="#1F2129" stroke-linecap="round" stroke-linejoin="round" /></g><defs><clipPath id="clip0_596_2776"><rect fill="white" /></clipPath></defs>
+</svg>

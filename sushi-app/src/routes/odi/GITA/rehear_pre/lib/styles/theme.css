@@ -1,0 +1,196 @@
+/* ==========================================================
+   Re:hear Design System
+   theme.css
+   ========================================================== */
+
+:root {
+
+	/* ======================================================
+	   Brand
+	   ====================================================== */
+
+	--brand-black: #030812;
+	--brand-dark: #050632;
+	--brand-primary: #0033FF;
+	--brand-lime: #CFFF5E;
+	--brand-off-white: #FAFAF8;
+
+
+	/* ======================================================
+	   Cool Grey
+	   ====================================================== */
+
+	--cool-grey-light: #F4F5F7;
+	--cool-grey-light-hover: #EFF0F3;
+	--cool-grey-light-active: #DEE0E5;
+
+	--cool-grey: #969CAC;
+	--cool-grey-hover: #878C9B;
+	--cool-grey-active: #787D8A;
+
+	--cool-grey-dark: #717581;
+	--cool-grey-dark-hover: #5A5E67;
+	--cool-grey-dark-active: #44464D;
+
+	--cool-grey-darker: #35373C;
+
+
+	/* ======================================================
+	   Blue
+	   ====================================================== */
+
+	--blue-light: #E6EBFF;
+	--blue-light-hover: #D9E0FF;
+	--blue-light-active: #B0C0FF;
+
+	--blue: #0033FF;
+	--blue-hover: #002EE6;
+	--blue-active: #0029CC;
+
+	--blue-dark: #0026BF;
+	--blue-dark-hover: #001F99;
+	--blue-dark-active: #001773;
+
+	--blue-darker: #001259;
+
+
+	/* ======================================================
+	   Purple
+	   ====================================================== */
+
+	--purple-light: #F2F2FF;
+	--purple-light-hover: #ECECFF;
+	--purple-light-active: #D8D7FF;
+
+	--purple: #807DFE;
+	--purple-hover: #7371E5;
+	--purple-active: #6664CB;
+
+	--purple-dark: #605EBF;
+	--purple-dark-hover: #4D4B98;
+	--purple-dark-active: #3A3872;
+
+	--purple-darker: #2D2C59;
+
+
+	/* ======================================================
+	   Accent
+	   ====================================================== */
+
+	--accent-light: #F3E9FF;
+	--accent-light-hover: #EDDEFF;
+	--accent-light-active: #D9BBFF;
+
+	--accent: #8624FF;
+	--accent-hover: #7920E6;
+	--accent-active: #6B1DCC;
+
+	--accent-dark: #651BBF;
+	--accent-dark-hover: #501699;
+	--accent-dark-active: #3C1073;
+
+	--accent-darker: #2F0D59;
+
+
+	/* ======================================================
+	   Lime
+	   ====================================================== */
+
+	--lime-light: #FAFFEF;
+	--lime-light-hover: #F8FFE7;
+	--lime-light-active: #F0FFCD;
+
+	--lime: #CFFF5E;
+	--lime-hover: #BAE655;
+	--lime-active: #A6CC4B;
+
+	--lime-dark: #9BBF47;
+	--lime-dark-hover: #7C9938;
+	--lime-dark-active: #5D732A;
+
+	--lime-darker: #485921;
+
+
+	/* ======================================================
+	   Semantic
+	   ====================================================== */
+
+	--background: var(--cool-grey-light);
+
+	--surface: #FFFFFF;
+	--surface-secondary: var(--cool-grey-light);
+
+	--primary: var(--blue);
+	--primary-hover: var(--blue-hover);
+	--primary-active: var(--blue-active);
+
+	--text-primary: var(--cool-grey-darker);
+	--text-secondary: var(--cool-grey-dark);
+	--text-disabled: var(--cool-grey);
+
+	--text-on-primary: #FFFFFF;
+
+	--border: #E9EBF8;
+	--border-active: var(--primary);
+
+	--success: var(--lime);
+
+	--focus: var(--blue-light);
+
+	--overlay: rgba(3, 8, 18, .5);
+
+
+	/* ======================================================
+	   Radius
+	   ====================================================== */
+
+	--radius-xs: 4px;
+	--radius-sm: 8px;
+	--radius-md: 16px;
+	--radius-lg: 24px;
+	--radius-xl: 28px;
+	--radius-2xl: 32px;
+	--radius-pill: 40px;
+	--radius-full: 9999px;
+
+
+	/* ======================================================
+	   Shadow
+	   ====================================================== */
+
+	--shadow-sm: 0 2px 8px rgba(0,0,0,.04);
+
+	--shadow-md: 0 8px 20px rgba(15,23,42,.08);
+
+	--shadow-lg: 0 18px 50px rgba(15,23,42,.08);
+
+	--shadow-card: -16px -16px 16px rgba(0,0,0,.05);
+
+
+	/* ======================================================
+	   Spacing
+	   ====================================================== */
+
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--space-10: 40px;
+	--space-12: 48px;
+	--space-16: 64px;
+
+
+	/* ======================================================
+	   Transition
+	   ====================================================== */
+
+	--transition-fast: 150ms ease;
+
+	--transition-normal: 250ms ease;
+
+	--transition-slow: 400ms ease;
+
+}

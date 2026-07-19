@@ -1,0 +1,148 @@
+/* ==========================================================
+   Re:hear Design System
+   globals.css
+   ========================================================== */
+
+@import "./theme.css";
+@import "./typography.css";
+
+
+/* ==========================================================
+   RESET
+   ========================================================== */
+
+*,
+*::before,
+*::after {
+
+	box-sizing: border-box;
+
+	margin: 0;
+
+	padding: 0;
+
+}
+
+
+/* ==========================================================
+   ROOT
+   ========================================================== */
+
+html {
+
+	font-size: 16px;
+
+	scroll-behavior: smooth;
+
+}
+
+body {
+
+	min-width: 320px;
+
+	font-family: var(--font-family);
+
+	color: var(--text-primary);
+
+	background: var(--background);
+
+	line-height: var(--line-height-auto);
+
+	text-rendering: optimizeLegibility;
+
+	-webkit-font-smoothing: antialiased;
+
+	-moz-osx-font-smoothing: grayscale;
+
+}
+
+
+/* ==========================================================
+   DEFAULT ELEMENT
+   ========================================================== */
+
+img,
+picture,
+video,
+canvas,
+svg {
+
+	display: block;
+
+	max-width: 100%;
+
+}
+
+button,
+input,
+textarea,
+select {
+
+	font: inherit;
+
+}
+
+button {
+
+	color: inherit;
+
+	border: none;
+
+	background: transparent;
+
+	cursor: pointer;
+
+}
+
+a {
+
+	color: inherit;
+
+	text-decoration: none;
+
+}
+
+ul,
+ol {
+
+	list-style: none;
+
+}
+
+
+/* ==========================================================
+   FORM
+   ========================================================== */
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+
+	outline: none;
+
+}
+
+
+/* ==========================================================
+   TEXT SELECTION
+   ========================================================== */
+
+::selection {
+
+	background: var(--primary);
+
+	color: var(--text-on-primary);
+
+}
+
+
+/* ==========================================================
+   APP
+   ========================================================== */
+
+#app {
+
+	min-height: 100vh;
+
+}
