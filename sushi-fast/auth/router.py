@@ -38,8 +38,13 @@ class EditUserRequest(BaseModel):
 
 
 
+def _is_secure_request(request: Request) -> bool:
+    forwarded = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    return forwarded == "https" or request.url.scheme == "https"
+
+
 @router.post("/login")
-def login(data: LoginRequest):
+def login(data: LoginRequest, request: Request):
     success, result = service.login_with_password(
         data.email,
         data.password
@@ -52,12 +57,13 @@ def login(data: LoginRequest):
     if success:
         token = JMT.make_jwt(result["id"], result, ["name", "email", "id"], )
 
+        secure_cookie = _is_secure_request(request)
         response.set_cookie(
             key="mainauth",
             value=token,
             httponly=True,
-            secure=True,
-            samesite="none",
+            secure=secure_cookie,
+            samesite="none" if secure_cookie else "lax",
             path="/",
             max_age=60 * 60
         )
@@ -73,16 +79,17 @@ def isjwt(request : Request, key : str):
         
 
 @router.post("/logout")
-def logout():
+def logout(request: Request):
     response = JSONResponse({
         "success": True
     })
 
+    secure_cookie = _is_secure_request(request)
     response.delete_cookie(
         key="mainauth",
         path="/",
-        secure=True,
-        samesite="none"
+        secure=secure_cookie,
+        samesite="none" if secure_cookie else "lax"
     )
 
     return response

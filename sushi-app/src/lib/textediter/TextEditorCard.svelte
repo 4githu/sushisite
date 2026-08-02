@@ -1,0 +1,898 @@
+<script lang="ts">
+	import { onMount, tick, untrack } from 'svelte';
+	import ColorPicker from './ColorPicker.svelte';
+	import { createDocument, createId, normalizeChunks, normalizeDocument } from './model';
+	import { SHORTCUTS, matchesShortcut } from './shortcuts';
+	import type {
+		EditorBlock,
+		EditorDocument,
+		FontSize,
+		MarkName,
+		TextBlock,
+		TextChunk,
+		TextMarks
+	} from './types';
+	import './textediter.css';
+
+	let {
+		initialValue = null,
+		readonly = false,
+		placeholder = '내용을 입력하세요…',
+		onchange
+	}: {
+		initialValue?: EditorDocument | null;
+		readonly?: boolean;
+		placeholder?: string;
+		onchange?: (value: EditorDocument) => void;
+	} = $props();
+
+	let documentValue = $state(normalizeDocument(untrack(() => initialValue)));
+	let surface: HTMLElement;
+	let colorPanel = $state<'text' | 'highlight' | null>(null);
+	let tableRows = $state(2);
+	let tableColumns = $state(2);
+	let selectedTextColor = $state('#111827');
+	let selectedHighlightColor = $state('#fef08a');
+	let selectedFontFamily = $state('inherit');
+	let customFontFamily = $state('');
+	let selectionSummary = $state('문단 · 기본 · 기본 크기');
+	let pendingMarks = $state<TextMarks>({});
+	let lastInitial = untrack(() => initialValue);
+	let isRendering = false;
+	let isComposing = false;
+	let savedRange: Range | null = null;
+	let undoStack: EditorDocument[] = [];
+	let redoStack: EditorDocument[] = [];
+
+	const empty = $derived(
+		documentValue.blocks.every((block) =>
+			block.type === 'table'
+				? block.rows.every((row) =>
+						row.every((cell) =>
+							cell.blocks.every((child) => child.children.every((chunk) => !chunk.text))
+						)
+					)
+				: block.children.every((chunk) => !chunk.text)
+		)
+	);
+	const canUndo = $derived(undoStack.length > 0);
+	const canRedo = $derived(redoStack.length > 0);
+
+	$effect(() => {
+		if (initialValue !== lastInitial) {
+			lastInitial = initialValue;
+			setDocumentInternal(initialValue, false);
+		}
+	});
+
+	onMount(() => {
+		renderDocument();
+		emitChange();
+	});
+
+	export function getJSON() {
+		return normalizeDocument(documentValue);
+	}
+	export function setJSON(value: unknown) {
+		setDocumentInternal(value, true);
+	}
+	export function clear() {
+		setDocumentInternal(createDocument(), true);
+	}
+	export function focus() {
+		surface?.focus();
+	}
+
+	function setDocumentInternal(value: unknown, record = true) {
+		if (record) pushUndo();
+		documentValue = normalizeDocument(value);
+		redoStack = [];
+		void tick().then(() => {
+			renderDocument();
+			emitChange();
+		});
+	}
+
+	function cloneDocument(value: EditorDocument) {
+		return normalizeDocument(JSON.parse(JSON.stringify(value)));
+	}
+
+	function pushUndo() {
+		undoStack = [...undoStack, cloneDocument(documentValue)].slice(-60);
+	}
+
+	function emitChange() {
+		onchange?.(cloneDocument(documentValue));
+	}
+
+	function exec(command: string, value?: string) {
+		restoreNativeSelection();
+		surface?.focus();
+		document.execCommand(command, false, value);
+		syncFromDom(true);
+	}
+
+	function rememberSelection() {
+		const selection = getSelection();
+		if (!selection?.rangeCount || !surface) return;
+		const range = selection.getRangeAt(0);
+		const container = range.commonAncestorContainer;
+		const element = container instanceof Element ? container : container.parentElement;
+		if (element && surface.contains(element)) savedRange = range.cloneRange();
+		updateSelectionSummary();
+	}
+
+	function restoreNativeSelection() {
+		if (!savedRange) return;
+		const selection = getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(savedRange);
+	}
+
+	function keepEditorSelection(event: MouseEvent) {
+		event.preventDefault();
+		rememberSelection();
+	}
+
+	function spanStyle(chunk: TextChunk) {
+		const decorations = [chunk.underline && 'underline', chunk.strike && 'line-through']
+			.filter(Boolean)
+			.join(' ');
+		return [
+			chunk.bold && 'font-weight:700',
+			chunk.italic && 'font-style:italic',
+			decorations && `text-decoration:${decorations}`,
+			chunk.fontSize && `font-size:${chunk.fontSize}px`,
+			chunk.textColor && `color:${chunk.textColor}`,
+			chunk.highlightColor && `background-color:${chunk.highlightColor}`,
+			chunk.fontFamily && `font-family:${chunk.fontFamily}`,
+			chunk.code && 'font-family:ui-monospace,monospace'
+		]
+			.filter(Boolean)
+			.join(';');
+	}
+
+	function createTextSpan(chunk: TextChunk) {
+		const span = globalThis.document.createElement('span');
+		span.dataset.chunk = 'true';
+		if (chunk.bold) span.dataset.bold = 'true';
+		if (chunk.italic) span.dataset.italic = 'true';
+		if (chunk.underline) span.dataset.underline = 'true';
+		if (chunk.strike) span.dataset.strike = 'true';
+		if (chunk.code) span.dataset.code = 'true';
+		if (chunk.fontSize) span.dataset.fontSize = String(chunk.fontSize);
+		if (chunk.fontFamily) span.dataset.fontFamily = chunk.fontFamily;
+		if (chunk.textColor) span.dataset.textColor = chunk.textColor;
+		if (chunk.highlightColor) span.dataset.highlightColor = chunk.highlightColor;
+		span.style.cssText = spanStyle(chunk);
+		span.textContent = chunk.text || '\u200b';
+		return span;
+	}
+
+	function renderTextBlock(block: TextBlock) {
+		const element = globalThis.document.createElement('div');
+		element.className = 'text-block';
+		element.dataset.blockId = block.id;
+		element.dataset.type = block.type;
+		if (block.level) element.dataset.level = String(block.level);
+		if (block.depth) element.style.marginLeft = `${block.depth * 24}px`;
+		for (const chunk of block.children) element.append(createTextSpan(chunk));
+		return element;
+	}
+
+	function renderDocument() {
+		if (!surface) return;
+		isRendering = true;
+		/* eslint-disable svelte/no-dom-manipulating */
+		surface.replaceChildren();
+		for (const block of documentValue.blocks) {
+			if (block.type !== 'table') {
+				surface.append(renderTextBlock(block));
+				continue;
+			}
+			const wrapper = globalThis.document.createElement('div');
+			wrapper.dataset.tableId = block.id;
+			const table = globalThis.document.createElement('table');
+			table.className = 'editor-table';
+			const tbody = globalThis.document.createElement('tbody');
+			for (const row of block.rows) {
+				const tr = globalThis.document.createElement('tr');
+				for (const cell of row) {
+					const td = globalThis.document.createElement('td');
+					td.dataset.cellId = cell.id;
+					for (const child of cell.blocks) td.append(renderTextBlock(child));
+					tr.append(td);
+				}
+				tbody.append(tr);
+			}
+			table.append(tbody);
+			wrapper.append(table);
+			if (!readonly) wrapper.append(createTableControls(block));
+			surface.append(wrapper);
+		}
+		/* eslint-enable svelte/no-dom-manipulating */
+		isRendering = false;
+	}
+
+	function createTableControls(block: Extract<EditorBlock, { type: 'table' }>) {
+		const controls = globalThis.document.createElement('div');
+		controls.className = 'table-controls';
+		const actions: Array<[string, () => void]> = [
+			['행 추가', () => addTableRow(block.id)],
+			['열 추가', () => addTableColumn(block.id)],
+			['마지막 행 삭제', () => deleteTableRow(block.id)],
+			['마지막 열 삭제', () => deleteTableColumn(block.id)],
+			['표 삭제', () => deleteTable(block.id)]
+		];
+		for (const [label, action] of actions) {
+			const button = globalThis.document.createElement('button');
+			button.type = 'button';
+			button.textContent = label;
+			button.addEventListener('click', action);
+			controls.append(button);
+		}
+		return controls;
+	}
+
+	function updateSelectionSummary() {
+		const block = activeBlock();
+		const selection = getSelection();
+		const node = selection?.anchorNode;
+		const marks = node ? marksFromNode(node) : {};
+		const parts = [
+			blockLabel(block),
+			marks.fontFamily ? marks.fontFamily.replaceAll('"', '') : '기본',
+			marks.fontSize ? `${marks.fontSize}px` : '기본 크기',
+			marks.bold && '굵게',
+			marks.italic && '기울임',
+			marks.underline && '밑줄',
+			marks.textColor && `글자 ${marks.textColor}`,
+			marks.highlightColor && `형광 ${marks.highlightColor}`
+		].filter(Boolean);
+		selectionSummary = parts.join(' · ');
+	}
+
+	function blockLabel(block?: HTMLElement | null) {
+		const type = block?.dataset.type;
+		if (type === 'heading') return `제목 ${block?.dataset.level ?? 1}`;
+		if (type === 'orderedList') return '번호 목록';
+		if (type === 'bulletList') return '글머리 목록';
+		if (type === 'blockquote') return '인용문';
+		if (type === 'codeBlock') return '코드';
+		return '문단';
+	}
+
+	function marksFromNode(node: Node): TextMarks {
+		const element = node instanceof HTMLElement ? node : node.parentElement;
+		const marks: TextMarks = {};
+		if (!element) return marks;
+		if (element.closest('[data-bold="true"],b,strong')) marks.bold = true;
+		if (element.closest('[data-italic="true"],i,em')) marks.italic = true;
+		if (element.closest('[data-underline="true"],u')) marks.underline = true;
+		if (element.closest('[data-strike="true"],s,strike,del')) marks.strike = true;
+		if (element.closest('[data-code="true"],code')) marks.code = true;
+		const fontSource = element.closest<HTMLElement>('[data-font-family]');
+		const textColorSource = element.closest<HTMLElement>('[data-text-color]');
+		const highlightSource = element.closest<HTMLElement>('[data-highlight-color]');
+		const sizeSource = element.closest<HTMLElement>('[data-font-size]');
+		const size = Number(sizeSource?.dataset.fontSize);
+		if ([12, 16, 20, 28].includes(size)) marks.fontSize = size as FontSize;
+		if (textColorSource?.dataset.textColor) marks.textColor = textColorSource.dataset.textColor;
+		if (highlightSource?.dataset.highlightColor)
+			marks.highlightColor = highlightSource.dataset.highlightColor;
+		if (fontSource?.dataset.fontFamily) marks.fontFamily = fontSource.dataset.fontFamily;
+		const style = getComputedStyle(element);
+		const textColor = rgbToHex(style.color);
+		const highlightColor = rgbToHex(style.backgroundColor);
+		if (textColor) marks.textColor = textColor;
+		if (highlightColor && highlightColor !== '#ffffff') marks.highlightColor = highlightColor;
+		if (Number.parseInt(style.fontWeight, 10) >= 600) marks.bold = true;
+		if (style.fontStyle === 'italic') marks.italic = true;
+		if (style.textDecorationLine.includes('underline')) marks.underline = true;
+		if (style.textDecorationLine.includes('line-through')) marks.strike = true;
+		return marks;
+	}
+
+	function rgbToHex(value: string) {
+		const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([.\d]+))?\)/);
+		if (!match || match[4] === '0') return undefined;
+		return `#${[match[1], match[2], match[3]]
+			.map((part) => Number(part).toString(16).padStart(2, '0'))
+			.join('')}`;
+	}
+
+	function parseTextBlock(element: HTMLElement): TextBlock {
+		const chunks: TextChunk[] = [];
+		const visit = (node: Node) => {
+			if (node.nodeType === Node.TEXT_NODE) {
+				const text = (node.textContent ?? '').replace(/\u200b/g, '');
+				if (text) chunks.push({ type: 'text', text, ...marksFromNode(node) });
+				return;
+			}
+			if (node instanceof HTMLBRElement) {
+				chunks.push({ type: 'text', text: '\n', ...pendingMarks });
+				return;
+			}
+			for (const child of Array.from(node.childNodes)) visit(child);
+		};
+		for (const child of Array.from(element.childNodes)) visit(child);
+		const type = (element.dataset.type ?? 'paragraph') as TextBlock['type'];
+		const block: TextBlock = {
+			id: element.dataset.blockId || createId('block'),
+			type,
+			children: normalizeChunks(chunks.length ? chunks : [{ type: 'text', text: '' }])
+		};
+		if (type === 'heading') block.level = Number(element.dataset.level || 1) as 1 | 2 | 3;
+		const depth = depthFromElement(element);
+		if (depth) block.depth = depth;
+		return block;
+	}
+
+	function parseSurface(): EditorDocument {
+		const blocks: EditorBlock[] = [];
+		for (const child of Array.from(surface.children)) {
+			const element = child as HTMLElement;
+			if (element.dataset.tableId) {
+				const rows = Array.from(element.querySelectorAll('tr')).map((row) =>
+					Array.from(row.querySelectorAll('td')).map((cell) => ({
+						id: cell.dataset.cellId || createId('cell'),
+						blocks: Array.from(cell.querySelectorAll<HTMLElement>(':scope > .text-block')).map(
+							parseTextBlock
+						)
+					}))
+				);
+				blocks.push({ id: element.dataset.tableId, type: 'table', rows });
+			} else if (element.classList.contains('text-block')) blocks.push(parseTextBlock(element));
+		}
+		return normalizeDocument({ ...documentValue, blocks });
+	}
+
+	function syncFromDom(record = false) {
+		if (isRendering || !surface) return;
+		if (record) pushUndo();
+		documentValue = parseSurface();
+		redoStack = [];
+		emitChange();
+	}
+
+	function refreshDocumentFromDom() {
+		if (!surface || isRendering) return;
+		documentValue = parseSurface();
+	}
+
+	function applyMarkdownIfNeeded() {
+		const selection = getSelection();
+		const block = activeBlock();
+		if (!selection || !block) return false;
+		const text = block.innerText.replace(/\n$/, '');
+		const markdown = text.match(/^(#{1,3}|[-*]|1\.|>) $|^```$/);
+		if (!markdown) return false;
+		const token = markdown[1] ?? '```';
+		block.textContent = '';
+		block.dataset.type = token.startsWith('#')
+			? 'heading'
+			: token === '-' || token === '*'
+				? 'bulletList'
+				: token === '1.'
+					? 'orderedList'
+					: token === '>'
+						? 'blockquote'
+						: 'codeBlock';
+		if (token.startsWith('#')) block.dataset.level = String(token.length);
+		else delete block.dataset.level;
+		placeCursor(block, 0);
+		syncFromDom(true);
+		return true;
+	}
+
+	function activeBlock() {
+		const selection = getSelection();
+		const node = selection?.anchorNode;
+		return (node instanceof Element ? node : node?.parentElement)?.closest<HTMLElement>(
+			'.text-block'
+		);
+	}
+
+	function placeCursor(root: HTMLElement, offset: number) {
+		const range = globalThis.document.createRange();
+		const walker = globalThis.document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		let remaining = offset;
+		let textNode: Node | null;
+		while ((textNode = walker.nextNode())) {
+			const length = textNode.textContent?.length ?? 0;
+			if (remaining <= length) {
+				range.setStart(textNode, remaining);
+				range.collapse(true);
+				const selection = getSelection();
+				selection?.removeAllRanges();
+				selection?.addRange(range);
+				return;
+			}
+			remaining -= length;
+		}
+		range.selectNodeContents(root);
+		range.collapse(false);
+		const selection = getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+	}
+
+	function toggleMark(mark: MarkName) {
+		const command = mark === 'strike' ? 'strikeThrough' : mark;
+		pendingMarks = { ...pendingMarks, [mark]: pendingMarks[mark] ? undefined : true };
+		exec(command);
+	}
+
+	function selectValue(
+		mark: 'fontSize' | 'textColor' | 'highlightColor',
+		value?: FontSize | string
+	) {
+		restoreNativeSelection();
+		if (mark === 'textColor' && typeof value === 'string') {
+			selectedTextColor = value;
+			pendingMarks = { ...pendingMarks, textColor: value };
+			exec('foreColor', value);
+		} else if (mark === 'highlightColor' && typeof value === 'string') {
+			selectedHighlightColor = value;
+			pendingMarks = { ...pendingMarks, highlightColor: value };
+			exec('hiliteColor', value);
+		} else if (mark === 'fontSize' && typeof value === 'number') {
+			pendingMarks = { ...pendingMarks, fontSize: value };
+			applyMarksToSelection({ fontSize: value });
+		} else if (mark === 'textColor') {
+			pendingMarks = { ...pendingMarks, textColor: undefined };
+			exec('removeFormat');
+		} else if (mark === 'highlightColor') {
+			pendingMarks = { ...pendingMarks, highlightColor: undefined };
+			exec('removeFormat');
+		}
+		colorPanel = null;
+	}
+
+	function selectFontFamily(value: string) {
+		restoreNativeSelection();
+		selectedFontFamily = value;
+		if (value === 'inherit') {
+			pendingMarks = { ...pendingMarks, fontFamily: undefined };
+			exec('removeFormat');
+			return;
+		}
+		pendingMarks = { ...pendingMarks, fontFamily: value };
+		applyMarksToSelection({ fontFamily: value });
+	}
+
+	function applyCustomFontFamily() {
+		const value = customFontFamily.trim();
+		if (!value) return;
+		selectFontFamily(value);
+	}
+
+	function applyMarksToSelection(marks: TextMarks) {
+		const selection = getSelection();
+		if (!selection?.rangeCount) return;
+		const range = selection.getRangeAt(0);
+		if (range.collapsed) return;
+		pushUndo();
+		const span = createTextSpan({ type: 'text', text: '', ...marks });
+		const contents = range.extractContents();
+		span.replaceChildren(...Array.from(contents.childNodes));
+		range.insertNode(span);
+		selection.removeAllRanges();
+		const next = globalThis.document.createRange();
+		next.selectNodeContents(span);
+		selection.addRange(next);
+		syncFromDom(true);
+	}
+
+	function pressed(mark: MarkName): boolean | 'mixed' {
+		if (pendingMarks[mark]) return true;
+		return false;
+	}
+
+	function openColors(kind: 'text' | 'highlight') {
+		rememberSelection();
+		colorPanel = colorPanel === kind ? null : kind;
+	}
+
+	function changeCurrentBlock(type: TextBlock['type'], level?: 1 | 2 | 3) {
+		restoreNativeSelection();
+		const block = activeBlock();
+		if (!block) return;
+		pushUndo();
+		block.dataset.type = type;
+		if (level) block.dataset.level = String(level);
+		else delete block.dataset.level;
+		syncFromDom();
+	}
+
+	function handleInput() {
+		if (isComposing) return;
+		if (applyMarkdownIfNeeded()) return;
+		syncFromDom(true);
+	}
+
+	function handleBeforeInput(event: InputEvent) {
+		if (readonly) event.preventDefault();
+	}
+
+	function handlePaste(event: ClipboardEvent) {
+		if (readonly) return;
+		event.preventDefault();
+		const text = event.clipboardData?.getData('text/plain').slice(0, 100_000) ?? '';
+		globalThis.document.execCommand('insertText', false, text);
+		syncFromDom(true);
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (readonly) return;
+		if (matchesShortcut(event, SHORTCUTS.bold)) {
+			event.preventDefault();
+			toggleMark('bold');
+		} else if (matchesShortcut(event, SHORTCUTS.italic)) {
+			event.preventDefault();
+			toggleMark('italic');
+		} else if (matchesShortcut(event, SHORTCUTS.underline)) {
+			event.preventDefault();
+			toggleMark('underline');
+		} else if (matchesShortcut(event, SHORTCUTS.undo)) {
+			event.preventDefault();
+			undo();
+		} else if (matchesShortcut(event, SHORTCUTS.redo)) {
+			event.preventDefault();
+			redo();
+		} else if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			splitCurrentBlock();
+		} else if (event.key === 'Tab') {
+			event.preventDefault();
+			indentSelectedBlocks(event.shiftKey ? -1 : 1);
+		}
+	}
+
+	function selectedTextBlocks() {
+		const selection = getSelection();
+		if (!selection?.rangeCount || !surface) return [];
+		const range = selection.getRangeAt(0);
+		const blocks = Array.from(surface.querySelectorAll<HTMLElement>('.text-block')).filter(
+			(block) => range.intersectsNode(block)
+		);
+		const block = activeBlock();
+		return blocks.length ? blocks : block ? [block] : [];
+	}
+
+	function indentSelectedBlocks(direction: 1 | -1) {
+		const blocks = selectedTextBlocks();
+		if (!blocks.length) return;
+		pushUndo();
+		for (const block of blocks) {
+			const depth = Math.max(0, Math.min(6, depthFromElement(block) + direction));
+			if (depth) block.style.marginLeft = `${depth * 24}px`;
+			else block.style.marginLeft = '';
+		}
+		syncFromDom();
+	}
+
+	function depthFromElement(element: HTMLElement) {
+		const margin = Number.parseInt(element.style.marginLeft || '0', 10);
+		return Number.isFinite(margin) ? Math.round(margin / 24) : 0;
+	}
+
+	function splitCurrentBlock() {
+		const block = activeBlock();
+		const selection = getSelection();
+		if (!block || !selection?.rangeCount) return;
+		pushUndo();
+		const range = selection.getRangeAt(0);
+		range.deleteContents();
+		const afterRange = range.cloneRange();
+		afterRange.setEndAfter(block.lastChild ?? block);
+		const tail = afterRange.extractContents();
+		const next = globalThis.document.createElement('div');
+		next.className = 'text-block';
+		next.dataset.blockId = createId('block');
+		next.dataset.type = block.dataset.type ?? 'paragraph';
+		if (block.dataset.level) next.dataset.level = block.dataset.level;
+		next.style.marginLeft = block.style.marginLeft;
+		if (!block.textContent?.replace(/\u200b/g, '').trim()) {
+			block.dataset.type = 'paragraph';
+			delete block.dataset.level;
+			block.style.marginLeft = '';
+			next.dataset.type = 'paragraph';
+			delete next.dataset.level;
+		}
+		next.append(tail);
+		if (!next.textContent) next.append(createTextSpan({ type: 'text', text: '' }));
+		block.after(next);
+		placeCursor(next, 0);
+		syncFromDom();
+	}
+
+	function undo() {
+		const previous = undoStack.at(-1);
+		if (!previous) return;
+		redoStack = [...redoStack, cloneDocument(documentValue)].slice(-60);
+		undoStack = undoStack.slice(0, -1);
+		documentValue = previous;
+		renderDocument();
+		emitChange();
+	}
+
+	function redo() {
+		const next = redoStack.at(-1);
+		if (!next) return;
+		undoStack = [...undoStack, cloneDocument(documentValue)].slice(-60);
+		redoStack = redoStack.slice(0, -1);
+		documentValue = next;
+		renderDocument();
+		emitChange();
+	}
+
+	function addTable() {
+		refreshDocumentFromDom();
+		pushUndo();
+		const rows = Math.min(10, Math.max(1, tableRows));
+		const columns = Math.min(10, Math.max(1, tableColumns));
+		const table: EditorBlock = {
+			id: createId('table'),
+			type: 'table',
+			rows: Array.from({ length: rows }, () =>
+				Array.from({ length: columns }, () => ({
+					id: createId('cell'),
+					blocks: [
+						{ id: createId('block'), type: 'paragraph', children: [{ type: 'text', text: '' }] }
+					]
+				}))
+			)
+		};
+		documentValue = normalizeDocument({
+			...documentValue,
+			blocks: [...documentValue.blocks, table]
+		});
+		renderDocument();
+		emitChange();
+	}
+
+	function updateTable(
+		tableId: string,
+		change: (table: Extract<EditorBlock, { type: 'table' }>) => void
+	) {
+		refreshDocumentFromDom();
+		pushUndo();
+		const next = cloneDocument(documentValue);
+		const table = next.blocks.find((block) => block.type === 'table' && block.id === tableId);
+		if (table?.type === 'table') change(table);
+		documentValue = normalizeDocument(next);
+		renderDocument();
+		emitChange();
+	}
+
+	function addTableRow(tableId: string) {
+		updateTable(tableId, (table) => {
+			const columns = table.rows[0]?.length ?? 1;
+			table.rows.push(
+				Array.from({ length: columns }, () => ({
+					id: createId('cell'),
+					blocks: [
+						{ id: createId('block'), type: 'paragraph', children: [{ type: 'text', text: '' }] }
+					]
+				}))
+			);
+		});
+	}
+	function addTableColumn(tableId: string) {
+		updateTable(tableId, (table) => {
+			for (const row of table.rows)
+				row.push({
+					id: createId('cell'),
+					blocks: [
+						{ id: createId('block'), type: 'paragraph', children: [{ type: 'text', text: '' }] }
+					]
+				});
+		});
+	}
+	function deleteTableRow(tableId: string) {
+		updateTable(tableId, (table) => {
+			if (table.rows.length > 1) table.rows.pop();
+		});
+	}
+	function deleteTableColumn(tableId: string) {
+		updateTable(tableId, (table) => {
+			if ((table.rows[0]?.length ?? 0) > 1) for (const row of table.rows) row.pop();
+		});
+	}
+	function deleteTable(tableId: string) {
+		refreshDocumentFromDom();
+		pushUndo();
+		documentValue = normalizeDocument({
+			...documentValue,
+			blocks: documentValue.blocks.filter((block) => block.id !== tableId)
+		});
+		renderDocument();
+		emitChange();
+	}
+</script>
+
+<svelte:document onselectionchange={rememberSelection} />
+
+<section class="text-editor-card" aria-label="리치 텍스트 에디터">
+	<div class="text-editor-toolbar" role="toolbar" tabindex="0" aria-label="텍스트 서식">
+		<div class="toolbar-group">
+			<button
+				aria-label="실행 취소"
+				disabled={readonly || !canUndo}
+				onmousedown={keepEditorSelection}
+				onclick={undo}>↶</button
+			>
+			<button
+				aria-label="다시 실행"
+				disabled={readonly || !canRedo}
+				onmousedown={keepEditorSelection}
+				onclick={redo}>↷</button
+			>
+		</div>
+		<div class="toolbar-group">
+			<button
+				aria-label="굵게"
+				aria-pressed={pressed('bold')}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => toggleMark('bold')}><b>B</b></button
+			>
+			<button
+				aria-label="기울임"
+				aria-pressed={pressed('italic')}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => toggleMark('italic')}><i>I</i></button
+			>
+			<button
+				aria-label="밑줄"
+				aria-pressed={pressed('underline')}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => toggleMark('underline')}><u>U</u></button
+			>
+			<button
+				aria-label="취소선"
+				aria-pressed={pressed('strike')}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => toggleMark('strike')}><s>S</s></button
+			>
+		</div>
+		<div class="toolbar-group">
+			<select
+				aria-label="글꼴"
+				bind:value={selectedFontFamily}
+				disabled={readonly}
+				onchange={(event) => selectFontFamily(event.currentTarget.value)}
+			>
+				<option value="inherit">기본 글꼴</option>
+				<option value="Arial, sans-serif">Arial</option>
+				<option value="Georgia, serif">Georgia</option>
+				<option value="Times New Roman, serif">Times</option>
+				<option value="ui-monospace, monospace">Monospace</option>
+				<option value="Pretendard, sans-serif">Pretendard</option>
+			</select>
+			<input
+				class="font-family-input"
+				aria-label="사용자 지정 글꼴"
+				placeholder="글꼴 직접 입력"
+				bind:value={customFontFamily}
+				disabled={readonly}
+				onkeydown={(event) => {
+					if (event.key === 'Enter') {
+						event.preventDefault();
+						applyCustomFontFamily();
+					}
+				}}
+				onchange={applyCustomFontFamily}
+			/>
+			<select
+				aria-label="글자 크기"
+				disabled={readonly}
+				onchange={(event) => selectValue('fontSize', Number(event.currentTarget.value) as FontSize)}
+			>
+				<option value="16">기본 (16)</option><option value="12">작게 (12)</option><option value="20"
+					>중간 제목 (20)</option
+				><option value="28">큰 제목 (28)</option>
+			</select>
+			<button
+				aria-label="글자색 선택"
+				aria-pressed={pressed('textColor')}
+				aria-expanded={colorPanel === 'text'}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => openColors('text')}>A 색상</button
+			>
+			{#if colorPanel === 'text'}<ColorPicker
+					kind="text"
+					value={selectedTextColor}
+					onselect={(color) => selectValue('textColor', color)}
+					onclose={() => (colorPanel = null)}
+				/>{/if}
+		</div>
+		<div class="toolbar-group">
+			<button
+				aria-label="형광펜 선택"
+				aria-pressed={pressed('highlightColor')}
+				aria-expanded={colorPanel === 'highlight'}
+				disabled={readonly}
+				onmousedown={keepEditorSelection}
+				onclick={() => openColors('highlight')}>▰ 형광펜</button
+			>
+			{#if colorPanel === 'highlight'}<ColorPicker
+					kind="highlight"
+					value={selectedHighlightColor}
+					onselect={(color) => selectValue('highlightColor', color)}
+					onclose={() => (colorPanel = null)}
+				/>{/if}
+		</div>
+		<div class="toolbar-group">
+			<select
+				aria-label="블록 유형"
+				disabled={readonly}
+				onchange={(event) => {
+					const [type, level] = event.currentTarget.value.split(':');
+					changeCurrentBlock(
+						type as TextBlock['type'],
+						level ? (Number(level) as 1 | 2 | 3) : undefined
+					);
+				}}
+			>
+				<option value="paragraph">문단</option><option value="heading:1">제목 1</option><option
+					value="heading:2">제목 2</option
+				><option value="heading:3">제목 3</option><option value="bulletList">글머리 목록</option
+				><option value="orderedList">번호 목록</option><option value="blockquote">인용문</option
+				><option value="codeBlock">코드 블록</option>
+			</select>
+		</div>
+		<div class="toolbar-group">
+			<input
+				aria-label="표 행 수"
+				title="행"
+				type="number"
+				min="1"
+				max="10"
+				bind:value={tableRows}
+				disabled={readonly}
+			/>
+			<input
+				aria-label="표 열 수"
+				title="열"
+				type="number"
+				min="1"
+				max="10"
+				bind:value={tableColumns}
+				disabled={readonly}
+			/>
+			<button aria-label="표 삽입" disabled={readonly} onclick={addTable}>표 삽입</button>
+		</div>
+		<div class="selection-summary" aria-live="polite">{selectionSummary}</div>
+	</div>
+
+	<div
+		class="text-editor-surface"
+		bind:this={surface}
+		role="textbox"
+		tabindex="0"
+		aria-multiline="true"
+		aria-readonly={readonly}
+		aria-label="문서 내용"
+		contenteditable={!readonly}
+		spellcheck="true"
+		data-placeholder={placeholder}
+		data-empty={empty}
+		onbeforeinput={(event) => handleBeforeInput(event as InputEvent)}
+		oninput={handleInput}
+		onclick={rememberSelection}
+		onkeyup={rememberSelection}
+		onkeydown={handleKeydown}
+		onpaste={handlePaste}
+		oncompositionstart={() => (isComposing = true)}
+		oncompositionend={() => {
+			isComposing = false;
+			syncFromDom(true);
+		}}
+	></div>
+</section>

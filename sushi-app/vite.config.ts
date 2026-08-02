@@ -14,8 +14,22 @@ const dirname =
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
+	optimizeDeps: {
+		exclude: ['html2canvas', 'jspdf']
+	},
 	server: {
-		allowedHosts: true
+		allowedHosts: true,
+		host: '0.0.0.0',
+		proxy: {
+			'/api': {
+				target: 'http://localhost:8000',
+				changeOrigin: false
+			},
+			'/auth': {
+				target: 'http://localhost:8000',
+				changeOrigin: false
+			}
+		}
 	},
 	plugins: [
 		tailwindcss(),
