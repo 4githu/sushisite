@@ -141,6 +141,7 @@
 .table-controls button {
 	font-size: 12px;
 }
+.json-import-input { display: none; }
 .color-popover {
 	position: absolute;
 	z-index: 20;

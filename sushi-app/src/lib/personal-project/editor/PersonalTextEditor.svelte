@@ -50,6 +50,7 @@
 	let isRendering = false;
 	let isComposing = false;
 	let savedRange: Range | null = null;
+	let jsonInput: HTMLInputElement;
 	let undoStack = $state<EditorDocument[]>([]);
 	let redoStack = $state<EditorDocument[]>([]);
 
@@ -90,6 +91,27 @@
 	}
 	export function focus() {
 		surface?.focus();
+	}
+
+	function downloadJson() {
+		const blob = new Blob([JSON.stringify(getJSON(), null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const link = globalThis.document.createElement('a');
+		link.href = url;
+		link.download = `aura-editor-${new Date().toISOString().slice(0, 10)}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function importJson(file?: File) {
+		if (!file) return;
+		try {
+			const parsed = JSON.parse(await file.text());
+			if (!parsed || !Array.isArray(parsed.blocks)) throw new Error('invalid');
+			setDocumentInternal(parsed, true);
+		} catch {
+			globalThis.alert('에디터 JSON 형식이 아닙니다. 내보낸 .json 파일을 선택해주세요.');
+		}
 	}
 
 	function setDocumentInternal(value: unknown, record = true) {
@@ -600,6 +622,20 @@
 			clone.querySelectorAll('[data-editor-ui]').forEach((item) => item.remove());
 			if (selection.toString() !== (clone.textContent ?? '')) return;
 		}
+		const table = (selection.anchorNode instanceof Element
+			? selection.anchorNode
+			: selection.anchorNode?.parentElement)?.closest<HTMLElement>('[data-table-id]');
+		if (table) {
+			event.preventDefault();
+			const cloned = table.querySelector('table')?.cloneNode(true) as HTMLTableElement | undefined;
+			if (!cloned) return;
+			event.clipboardData?.setData('text/html', cloned.outerHTML);
+			event.clipboardData?.setData(
+				'text/plain',
+				Array.from(cloned.rows).map((row) => Array.from(row.cells).map((cell) => cell.innerText).join('\t')).join('\n')
+			);
+			return;
+		}
 		event.preventDefault();
 		const text = blocks
 			.map((block) => {
@@ -631,10 +667,16 @@
 	function handlePaste(event: ClipboardEvent) {
 		if (readonly) return;
 		event.preventDefault();
+		const html = event.clipboardData?.getData('text/html') ?? '';
 		const text = (event.clipboardData?.getData('text/plain').slice(0, 100_000) ?? '').replace(
 			/\r\n?/g,
 			'\n'
 		);
+		const pastedTable = tableFromClipboard(html, text);
+		if (pastedTable) {
+			insertTableAfterActive(pastedTable);
+			return;
+		}
 		pushUndo();
 		const lines = text.split('\n').map(pastedLine);
 		for (const [index, line] of lines.entries()) {
@@ -647,6 +689,50 @@
 			if (index < lines.length - 1) splitCurrentBlock(false, false);
 		}
 		syncFromDom();
+	}
+
+	function tableFromClipboard(html: string, plain: string): Extract<EditorBlock, { type: 'table' }> | null {
+		let matrix: string[][] = [];
+		if (html.includes('<table')) {
+			const root = globalThis.document.createElement('div');
+			root.innerHTML = html;
+			matrix = Array.from(root.querySelectorAll('tr')).map((row) =>
+				Array.from(row.querySelectorAll('th,td')).map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+			);
+		} else {
+			const lines = plain.split('\n').filter((line) => line.trim());
+			const markdown = lines.filter((line) => !/^\s*\|?\s*:?-{3,}/.test(line));
+			if (markdown.length >= 2 && markdown.every((line) => line.includes('|')))
+				matrix = markdown.map((line) => line.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim()));
+			else if (lines.length >= 2 && lines.every((line) => line.includes('\t')))
+				matrix = lines.map((line) => line.split('\t').map((cell) => cell.trim()));
+		}
+		const width = Math.max(0, ...matrix.map((row) => row.length));
+		if (matrix.length < 1 || width < 1) return null;
+		return {
+			id: createId('table'), type: 'table',
+			rows: matrix.map((row) => Array.from({ length: width }, (_, index) => ({
+				id: createId('cell'), blocks: [{ id: createId('block'), type: 'paragraph' as const,
+					children: [{ type: 'text' as const, text: row[index] ?? '' }] }]
+			})))
+		};
+	}
+
+	function insertTableAfterActive(table: Extract<EditorBlock, { type: 'table' }>) {
+		refreshDocumentFromDom();
+		pushUndo();
+		const anchor = activeBlock()?.closest<HTMLElement>('[data-table-id]')?.dataset.tableId ?? activeBlock()?.dataset.blockId;
+		const index = documentValue.blocks.findIndex((block) => block.id === anchor);
+		const paragraph: TextBlock = { id: createId('block'), type: 'paragraph', children: [{ type: 'text', text: '' }] };
+		documentValue = normalizeDocument({ ...documentValue, blocks: [
+			...documentValue.blocks.slice(0, index + 1), table, paragraph, ...documentValue.blocks.slice(index + 1)
+		] });
+		renderDocument();
+		emitChange();
+		void tick().then(() => {
+			const next = surface.querySelector<HTMLElement>(`[data-block-id="${paragraph.id}"]`);
+			if (next) placeCursor(next, 0);
+		});
 	}
 
 	function recentColor(kind: 'text' | 'highlight') {
@@ -1148,6 +1234,11 @@
 				disabled={readonly}
 			/>
 			<button aria-label="표 삽입" disabled={readonly} onclick={addTable}>표 삽입</button>
+		</div>
+		<div class="toolbar-group">
+			<button disabled={readonly} title="에디터 JSON 내보내기" onclick={downloadJson}>JSON 내보내기</button>
+			<button disabled={readonly} title="에디터 JSON 불러오기" onclick={() => jsonInput?.click()}>JSON 불러오기</button>
+			<input class="json-import-input" bind:this={jsonInput} type="file" accept="application/json,.json" onchange={(event) => importJson(event.currentTarget.files?.[0])} />
 		</div>
 		<div class="selection-summary" aria-live="polite">{selectionSummary}</div>
 		<details class="shortcut-guide">

@@ -1,7 +1,9 @@
 <!-- src/routes/odi/+page.svelte -->
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import { onMount } from "svelte";
 	import { odiuser } from "$lib/odi/stores";
+	import { session, type OdiSession } from "$lib/odi/stores/session";
 	import Button from "$lib/odi/components/common/Button.svelte";
 
 	import {
@@ -179,7 +181,10 @@
 	const profile = $derived(config.profile);
 	const statistics = $derived(config.statistics);
 	const dashboard = $derived(config.dashboard);
-	const recentSessions = $derived(config.recent_sessions ?? []);
+	let loadedRecentSessions = $state<RecentSession[] | null>(null);
+	let loadedUserId = $state<string | null>(null);
+
+	const recentSessions = $derived(loadedRecentSessions ?? config.recent_sessions ?? []);
 	const evcTrend = $derived(config.evc_trend ?? []);
 	const todayInsight = $derived(config.today_insight);
 	const currentGoal = $derived(config.current_goal);
@@ -263,6 +268,47 @@
 	function openSession(sessionId: string) {
 		goto(`/odi/report/${sessionId}`);
 	}
+
+	function toRecentSession(item: OdiSession): RecentSession {
+		const template = item.template ?? {};
+		const feedback = item.feedback ?? {};
+		const environment = template.environment ?? {};
+		const audience = template.audience ?? {};
+		const score = feedback.score ?? {};
+		const duration = feedback.duration ?? {};
+
+		return {
+			session_id: item.session_id,
+			template_id: item.template_id ?? "",
+			title: environment.title ?? template.title ?? "제목 없는 세션",
+			score: Number(score.overall_score ?? 0),
+			duration_seconds: Number(duration.actual_seconds ?? (environment.duration_minutes ? environment.duration_minutes * 60 : 0)),
+			audience_count: Number(audience.audience_count ?? 0),
+			created_at: item.started_at ?? item.created_at,
+			average_evc: { E: 0, V: 0, C: 0 }
+		};
+	}
+
+	async function loadRecentSessions() {
+		try {
+			const sessions = await session.listMySessions(20);
+			loadedRecentSessions = sessions
+				.filter((item) => item.state === "completed")
+				.map(toRecentSession);
+		} catch {
+			// API를 불러오지 못하면 저장된 대시보드 값을 사용합니다.
+			loadedRecentSessions = null;
+		}
+	}
+
+	onMount(() => {
+		return odiuser.subscribe((user) => {
+			if (user === null || user.user_id === loadedUserId) return;
+
+			loadedUserId = user.user_id;
+			void loadRecentSessions();
+		});
+	});
 
 	function startTraining(templateId: string) {
 		goto(`/odi/practice/${templateId}`);

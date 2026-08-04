@@ -3,7 +3,7 @@ from io import BytesIO
 import os
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 
 from auth import JMT
 
@@ -317,6 +317,37 @@ def delete_round_target(target_id: int, user_id: int = Depends(current_user_id))
 @router.get("/aura/targets/{target_id}/report")
 def target_report(target_id: int, user_id: int = Depends(current_user_id)):
     return repository.get_or_create_target_report(user_id, target_id)
+
+
+@router.get("/aura/targets/{target_id}/attachments")
+def target_report_attachments(target_id: int, user_id: int = Depends(current_user_id)):
+    return repository.list_target_report_attachments(user_id, target_id)
+
+
+@router.post("/aura/targets/{target_id}/attachments", status_code=201)
+async def upload_target_report_attachment(
+    target_id: int,
+    request: Request,
+    kind: str = Query(...),
+    filename: str = Query("image"),
+    user_id: int = Depends(current_user_id),
+):
+    payload = await request.body()
+    return repository.save_target_report_attachment(
+        user_id, target_id, kind, filename, request.headers.get("content-type", ""), payload
+    )
+
+
+@router.get("/aura/report-attachments/{attachment_id}")
+def report_attachment_file(attachment_id: int, user_id: int = Depends(current_user_id)):
+    path, mime_type, _filename = repository.read_target_report_attachment(user_id, attachment_id)
+    return FileResponse(path, media_type=mime_type)
+
+
+@router.delete("/aura/report-attachments/{attachment_id}", status_code=204)
+def delete_report_attachment(attachment_id: int, user_id: int = Depends(current_user_id)):
+    repository.delete_target_report_attachment(user_id, attachment_id)
+    return Response(status_code=204)
 
 
 @router.get("/aura/ai/models")

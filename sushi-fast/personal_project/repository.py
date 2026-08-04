@@ -5,7 +5,12 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from .db import connection
+from .db import DB_PATH, connection
+
+
+ATTACHMENT_ROOT = DB_PATH.parent / "uploads" / "aura-report-attachments"
+ATTACHMENT_KINDS = {"blank_test", "problem_solving"}
+MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 
 
 def _calculated_amount(hourly_rate: int, start: datetime, end: datetime | None) -> int:
@@ -1596,6 +1601,105 @@ def get_or_create_target_report(user_id: int, target_id: int):
         }
 
 
+def list_target_report_attachments(user_id: int, target_id: int):
+    with connection() as conn:
+        report = get_or_create_target_report(user_id, target_id)
+        rows = conn.execute(
+            """SELECT id, kind, original_name, mime_type, byte_size, created_at
+               FROM aura_report_attachments
+               WHERE user_id = ? AND target_report_id = ? ORDER BY id""",
+            (user_id, report["id"]),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"], "kind": row["kind"], "name": row["original_name"],
+                "mimeType": row["mime_type"], "byteSize": row["byte_size"],
+                "createdAt": row["created_at"],
+            }
+            for row in rows
+        ]
+
+
+def save_target_report_attachment(
+    user_id: int, target_id: int, kind: str, filename: str, mime_type: str, payload: bytes
+):
+    if kind not in ATTACHMENT_KINDS:
+        raise HTTPException(status_code=400, detail="첨부 분류를 확인해주세요.")
+    if not payload or len(payload) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(status_code=413, detail="이미지는 파일당 15MB 이하로 올려주세요.")
+    if not mime_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="이미지 파일만 첨부할 수 있습니다.")
+    report = get_or_create_target_report(user_id, target_id)
+    suffix = ".jpg" if mime_type == "image/jpeg" else ".png" if mime_type == "image/png" else ".webp"
+    storage_name = f"{uuid4().hex}{suffix}"
+    directory = ATTACHMENT_ROOT / str(user_id) / str(report["id"])
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / storage_name
+    path.write_bytes(payload)
+    try:
+        with connection() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM aura_report_attachments WHERE target_report_id = ? AND kind = ?",
+                (report["id"], kind),
+            ).fetchone()[0]
+            if count >= 20:
+                raise HTTPException(status_code=400, detail="분류별 사진은 최대 20장까지 첨부할 수 있습니다.")
+            cursor = conn.execute(
+                """INSERT INTO aura_report_attachments
+                   (user_id, target_report_id, kind, original_name, mime_type, storage_name, byte_size)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (user_id, report["id"], kind, filename[:200], mime_type, storage_name, len(payload)),
+            )
+            conn.commit()
+            return {"id": cursor.lastrowid, "kind": kind, "name": filename, "mimeType": mime_type}
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+
+
+def read_target_report_attachment(user_id: int, attachment_id: int):
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT id, mime_type, original_name, storage_name, target_report_id
+               FROM aura_report_attachments WHERE id = ? AND user_id = ?""",
+            (attachment_id, user_id),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="첨부 이미지를 찾을 수 없습니다.")
+    path = ATTACHMENT_ROOT / str(user_id) / str(row["target_report_id"]) / row["storage_name"]
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="첨부 이미지 파일을 찾을 수 없습니다.")
+    return path, row["mime_type"], row["original_name"]
+
+
+def delete_target_report_attachment(user_id: int, attachment_id: int):
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT storage_name, target_report_id FROM aura_report_attachments
+               WHERE id = ? AND user_id = ?""", (attachment_id, user_id)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="첨부 이미지를 찾을 수 없습니다.")
+        conn.execute("DELETE FROM aura_report_attachments WHERE id = ?", (attachment_id,))
+        conn.commit()
+    (ATTACHMENT_ROOT / str(user_id) / str(row["target_report_id"]) / row["storage_name"]).unlink(missing_ok=True)
+
+
+def _clear_target_report_attachments(conn, user_id: int, report_id: int):
+    rows = conn.execute(
+        "SELECT storage_name FROM aura_report_attachments WHERE user_id = ? AND target_report_id = ?",
+        (user_id, report_id),
+    ).fetchall()
+    conn.execute("DELETE FROM aura_report_attachments WHERE user_id = ? AND target_report_id = ?", (user_id, report_id))
+    directory = ATTACHMENT_ROOT / str(user_id) / str(report_id)
+    for row in rows:
+        (directory / row["storage_name"]).unlink(missing_ok=True)
+    try:
+        directory.rmdir()
+    except OSError:
+        pass
+
+
 def update_target_report(user_id: int, report_id: int, data, submit: bool = False):
     values = data.model_dump(exclude_unset=True) if data else {}
     if data:
@@ -1632,6 +1736,7 @@ def update_target_report(user_id: int, report_id: int, data, submit: bool = Fals
             )
             conn.commit()
         if submit:
+            _clear_target_report_attachments(conn, user_id, report_id)
             submitted = conn.execute(
                 """SELECT rp.assessment_json, r.school_id, r.round_numbers_json
                    FROM aura_target_reports rp

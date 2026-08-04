@@ -160,6 +160,21 @@ CREATE TABLE IF NOT EXISTS aura_target_reports (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 원본 이미지는 최종 제출 전까지만 보관하는 임시 첨부입니다.
+CREATE TABLE IF NOT EXISTS aura_report_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    target_report_id INTEGER NOT NULL REFERENCES aura_target_reports(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK(kind IN ('blank_test', 'problem_solving')),
+    original_name TEXT NOT NULL DEFAULT '',
+    mime_type TEXT NOT NULL,
+    storage_name TEXT NOT NULL UNIQUE,
+    byte_size INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_aura_report_attachments_report
+    ON aura_report_attachments(target_report_id, kind, id);
+
 CREATE TABLE IF NOT EXISTS clinic_report_score_formats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

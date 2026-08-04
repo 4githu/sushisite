@@ -21,7 +21,7 @@ export { default as PermContactCalendar } from "./Property 1=Bell_Ring, Size=24.
 export { default as VoiceSelection } from "./Property 1=Bell_Ring, Size=24.svg";
 export { default as ArrowForward } from "./Property 1=Bell_Ring, Size=24.svg";
 */
-
+    
 
 
 
@@ -108,3 +108,4 @@ export { default as account_circle } from "./account_circle.png";
 export { default as account_circleyoo } from "./account_circleyoo.svg";
 export { default as dddddddddd } from "./dddddddddd.svg";
 export { default as lock } from "./lock.png";
+export { default as Seedling } from "./home.svg";

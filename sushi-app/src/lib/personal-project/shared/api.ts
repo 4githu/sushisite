@@ -14,6 +14,7 @@ import type {
 export const API_BASE = import.meta.env.VITE_SUSHIFASTURL ?? 'http://localhost:8000';
 
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
+export type ReportAttachment = { id: number; kind: 'blank_test' | 'problem_solving'; name: string; mimeType: string; byteSize: number; createdAt: string };
 
 export class PersonalApiError extends Error {
 	status: number;
@@ -210,6 +211,24 @@ export const personalApi = {
 	targetReport(targetId: number) {
 		return request<TargetReport>(`/aura/targets/${targetId}/report`);
 	},
+	targetReportAttachments(targetId: number) {
+		return request<ReportAttachment[]>(`/aura/targets/${targetId}/attachments`);
+	},
+	async uploadTargetReportAttachment(targetId: number, kind: 'blank_test' | 'problem_solving', file: File) {
+		const query = new URLSearchParams({ kind, filename: file.name || 'image.jpg' });
+		const response = await fetch(`${API_BASE}/api/personal/aura/targets/${targetId}/attachments?${query}`, {
+			method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file
+		});
+		if (!response.ok) {
+			const body = await response.json().catch(() => null);
+			throw new PersonalApiError(response.status, typeof body?.detail === 'string' ? body.detail : '이미지 저장에 실패했습니다.');
+		}
+		return response.json() as Promise<{ id: number; kind: string; name: string; mimeType: string }>;
+	},
+	deleteTargetReportAttachment(id: number) {
+		return request<void>(`/aura/report-attachments/${id}`, { method: 'DELETE' });
+	},
+	targetReportAttachmentUrl(id: number) { return `${API_BASE}/api/personal/aura/report-attachments/${id}`; },
 	aiReportModels() {
 		return request<{ defaultModel: string; models: AiReportModel[] }>('/aura/ai/models');
 	},

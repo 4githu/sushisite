@@ -76,6 +76,12 @@
 		});
 	}
 
+	function hasCompletedReport(session: ClinicRound) {
+		return session.targets.length > 0 && session.targets.every((target) =>
+			target.report?.status === 'ready' || target.report?.status === 'submitted'
+		);
+	}
+
 	function begin(day: number, slot: number) {
 		dragging = true;
 		anchor = { day, slot };
@@ -162,6 +168,7 @@
 					{@const busy = sessionsAt(dayIndex, slot)}
 					<button
 						class:busy={busy.length > 0}
+						class:reportDone={busy.length > 0 && hasCompletedReport(busy[0])}
 						class:selected={selected(dayIndex, slot)}
 						class:majorBoundary={slot === 8 || slot === 20}
 						class="slot"
@@ -332,6 +339,10 @@
 		background: #f1dcd1;
 	}
 
+	.slot.busy.reportDone {
+		background: #d8ebdd;
+	}
+
 	.slot.busy span {
 		position: absolute;
 		inset: 2px 4px;
@@ -342,6 +353,8 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+
+	.slot.busy.reportDone span { color: #3d6b51; }
 
 	.time-label.majorBoundary,
 	.slot.majorBoundary {

@@ -41,6 +41,7 @@
 	let isRendering = false;
 	let isComposing = false;
 	let savedRange: Range | null = null;
+	let jsonInput: HTMLInputElement;
 	let undoStack: EditorDocument[] = [];
 	let redoStack: EditorDocument[] = [];
 
@@ -81,6 +82,27 @@
 	}
 	export function focus() {
 		surface?.focus();
+	}
+
+	function downloadJson() {
+		const blob = new Blob([JSON.stringify(getJSON(), null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const link = globalThis.document.createElement('a');
+		link.href = url;
+		link.download = `text-editor-${new Date().toISOString().slice(0, 10)}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function importJson(file?: File) {
+		if (!file) return;
+		try {
+			const parsed = JSON.parse(await file.text());
+			if (!parsed || !Array.isArray(parsed.blocks)) throw new Error('invalid');
+			setDocumentInternal(parsed, true);
+		} catch {
+			globalThis.alert('에디터 JSON 형식이 아닙니다. 내보낸 .json 파일을 선택해주세요.');
+		}
 	}
 
 	function setDocumentInternal(value: unknown, record = true) {
@@ -867,6 +889,11 @@
 				disabled={readonly}
 			/>
 			<button aria-label="표 삽입" disabled={readonly} onclick={addTable}>표 삽입</button>
+		</div>
+		<div class="toolbar-group">
+			<button disabled={readonly} onclick={downloadJson}>JSON 내보내기</button>
+			<button disabled={readonly} onclick={() => jsonInput?.click()}>JSON 불러오기</button>
+			<input class="json-import-input" bind:this={jsonInput} type="file" accept="application/json,.json" onchange={(event) => importJson(event.currentTarget.files?.[0])} />
 		</div>
 		<div class="selection-summary" aria-live="polite">{selectionSummary}</div>
 	</div>

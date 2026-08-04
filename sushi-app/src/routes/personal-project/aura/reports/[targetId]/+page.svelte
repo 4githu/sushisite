@@ -4,7 +4,7 @@
 	import AuraReportEditor from '$lib/personal-project/aura/components/AuraReportEditor.svelte';
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
-	import { personalApi } from '$lib/personal-project/shared/api';
+import { personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
 	import type {
 		AiReportModel,
 		AiReportResult,
@@ -37,14 +37,29 @@
 	let assessmentCsv = $state('');
 	let finalParagraphs = $state<string[]>([]);
 	let problemSolvingNote = $state('');
-	let blankTestImages = $state<string[]>([]);
-	let problemImages = $state<string[]>([]);
+	type AttachmentPreview = ReportAttachment & { url: string };
+	let blankTestImages = $state<AttachmentPreview[]>([]);
+	let problemImages = $state<AttachmentPreview[]>([]);
+	let attachmentBusy = $state(false);
+	let attachmentNotice = $state('');
 	let pdfPreview = $state<HTMLElement>();
 	let pdfBusy = $state(false);
 	let kakaoBusy = $state(false);
 	let preparedShareFiles = $state<File[]>([]);
 	let shareStatus = $state('');
+	let finalControlsCollapsed = $state(false);
 	let loadingTargetId = 0;
+
+	function hasAppendixContent(document: EditorDocument) {
+		return document.blocks.some((block) => {
+			if (block.type === 'table') {
+				return block.rows.some((row) =>
+					row.some((cell) => cell.blocks.some((child) => child.children.some((chunk) => chunk.text.trim())))
+				);
+			}
+			return block.children.some((chunk) => chunk.text.trim());
+		});
+	}
 
 	async function reportPageFiles() {
 		if (!pdfPreview) return [];
@@ -84,20 +99,14 @@
 	}
 
 	let assessmentLocked = $derived(aiResults.length > 0 || Boolean(report?.generatedReportJson));
-	let includeAppendix = $derived(
-		Object.values(questionChecks).some(Boolean) ||
-			Boolean(
-				aiResults.some(
-					(item) =>
-						item.completedAt && new Date(item.completedAt) < new Date('2026-08-01T16:00:00Z')
-				)
-			)
-	);
+	let includeAppendix = $derived(hasAppendixContent(draftDocument));
 
 	async function load(targetId: number) {
 		loadingTargetId = targetId;
 		try {
-			const nextReport = await personalApi.targetReport(targetId);
+			const [nextReport, attachments] = await Promise.all([
+				personalApi.targetReport(targetId), personalApi.targetReportAttachments(targetId)
+			]);
 			if (loadingTargetId !== targetId) return;
 			report = nextReport;
 			const document = normalizeDocument(nextReport.contentJson);
@@ -117,6 +126,8 @@
 			problemSolvingNote = generatedReport?.problemSolvingNote ?? '';
 			if (generatedReport && !generatedReport.assessment) scoreMode = 'none';
 			aiModel = nextReport.aiModel;
+			blankTestImages = attachments.filter((item) => item.kind === 'blank_test').map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
+			problemImages = attachments.filter((item) => item.kind === 'problem_solving').map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
 			await loadAi(targetId);
 			if (page.url.searchParams.get('pdf') === '1') {
 				modalStage = generatedReport ? 'final' : 'generate';
@@ -293,19 +304,144 @@
 		}
 	}
 
-	async function filesToDataUrls(files: FileList | null) {
-		if (!files) return [];
-		return Promise.all(
-			Array.from(files).map(
-				(file) =>
-					new Promise<string>((resolve, reject) => {
-						const reader = new FileReader();
-						reader.onload = () => resolve(String(reader.result));
-						reader.onerror = () => reject(reader.error);
-						reader.readAsDataURL(file);
-					})
-			)
-		);
+	function blobToDataUrl(blob: Blob) {
+		return new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(String(reader.result));
+			reader.onerror = () => reject(new Error('사진 파일을 읽지 못했습니다.'));
+			reader.readAsDataURL(blob);
+		});
+	}
+
+	async function compressImageBlob(blob: Blob) {
+		if (!('createImageBitmap' in globalThis)) return blob;
+		try {
+			const bitmap = await createImageBitmap(blob);
+			const maxSide = 2400;
+			const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+			const canvas = document.createElement('canvas');
+			canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+			canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+			const context = canvas.getContext('2d');
+			if (!context) return blob;
+			context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+			bitmap.close();
+			return await new Promise<Blob>((resolve) =>
+				canvas.toBlob((compressed) => resolve(compressed ?? blob), 'image/jpeg', 0.82)
+			);
+		} catch {
+			return blob;
+		}
+	}
+
+	function withImageTimeout<T>(promise: Promise<T>, filename: string) {
+		return new Promise<T>((resolve, reject) => {
+			const timer = window.setTimeout(
+				() => reject(new Error(`${filename}: 20초 안에 이미지 변환이 끝나지 않았습니다.`)),
+				20_000
+			);
+			promise.then(resolve, reject).finally(() => window.clearTimeout(timer));
+		});
+	}
+
+	async function imageFileToDataUrl(file: File) {
+		const isHeic =
+			/\.(heic|heif)$/i.test(file.name) || /image\/(heic|heif|heic-sequence|heif-sequence)/i.test(file.type);
+		if (isHeic) {
+			try {
+				const { default: heic2any } = await import('heic2any');
+				const converted = await withImageTimeout(
+					heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 }),
+					file.name
+				);
+				const jpeg = Array.isArray(converted) ? converted[0] : converted;
+				if (!jpeg) throw new Error('변환 결과가 비어 있습니다.');
+				return await blobToDataUrl(await compressImageBlob(jpeg));
+			} catch (cause) {
+				throw new Error(`HEIC 변환 실패: ${cause instanceof Error ? cause.message : '지원하지 않는 파일입니다.'}`);
+			}
+		}
+		if (!file.type.startsWith('image/')) throw new Error('이미지 파일이 아닙니다.');
+		return blobToDataUrl(await compressImageBlob(file));
+	}
+
+	async function pdfToImageFiles(file: File) {
+		const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+		pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
+		const pdfDocument = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+		if (pdfDocument.numPages > 20) throw new Error('PDF는 최대 20페이지까지 첨부할 수 있습니다.');
+		const files: File[] = [];
+		for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
+			const page = await pdfDocument.getPage(pageNumber);
+			const viewport = page.getViewport({ scale: 1.6 });
+			const canvas = document.createElement('canvas');
+			canvas.width = Math.ceil(viewport.width);
+			canvas.height = Math.ceil(viewport.height);
+			const context = canvas.getContext('2d');
+			if (!context) throw new Error('PDF 페이지를 그릴 수 없습니다.');
+			await page.render({ canvasContext: context, viewport }).promise;
+			const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value: Blob | null) => value ? resolve(value) : reject(new Error('PDF 이미지 변환에 실패했습니다.')), 'image/jpeg', 0.88));
+			files.push(new File([blob], `${file.name.replace(/\.pdf$/i, '')}-${pageNumber}.jpg`, { type: 'image/jpeg' }));
+		}
+		return files;
+	}
+
+	async function addAttachmentImages(files: FileList | null, kind: 'blank' | 'problem') {
+		if (!files?.length || attachmentBusy) return;
+		attachmentBusy = true;
+		attachmentNotice = `${files.length}개 사진을 처리하는 중입니다…`;
+		const added: AttachmentPreview[] = [];
+		const failures: string[] = [];
+		const sourceFiles: File[] = [];
+		for (const file of Array.from(files)) {
+			try {
+				if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) sourceFiles.push(...await pdfToImageFiles(file));
+				else sourceFiles.push(file);
+			} catch (cause) {
+				failures.push(`${file.name}: ${cause instanceof Error ? cause.message : 'PDF 변환 실패'}`);
+			}
+		}
+		for (const file of sourceFiles) {
+			try {
+				const dataUrl = await imageFileToDataUrl(file);
+				const blob = await fetch(dataUrl).then((response) => response.blob());
+				if (!report) throw new Error('리포트를 불러오는 중입니다.');
+				const saved = await personalApi.uploadTargetReportAttachment(
+					report.targetId, kind === 'blank' ? 'blank_test' : 'problem_solving',
+					new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'image.jpg', { type: blob.type || 'image/jpeg' })
+				);
+				added.push({ ...saved, kind: saved.kind as 'blank_test' | 'problem_solving', byteSize: blob.size, createdAt: new Date().toISOString(), url: personalApi.targetReportAttachmentUrl(saved.id) });
+			} catch (cause) {
+				failures.push(`${file.name}: ${cause instanceof Error ? cause.message : '처리 실패'}`);
+			}
+		}
+		if (kind === 'blank') blankTestImages = [...blankTestImages, ...added];
+		else problemImages = [...problemImages, ...added];
+		preparedShareFiles = [];
+		shareStatus = '';
+		attachmentNotice = failures.length
+			? `${added.length}개 추가됨 · 실패 ${failures.length}개 — ${failures.join(' / ')}`
+			: `${added.length}개 사진을 추가했습니다.`;
+		attachmentBusy = false;
+	}
+
+	async function removeAttachmentImage(kind: 'blank' | 'problem', index: number) {
+		const item = (kind === 'blank' ? blankTestImages : problemImages)[index];
+		if (!item) return;
+		await personalApi.deleteTargetReportAttachment(item.id);
+		if (kind === 'blank') blankTestImages = blankTestImages.filter((_, itemIndex) => itemIndex !== index);
+		else problemImages = problemImages.filter((_, itemIndex) => itemIndex !== index);
+		preparedShareFiles = [];
+		shareStatus = '';
+	}
+
+	async function pasteAttachmentImages(event: ClipboardEvent, kind: 'blank' | 'problem') {
+		const images = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith('image/'));
+		if (!images.length) return;
+		event.preventDefault();
+		const transfer = new DataTransfer();
+		images.forEach((image) => transfer.items.add(image));
+		await addAttachmentImages(transfer.files, kind);
 	}
 
 	async function downloadPdf() {
@@ -328,7 +464,7 @@
 					learningContent: { paragraphs: finalParagraphs.filter((item) => item.trim()) }
 				};
 			}
-			if (!(await save(true, true))) return;
+			if (!(await save(false, true))) return;
 			const { captureReport, jsPDF } = await import(
 				'$lib/personal-project/aura/reportExport.client'
 			);
@@ -394,7 +530,7 @@
 					learningContent: { paragraphs: finalParagraphs.filter((item) => item.trim()) }
 				};
 			}
-			if (!(await save(true, true))) return;
+			if (!(await save(false, true))) return;
 			const pageFiles = await reportPageFiles();
 			if (!pageFiles.length) throw new Error('공유할 리포트 이미지가 없습니다.');
 			const shareData: ShareData = { files: pageFiles };
@@ -711,9 +847,9 @@
 					</section>
 				</div>
 			{:else}
-				<div class="final-columns">
+				<div class="final-columns" class:controls-collapsed={finalControlsCollapsed}>
 					<section class="final-controls">
-						<h3>학습 내용 최종 수정</h3>
+						<div class="final-controls-heading"><h3>학습 내용 최종 수정</h3><button class="panel-collapse" onclick={() => (finalControlsCollapsed = true)}>접기</button></div>
 						<p>PDF에 들어가기 전에 문장을 한 번 더 고칠 수 있습니다.</p>
 						{#each finalParagraphs as paragraph, index}<div class="paragraph-row">
 								<textarea bind:value={finalParagraphs[index]}></textarea><button
@@ -743,55 +879,49 @@
 							></textarea>
 						</label>
 						<div class="attachment-fields">
+							{#if attachmentNotice}<p class="attachment-notice" class:attachment-error={attachmentNotice.includes('실패')}>{attachmentNotice}</p>{/if}
 							<label
-								><strong>백지테스트 사진</strong><small>여러 장을 계속 추가할 수 있습니다.</small
+								><strong>백지테스트 사진</strong><small>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
 								><input
 									type="file"
-									accept="image/*"
+									accept="image/*,.heic,.heif,application/pdf"
 									multiple
+									capture="environment"
 									onchange={async (event) => {
-										blankTestImages = [
-											...blankTestImages,
-											...(await filesToDataUrls(event.currentTarget.files))
-										];
+										await addAttachmentImages(event.currentTarget.files, 'blank');
 										event.currentTarget.value = '';
 									}}
+									disabled={attachmentBusy}
 								/></label
-							>
+			>
+							<button type="button" class="paste-image-button" onpaste={(event) => pasteAttachmentImages(event, 'blank')}>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button>
 							{#if blankTestImages.length}<div class="attachment-list">
-									{#each blankTestImages as _, index}<button
-											onclick={() =>
-												(blankTestImages = blankTestImages.filter((__, i) => i !== index))}
-											>백지테스트 {index + 1} 삭제</button
-										>{/each}
+									{#each blankTestImages as image, index}<figure><img src={image.url} alt={`백지테스트 ${index + 1}`} /><button aria-label={`백지테스트 ${index + 1} 삭제`} onclick={() => removeAttachmentImage('blank', index)}>×</button><figcaption>백지테스트 {index + 1}</figcaption></figure>{/each}
 								</div>{/if}
 							<label
-								><strong>문제 풀이 사진</strong><small>여러 장을 계속 추가할 수 있습니다.</small
+								><strong>문제 풀이 사진</strong><small>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
 								><input
 									type="file"
-									accept="image/*"
+									accept="image/*,.heic,.heif,application/pdf"
 									multiple
+									capture="environment"
 									onchange={async (event) => {
-										problemImages = [
-											...problemImages,
-											...(await filesToDataUrls(event.currentTarget.files))
-										];
+										await addAttachmentImages(event.currentTarget.files, 'problem');
 										event.currentTarget.value = '';
 									}}
+									disabled={attachmentBusy}
 								/></label
-							>
+			>
+							<button type="button" class="paste-image-button" onpaste={(event) => pasteAttachmentImages(event, 'problem')}>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button>
 							{#if problemImages.length}<div class="attachment-list">
-									{#each problemImages as _, index}<button
-											onclick={() => (problemImages = problemImages.filter((__, i) => i !== index))}
-											>문제풀이 {index + 1} 삭제</button
-										>{/each}
+									{#each problemImages as image, index}<figure><img src={image.url} alt={`문제풀이 ${index + 1}`} /><button aria-label={`문제풀이 ${index + 1} 삭제`} onclick={() => removeAttachmentImage('problem', index)}>×</button><figcaption>문제풀이 {index + 1}</figcaption></figure>{/each}
 								</div>{/if}
 						</div>
 						<div class="final-buttons">
 							<button class="ghost-button" onclick={() => (modalStage = 'generate')}>이전</button
 							><div class="export-group">
 								{#if shareStatus}<small class="share-status">{shareStatus}</small>{/if}
-								<div class="export-actions"><button class="ghost-button" onclick={preparedShareFiles.length ? sharePreparedImages : prepareKakaoShare} disabled={kakaoBusy || pdfBusy}
+							<div class="export-actions"><button class="ghost-button" onclick={() => save(true)} disabled={saving || report?.status === 'submitted'}>{report?.status === 'submitted' ? '작성 완료됨' : '작성 완료 및 임시 사진 정리'}</button><button class="ghost-button" onclick={preparedShareFiles.length ? sharePreparedImages : prepareKakaoShare} disabled={kakaoBusy || pdfBusy}
 				>{kakaoBusy ? '이미지 묶음 만드는 중…' : preparedShareFiles.length ? '카카오톡 선택하기' : '카카오톡 이미지 묶음 준비'}</button
 							><button class="primary-button" onclick={downloadPdf} disabled={pdfBusy || kakaoBusy}
 								>{pdfBusy ? 'PDF 만드는 중…' : 'PDF 저장 및 다운로드'}</button
@@ -799,6 +929,7 @@
 						</div>
 					</section>
 					<section class="pdf-scroll">
+						{#if finalControlsCollapsed}<button class="panel-expand" onclick={() => (finalControlsCollapsed = false)}>최종 수정 열기</button>{/if}
 						<article class="pdf-preview" bind:this={pdfPreview}>
 							<h1>⊙ {report.studentName} 클리닉 리포트</h1>
 							<table class="summary-table">
@@ -860,7 +991,7 @@
 							<section class="report-section image-section">
 								<h2>백지 테스트 결과</h2>
 								{#if blankTestImages.length}<div class="image-grid">
-										{#each blankTestImages as image}<img src={image} alt="백지테스트" />{/each}
+										{#each blankTestImages as image}<img src={image.url} alt="백지테스트" />{/each}
 									</div>{:else}<p class="not-submitted">백지테스트를 제출하지 않았습니다.</p>{/if}
 							</section>
 							{#if problemImages.length || problemSolvingNote.trim()}<section
@@ -868,7 +999,7 @@
 								>
 									<h2>문제풀이</h2>
 									<div class="image-grid problem-image-grid">
-										{#each problemImages as image}<img src={image} alt="문제 풀이" />{/each}
+										{#each problemImages as image}<img src={image.url} alt="문제 풀이" />{/each}
 										{#if problemSolvingNote.trim()}<p class="problem-note">
 												{problemSolvingNote}
 											</p>{/if}
@@ -1075,6 +1206,9 @@
 		box-shadow: 0 24px 70px rgb(0 0 0 / 25%);
 	}
 	.report-modal > header {
+		position: sticky;
+		top: 0;
+		z-index: 10;
 		height: 72px;
 		padding: 14px 20px;
 		display: flex;
@@ -1106,6 +1240,41 @@
 		height: calc(100% - 72px);
 		display: grid;
 		grid-template-columns: minmax(430px, 38%) minmax(0, 62%);
+	}
+	.final-controls-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+	.final-controls-heading h3 {
+		margin: 0;
+	}
+	.panel-collapse,
+	.panel-expand {
+		padding: 7px 10px;
+		border: 1px solid var(--pp-line);
+		border-radius: 8px;
+		background: #fff;
+		color: var(--pp-ink);
+		font-size: 10px;
+		cursor: pointer;
+	}
+	.panel-expand {
+		position: sticky;
+		top: 14px;
+		z-index: 2;
+		margin: 0 0 10px auto;
+		display: block;
+	}
+	.final-columns.controls-collapsed {
+		grid-template-columns: 0 minmax(0, 100%);
+	}
+	.final-columns.controls-collapsed .final-controls {
+		overflow: hidden;
+		padding: 0;
+		border: 0;
+		opacity: 0;
 	}
 	.generate-input,
 	.source-compare,
@@ -1302,18 +1471,69 @@
 		color: var(--pp-muted);
 		font-size: 8px;
 	}
+	.paste-image-button {
+		justify-self: start;
+		padding: 7px 9px;
+		border: 1px dashed var(--pp-line);
+		border-radius: 7px;
+		background: #fff;
+		font-size: 10px;
+		cursor: pointer;
+	}
 	.attachment-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 5px;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+		gap: 8px;
+	}
+	.attachment-list figure {
+		position: relative;
+		margin: 0;
+		padding: 5px;
+		border: 1px solid var(--pp-line);
+		border-radius: 10px;
+		background: #fff;
+	}
+	.attachment-list img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 1;
+		border-radius: 7px;
+		object-fit: cover;
+	}
+	.attachment-list figcaption {
+		padding: 5px 2px 1px;
+		overflow: hidden;
+		color: var(--pp-muted);
+		font-size: 8px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.attachment-list button {
-		padding: 5px 8px;
-		border: 1px solid var(--pp-line);
-		border-radius: 999px;
-		background: #fff;
-		font-size: 8px;
+		position: absolute;
+		top: 9px;
+		right: 9px;
+		width: 28px;
+		height: 28px;
+		border: 0;
+		border-radius: 50%;
+		background: rgb(24 30 28 / 78%);
+		color: #fff;
+		font-size: 18px;
+		line-height: 1;
 		cursor: pointer;
+	}
+	.attachment-notice {
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: #eef4f0;
+		color: #526a60;
+		font-size: 10px;
+		line-height: 1.5;
+	}
+	.attachment-notice.attachment-error {
+		background: #fff0eb;
+		color: #a34e38;
 	}
 	.final-buttons {
 		margin-top: 20px;

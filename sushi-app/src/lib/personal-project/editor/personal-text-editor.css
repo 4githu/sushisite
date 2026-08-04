@@ -220,10 +220,13 @@
 	overflow-x: auto;
 }
 .table-question-check {
-	top: 7px;
+	top: 0;
 	left: calc(-14px - var(--block-indent, 0px));
-	min-height: calc(100% - 28px);
+	min-height: 100%;
+	z-index: 2;
 }
+
+.json-import-input { display: none; }
 .editor-table td {
 	border: 1px solid #cbd5e1;
 	padding: 0.65em 2em;
