@@ -171,13 +171,12 @@ def delete_cache(record_id: int) -> None:
         conn.commit()
 
 
-def build_report_input(target_id: int) -> dict[str, Any]:
+def build_report_input(target_id: int, *, include_question_checks: bool = False) -> dict[str, Any]:
     with connect() as conn:
         row = conn.execute(
             """SELECT t.student_name, r.user_id, s.id AS school_id,
                       s.name AS school_name,
                       r.round_numbers_json, e.start_time, e.end_time,
-                      e.description, rp.source_notes, rp.question_checks_json,
                       rp.content_json
                FROM aura_round_targets t
                JOIN aura_clinic_rounds r ON r.id = t.round_id
@@ -190,13 +189,12 @@ def build_report_input(target_id: int) -> dict[str, Any]:
     if not row:
         raise ValueError(f"target_id={target_id}인 학생 리포트를 찾을 수 없습니다.")
     rounds = json.loads(row["round_numbers_json"] or "[]")
-    checks = json.loads(row["question_checks_json"] or "{}")
     document = (
         json.loads(row["content_json"])
         if row["content_json"]
         else {"version": 1, "blocks": []}
     )
-    return {
+    result = {
         "schemaVersion": "aura.clinic-report-input.v1",
         "target": {
             "targetId": target_id,
@@ -208,11 +206,16 @@ def build_report_input(target_id: int) -> dict[str, Any]:
             "startTime": row["start_time"],
             "endTime": row["end_time"],
         },
-        "scheduleMemo": row["description"] or "",
-        "sourceNotes": row["source_notes"] or "",
-        "questionChecks": checks,
         "editorDocument": document,
     }
+    if include_question_checks:
+        with connect() as conn:
+            check_row = conn.execute(
+                "SELECT question_checks_json FROM aura_target_reports WHERE target_id = ?",
+                (target_id,),
+            ).fetchone()
+        result["questionChecks"] = json.loads(check_row["question_checks_json"] or "{}") if check_row else {}
+    return result
 
 
 def build_student_information(target_id: int) -> str:
@@ -225,10 +228,11 @@ def normalize_report_input(value: dict[str, Any]) -> dict[str, Any]:
     if isinstance(value.get("editorDocument"), dict):
         normalized = dict(value)
         normalized.setdefault("schemaVersion", "aura.clinic-report-input.v1")
-        normalized.setdefault("questionChecks", {})
-        normalized.setdefault("sourceNotes", "")
-        normalized.setdefault("scheduleMemo", "")
         normalized.setdefault("target", {})
+        # Ctrl+Alt+Q 체크와 메모는 화면용 정보이며 AI 판단 근거가 아니다.
+        normalized.pop("questionChecks", None)
+        normalized.pop("sourceNotes", None)
+        normalized.pop("scheduleMemo", None)
         return normalized
 
     if isinstance(value.get("contentJson"), dict):
@@ -243,9 +247,6 @@ def normalize_report_input(value: dict[str, Any]) -> dict[str, Any]:
                 "startTime": value.get("startTime"),
                 "endTime": value.get("endTime"),
             },
-            "sourceNotes": value.get("sourceNotes") or "",
-            "scheduleMemo": value.get("scheduleMemo") or "",
-            "questionChecks": value.get("questionChecks") or {},
             "editorDocument": value["contentJson"],
             **({"options": value["options"]} if isinstance(value.get("options"), dict) else {}),
             **(
@@ -259,9 +260,6 @@ def normalize_report_input(value: dict[str, Any]) -> dict[str, Any]:
         return {
             "schemaVersion": "aura.clinic-report-input.v1",
             "target": {},
-            "sourceNotes": "",
-            "scheduleMemo": "",
-            "questionChecks": {},
             "editorDocument": value,
         }
     raise ValueError(

@@ -373,6 +373,8 @@ def generate_target_ai_report(
         score_mode=data.score_mode,
         assessment_items=data.assessment_items,
         force=data.force,
+        highlight_semantics=data.highlight_semantics,
+        include_question_checks=data.include_question_checks,
     )
 
 

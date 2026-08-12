@@ -47,12 +47,22 @@ def generate(
     score_mode: str = "auto",
     assessment_items: list[dict[str, Any]] | None = None,
     force: bool = False,
+    highlight_semantics: dict[str, str] | None = None,
+    include_question_checks: bool = False,
 ) -> dict[str, Any]:
     if score_mode not in {"auto", "none"}:
         raise HTTPException(status_code=422, detail="평가 모드는 auto 또는 none이어야 합니다.")
     repository.get_or_create_target_report(user_id, target_id)
     migrate()
-    report_input = build_report_input(target_id)
+    allowed_semantics = {"fixed", "unfixed", "not_reasked"}
+    semantics = highlight_semantics or {
+        "yellow": "fixed", "orange": "unfixed", "peach": "not_reasked"
+    }
+    if set(semantics) != {"yellow", "orange", "peach"} or any(value not in allowed_semantics for value in semantics.values()):
+        raise HTTPException(status_code=422, detail="형광색 의미 설정을 확인해주세요.")
+    if len(set(semantics.values())) != 3:
+        raise HTTPException(status_code=422, detail="노랑·주황·살구의 의미는 서로 다르게 선택해주세요.")
+    report_input = build_report_input(target_id, include_question_checks=include_question_checks)
     if (report_input.get("target") or {}).get("userId") != user_id:
         raise HTTPException(status_code=404, detail="학생 리포트를 찾을 수 없습니다.")
 
@@ -103,6 +113,8 @@ def generate(
         "scoreMode": effective_score_mode,
         "requestedScoreMode": score_mode,
         "assessmentItems": clean_assessment,
+        "highlightSemantics": semantics,
+        "includeQuestionChecks": include_question_checks,
     }
     input_hash = _input_hash(report_input)
     prompt = GeminiReportService.read_prompt()

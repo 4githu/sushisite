@@ -217,12 +217,18 @@
 	position: relative;
 	width: fit-content;
 	max-width: 100%;
-	overflow-x: auto;
+	/* 표 때문에 별도 가로 스크롤 영역을 만들지 않습니다. */
+	overflow: visible;
+	padding-left: 0;
 }
 .table-question-check {
-	top: 0;
-	left: calc(-14px - var(--block-indent, 0px));
-	min-height: 100%;
+	/* 표 위아래의 문단 여백까지 덮어 하나의 레일처럼 이어 보이게 합니다. */
+	top: -12px;
+	/* 일반 문단의 question-check와 같은 왼쪽 레일에 맞춥니다. */
+	left: -14px;
+	width: 6px;
+	border-radius: 0;
+	min-height: calc(100% + 24px);
 	z-index: 2;
 }
 

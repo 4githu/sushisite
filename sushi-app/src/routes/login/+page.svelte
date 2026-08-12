@@ -13,7 +13,8 @@
 		home as Lock
 	} from "$lib/odi/icons";
 
-	const API = import.meta.env.VITE_SUSHIFASTURL;
+	const configuredApi = import.meta.env.VITE_SUSHIFASTURL || '';
+	const API = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApi.replace(/\/$/, '')) ? '' : configuredApi;
 
 	let email = $state("");
 	let password = $state("");

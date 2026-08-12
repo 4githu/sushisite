@@ -179,10 +179,21 @@ class GeminiReportService:
                 "새로 만들고 각 항목을 1~5점으로 평가한다. 이후 재사용할 수 있도록 "
                 "formatName과 items를 빠짐없이 반환한다."
             )
+        options = report_input.get("options") or {}
+        semantics = options.get("highlightSemantics") or {
+            "yellow": "fixed", "orange": "unfixed", "peach": "not_reasked"
+        }
+        labels = {"fixed": "고침", "unfixed": "못고침", "not_reasked": "재질문못함"}
+        question_rule = (
+            "초록색 질문 체크(questionChecks=true)는 실제로 물어본 부분이라는 보조 정보로 사용하되, 형광색이 없는 내용을 부족하다고 판정하는 근거로는 사용하지 마십시오."
+            if options.get("includeQuestionChecks") else
+            "초록색 질문 체크(questionChecks)는 전달되지 않았으며 판단에 사용하지 마십시오."
+        )
         return (
             "다음 아우라 클리닉 JSON을 분석해 지정된 JSON 결과만 반환하십시오. "
-            "editorDocument의 blocks, 표, depth, 각 children의 highlightColor와 "
-            "questionChecks를 원형 그대로 해석해야 합니다. 입력에 없는 사실은 추측하지 마십시오.\n\n"
+			"editorDocument의 blocks, 표, depth와 각 children의 highlightColor를 학습 내용과 상태의 근거로 해석해야 합니다. "
+			f"색상 의미는 노랑={labels.get(semantics.get('yellow'))}, 주황={labels.get(semantics.get('orange'))}, 살구={labels.get(semantics.get('peach'))}입니다. "
+			+ question_rule + " 메모와 일정 정보는 판단 근거가 아닙니다. 입력에 없는 사실은 추측하지 마십시오.\n\n"
             f"[평가 처리]\n{score_instruction}\n\n"
             "[아우라 입력 JSON]\n"
             + json.dumps(report_input, ensure_ascii=False, separators=(",", ":"))

@@ -1,6 +1,7 @@
 // src/lib/odi/stores/odiuser.ts
 
-const API = import.meta.env.VITE_SUSHIFASTURL;
+const configuredApi = import.meta.env.VITE_SUSHIFASTURL || '';
+const API = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApi.replace(/\/$/, '')) ? '' : configuredApi;
 
 import { goto } from "$app/navigation";
 import { writable, get } from "svelte/store";

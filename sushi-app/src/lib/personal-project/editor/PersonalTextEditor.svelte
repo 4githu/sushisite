@@ -252,10 +252,13 @@
 			const wrapper = globalThis.document.createElement('div');
 			wrapper.dataset.tableId = block.id;
 			wrapper.dataset.depth = String(block.depth ?? 0);
+			// 왼쪽 질문 띠의 기준선은 언제나 에디터 왼쪽에 둡니다.
+			// 들여쓰기는 표 내용에만 적용합니다.
+			wrapper.style.marginLeft = '0';
 			wrapper.style.setProperty('--block-indent', `${(block.depth ?? 0) * 24}px`);
-			if (block.depth) wrapper.style.marginLeft = `${block.depth * 24}px`;
 			const table = globalThis.document.createElement('table');
 			table.className = 'editor-table';
+			if (block.depth) table.style.marginLeft = `${block.depth * 24}px`;
 			const tbody = globalThis.document.createElement('tbody');
 			for (const row of block.rows) {
 				const tr = globalThis.document.createElement('tr');
@@ -974,6 +977,9 @@
 		const selectedBlock = activeBlock();
 		const selectedTable = selectedBlock?.closest<HTMLElement>('[data-table-id]');
 		const anchorId = selectedTable?.dataset.tableId ?? selectedBlock?.dataset.blockId;
+		const inheritedDepth = selectedTable
+			? Number(selectedTable.dataset.depth ?? 0)
+			: Number(selectedBlock?.style.getPropertyValue('--block-indent') || 0) / 24;
 		refreshDocumentFromDom();
 		pushUndo();
 		const rows = Math.min(10, Math.max(1, tableRows));
@@ -981,6 +987,7 @@
 		const table: EditorBlock = {
 			id: createId('table'),
 			type: 'table',
+			...(inheritedDepth > 0 ? { depth: Math.min(6, Math.max(0, Math.round(inheritedDepth))) } : {}),
 			rows: Array.from({ length: rows }, () =>
 				Array.from({ length: columns }, () => ({
 					id: createId('cell'),

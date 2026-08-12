@@ -245,6 +245,8 @@ class AiReportGenerate(BaseModel):
     score_mode: Literal["auto", "none"] = "auto"
     assessment_items: list[dict[str, Any]] | None = Field(default=None, max_length=20)
     force: bool = False
+    highlight_semantics: dict[str, Literal["fixed", "unfixed", "not_reasked"]] | None = None
+    include_question_checks: bool = False
 
 
 class KakaoSendMe(BaseModel):

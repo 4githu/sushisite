@@ -26,6 +26,11 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	let aiResults = $state<AiReportResult[]>([]);
 	let aiGenerating = $state(false);
 	let scoreMode = $state<'auto' | 'none'>('auto');
+	type HighlightMeaning = 'fixed' | 'unfixed' | 'not_reasked';
+	let highlightSemantics = $state<{ yellow: HighlightMeaning; orange: HighlightMeaning; peach: HighlightMeaning }>({
+		yellow: 'fixed', orange: 'unfixed', peach: 'not_reasked'
+	});
+	let includeQuestionChecks = $state(false);
 	let generatedReport = $state<AiReportResult['output'] | null>(null);
 	let aiModel = $state<string | null>(null);
 	let modalStage = $state<'closed' | 'generate' | 'final'>('closed');
@@ -48,6 +53,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	let preparedShareFiles = $state<File[]>([]);
 	let shareStatus = $state('');
 	let finalControlsCollapsed = $state(false);
+	let noteCollapsed = $state(false);
 	let loadingTargetId = 0;
 
 	function hasAppendixContent(document: EditorDocument) {
@@ -281,6 +287,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				model: selectedModel,
 				score_mode: scoreMode,
 				assessment_items: assessment.items,
+				highlight_semantics: highlightSemantics,
+				include_question_checks: includeQuestionChecks,
 				force
 			});
 			const result = response.results[0];
@@ -469,16 +477,17 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				'$lib/personal-project/aura/reportExport.client'
 			);
 			const canvas = await captureReport(pdfPreview);
-			const pdf = new jsPDF('p', 'mm', 'a4');
+			const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
 			const margin = 10;
 			const width = 210 - margin * 2;
 			const pageHeight = 297 - margin * 2;
 			const height = (canvas.height * width) / canvas.width;
-			const image = canvas.toDataURL('image/png');
+			// PNG 원본은 리포트 한 장만으로도 수 MB가 될 수 있어 JPEG로 압축합니다.
+			const image = canvas.toDataURL('image/jpeg', 0.76);
 			let offset = 0;
 			while (offset < height) {
 				if (offset > 0) pdf.addPage();
-				pdf.addImage(image, 'PNG', margin, margin - offset, width, height);
+				pdf.addImage(image, 'JPEG', margin, margin - offset, width, height, undefined, 'FAST');
 				const footerCanvas = globalThis.document.createElement('canvas');
 				footerCanvas.width = 600;
 				footerCanvas.height = 50;
@@ -656,11 +665,10 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		</div>
 	</nav>
 
-	<div class="report-layout">
-		<aside class="card note-panel">
-			<p class="eyebrow">Quick notes</p>
-			<h2>관찰 메모</h2>
-			<p>학생에게만 해당하는 메모입니다. 기본 양식에는 자동 반영되지 않습니다.</p>
+	<div class="report-layout" class:note-hidden={noteCollapsed}>
+		<aside class="card note-panel" class:note-collapsed={noteCollapsed}>
+			<div class="note-heading"><div><p class="eyebrow">Quick notes</p><h2>관찰 메모</h2></div><button class="note-toggle" onclick={() => (noteCollapsed = !noteCollapsed)}>{noteCollapsed ? '열기' : '접기'}</button></div>
+			{#if !noteCollapsed}<p>학생에게만 해당하는 메모입니다. 기본 양식에는 자동 반영되지 않습니다.</p>
 			<textarea bind:value={sourceNotes} placeholder="발음, 태도, 다음 회차에서 확인할 점…"
 			></textarea>
 			<div class="highlight-guide">
@@ -679,6 +687,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 					<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
 				</div>
 			</details>
+			{/if}
 		</aside>
 
 		<section class="card editor-panel">
@@ -687,9 +696,13 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 					<p class="eyebrow">Report editor</p>
 					<h2>{report.studentName} 리포트</h2>
 				</div>
-				<span class={`status-pill ${report.status}`}
-					>{report.status === 'submitted' ? '제출 완료' : '작성 중'}</span
-				>
+				<div class="editor-header-actions">
+					{#if noteCollapsed}<button class="note-toggle" onclick={() => (noteCollapsed = false)}>퀵메모 열기</button>{/if}
+					{#if report.status !== 'submitted'}<button class="complete-status-button" onclick={() => save(true)} disabled={saving}>작성 완료</button>{/if}
+					<span class={`status-pill ${report.status}`}
+						>{report.status === 'submitted' ? '제출 완료' : '작성 중'}</span
+					>
+				</div>
 			</header>
 			<div class="editor-wrap">
 				<p class="question-check-guide">
@@ -772,6 +785,20 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 								></select
 							></label
 						>
+						<section class="generation-rules">
+							<strong>형광색 의미</strong>
+							<small>이번 AI 생성에서만 적용됩니다.</small>
+							<label><span>노랑</span><select bind:value={highlightSemantics.yellow}>
+								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
+							</select></label>
+							<label><span>주황</span><select bind:value={highlightSemantics.orange}>
+								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
+							</select></label>
+							<label><span>살구</span><select bind:value={highlightSemantics.peach}>
+								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
+							</select></label>
+							<label class="question-rule"><input type="checkbox" bind:checked={includeQuestionChecks} /> <span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label>
+						</section>
 						<div class="rating-grid">
 							<label
 								><span>강의 수강도</span><input
@@ -1042,11 +1069,49 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		gap: 18px;
 		align-items: start;
 	}
+	.report-layout.note-hidden {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.report-layout.note-hidden .note-panel {
+		display: none;
+	}
+	.editor-header-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.complete-status-button {
+		padding: 7px 10px;
+		border: 1px solid #b9d2bf;
+		border-radius: 8px;
+		background: #eef7f0;
+		color: #4e6c57;
+		font-size: 10px;
+		cursor: pointer;
+	}
+	.complete-status-button:disabled { opacity: 0.55; cursor: wait; }
 	.note-panel {
 		position: sticky;
 		top: 18px;
 		padding: 20px;
 	}
+	.note-heading {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 8px;
+	}
+	.note-toggle {
+		flex: 0 0 auto;
+		padding: 6px 9px;
+		border: 1px solid var(--pp-line);
+		border-radius: 8px;
+		background: #fff;
+		color: var(--pp-muted);
+		font-size: 10px;
+		cursor: pointer;
+	}
+	.note-collapsed { padding-bottom: 12px; }
 	.note-panel h2 {
 		margin: 6px 0;
 	}
@@ -1189,13 +1254,15 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		display: grid;
 		place-items: center;
 		background: rgb(22 29 27 / 48%);
-		overflow: hidden;
+		overflow: auto;
+		touch-action: pan-y;
 	}
 	.report-modal {
 		position: fixed;
 		inset: 8px;
 		width: calc(100vw - 16px);
-		height: calc(100vh - 16px);
+		height: calc(100dvh - 16px);
+		max-height: calc(100dvh - 16px);
 		max-width: 1760px;
 		margin: auto;
 		padding: 0;
@@ -1238,6 +1305,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	.generate-columns,
 	.final-columns {
 		height: calc(100% - 72px);
+		min-height: 0;
 		display: grid;
 		grid-template-columns: minmax(430px, 38%) minmax(0, 62%);
 	}
@@ -1326,6 +1394,23 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		font-size: 10px;
 		font-weight: 700;
 	}
+	.generation-rules {
+		padding: 12px;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 7px;
+		border: 1px solid var(--pp-line);
+		border-radius: 9px;
+		background: #fbfaf6;
+		font-size: 9px;
+	}
+	.generation-rules > strong,
+	.generation-rules > small,
+	.generation-rules .question-rule { grid-column: 1 / -1; }
+	.generation-rules > small { color: var(--pp-muted); font-size: 8px; }
+	.generation-rules label { display: grid; gap: 4px; }
+	.generation-rules select { width: 100%; padding: 6px; border: 1px solid var(--pp-line); border-radius: 6px; background: #fff; }
+	.generation-rules .question-rule { display: flex; align-items: center; gap: 6px; padding-top: 4px; }
 	.rating-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
@@ -1539,6 +1624,9 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		margin-top: 20px;
 		display: flex;
 		justify-content: space-between;
+		gap: 12px;
+		padding-bottom: 36px;
+		flex-wrap: wrap;
 	}
 	.export-actions {
 		display: flex;
@@ -1717,10 +1805,14 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			grid-template-columns: 1fr;
 		}
 		.report-modal {
-			height: calc(100vh - 16px);
+			inset: 0;
+			width: 100vw;
+			height: 100dvh;
+			max-height: none;
+			border-radius: 0;
 		}
 		.modal-backdrop {
-			padding: 8px;
+			padding: 0;
 		}
 		.source-compare,
 		.pdf-scroll {
@@ -1729,7 +1821,17 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		.generate-input,
 		.final-controls {
 			border-right: 0;
+			padding-bottom: 140px;
+			-webkit-overflow-scrolling: touch;
+			overscroll-behavior: contain;
 		}
+		.generate-columns,
+		.final-columns {
+			height: calc(100dvh - 72px);
+			min-height: 0;
+		}
+		.final-buttons { flex-direction: column; align-items: stretch; }
+		.export-actions { flex-wrap: wrap; }
 		.modal-actions select {
 			max-width: 160px;
 		}

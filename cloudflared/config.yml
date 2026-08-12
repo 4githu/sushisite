@@ -1,0 +1,9 @@
+tunnel: e5727572-f4ba-4fa0-a08c-38fc82a952a3
+credentials-file: /home/a0104/.cloudflared/e5727572-f4ba-4fa0-a08c-38fc82a952a3.json
+
+ingress:
+  - hostname: aura.chobab.app
+    service: http://localhost:5173
+  - hostname: chobab.app
+    service: http://localhost:5173
+  - service: http_status:404

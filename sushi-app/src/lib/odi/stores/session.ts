@@ -6,6 +6,7 @@ import { get, writable } from "svelte/store";
 import { goto } from "$app/navigation";
 import { odiuser, type JsonObject } from "./odiuser";
 import { template } from "./template";
+import { publishPresentationData } from "$lib/odi/firebase/session-materials";
 
 export type PreSessionState = "waiting" | "running" | "finished" | "expired" | "cancelled";
 
@@ -112,6 +113,16 @@ export const session = {
 
 		if (data.template?.template) {
 			template.set(data.template.template);
+		}
+
+		const preparedTemplate = data.template?.template;
+		if (preparedTemplate?.type === "presentation") {
+			try {
+				await publishPresentationData(String(data.pin_code), preparedTemplate);
+			} catch (error) {
+				await this.updatePreSessionState(String(data.pin_code), "cancelled").catch(() => undefined);
+				throw error;
+			}
 		}
 
 		store.update((state) => ({

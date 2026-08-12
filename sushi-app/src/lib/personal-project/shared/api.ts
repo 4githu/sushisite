@@ -11,7 +11,12 @@ import type {
 	TargetReport
 } from './types';
 
-export const API_BASE = import.meta.env.VITE_SUSHIFASTURL ?? 'http://localhost:8000';
+// 개발·터널 환경에서도 로그인과 API가 같은 브라우저 출처를 사용해야
+// HttpOnly 쿠키가 빠지지 않는다. VITE_SUSHIFASTURL을 비워 두면 Vite proxy를 사용한다.
+const configuredApi = import.meta.env.VITE_SUSHIFASTURL || '';
+export const API_BASE = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApi.replace(/\/$/, ''))
+	? ''
+	: configuredApi;
 
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
 export type ReportAttachment = { id: number; kind: 'blank_test' | 'problem_solving'; name: string; mimeType: string; byteSize: number; createdAt: string };
@@ -244,6 +249,8 @@ export const personalApi = {
 			score_mode: 'auto' | 'none';
 			assessment_items?: Array<{ name: string; score: number }>;
 			force?: boolean;
+			highlight_semantics?: { yellow: 'fixed' | 'unfixed' | 'not_reasked'; orange: 'fixed' | 'unfixed' | 'not_reasked'; peach: 'fixed' | 'unfixed' | 'not_reasked' };
+			include_question_checks?: boolean;
 		}
 	) {
 		return request<{
