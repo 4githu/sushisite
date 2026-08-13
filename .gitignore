@@ -14,7 +14,7 @@ build/
 venv/
 .venv/
 
-*.db
+
 *.sqlite
 *.sqlite3
 
