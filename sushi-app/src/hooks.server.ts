@@ -6,18 +6,6 @@ import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
-/**
- * Product-specific hostnames can expose an existing route without changing
- * the URL shown in the browser. This is an internal rewrite, not a redirect.
- */
-const handleProductHost: Handle = async ({ event, resolve }) => {
-	if (event.url.hostname === 'rehear.chobab.app' && event.url.pathname === '/') {
-		event.url.pathname = '/odi';
-	}
-
-	return resolve(event);
-};
-
 const handleParaglide: Handle = ({ event, resolve }) =>
 	paraglideMiddleware(event.request, ({ request, locale }) => {
 		event.request = request;
@@ -41,4 +29,4 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle: Handle = sequence(handleProductHost, handleParaglide, handleBetterAuth);
+export const handle: Handle = sequence(handleParaglide, handleBetterAuth);
