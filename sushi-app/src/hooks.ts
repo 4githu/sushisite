@@ -1,4 +1,8 @@
 import type { Reroute } from '@sveltejs/kit';
-import { deLocalizeUrl } from '$lib/paraglide/runtime';
 
-export const reroute: Reroute = (request) => deLocalizeUrl(request.url).pathname;
+/** Render the Odi route at the Rehear product hostname without redirecting. */
+export const reroute: Reroute = ({ url }) => {
+	if (url.hostname === 'rehear.chobab.app' && url.pathname === '/') {
+		return '/odi';
+	}
+};
