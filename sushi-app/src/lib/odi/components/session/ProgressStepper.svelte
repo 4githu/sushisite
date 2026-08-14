@@ -57,6 +57,17 @@
 		box-shadow: var(--shadow-sm);
 	}
 
+	@media (max-width: 640px) {
+		.progress-stepper {
+			padding: 20px 14px;
+			overflow-x: auto;
+		}
+
+		.step-wrapper {
+			min-width: 128px;
+		}
+	}
+
 	.step-wrapper {
 		display: flex;
 		align-items: flex-start;

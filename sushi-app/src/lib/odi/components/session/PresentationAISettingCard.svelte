@@ -12,13 +12,13 @@
 		audiance as Group
 	} from "$lib/odi/icons";
 
-	type PersonaType = "general" | "student" | "judge" | "mixed";
+	type PersonaType = "" | "general" | "student" | "judge" | "mixed";
 
 	let {
-		personaType = $bindable("general"),
-		audienceSize = $bindable(20),
-		expertiseLevel = $bindable(2),
-		interestLevel = $bindable(2)
+		personaType = $bindable(""),
+		audienceSize = $bindable(0),
+		expertiseLevel = $bindable(0),
+		interestLevel = $bindable(0)
 	}: {
 		personaType?: PersonaType;
 		audienceSize?: number;
@@ -84,7 +84,7 @@
 				</div>
 
 				<p class="helper text-caption-medium">
-					청중 유형을 선택하면 추천 설정이 자동 적용됩니다.
+					청중 유형과 아래 항목을 하나씩 직접 선택해주세요.
 				</p>
 			</div>
 
@@ -255,5 +255,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
+	}
+
+	@media (max-width: 760px) {
+		.size-helper,
+		.audience-slider,
+		.level-row {
+			width: 100%;
+			margin-left: 0;
+			padding-left: 0;
+		}
+
+		.level-row {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

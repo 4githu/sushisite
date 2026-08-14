@@ -136,12 +136,18 @@
 		font-weight: var(--font-medium);
 	}
 
-	@media (max-width: 1200px) {
+	@container (max-width: 720px) {
 		.highlight-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
 		.analysis-columns {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@container (max-width: 420px) {
+		.highlight-grid {
 			grid-template-columns: 1fr;
 		}
 	}

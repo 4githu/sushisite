@@ -19,10 +19,10 @@
 	let {
 		title = $bindable(""),
 		purpose = $bindable(""),
-		language = $bindable("한국어"),
+		language = $bindable(""),
 		place = $bindable(""),
-		durationMinutes = $bindable(10),
-		questionCount = $bindable(3)
+		durationMinutes = $bindable(0),
+		questionCount = $bindable(0)
 	}: {
 		title?: string;
 		purpose?: string;
@@ -32,20 +32,33 @@
 		questionCount?: number;
 	} = $props();
 
-	let durationValue = $state(String(durationMinutes));
+	const presetDurations = [2, 5, 10, 15, 20, 30];
+	let durationValue = $state(
+		durationMinutes > 0 && !presetDurations.includes(durationMinutes)
+			? "custom"
+			: (durationMinutes > 0 ? String(durationMinutes) : "")
+	);
+	let customDuration = $state(
+		durationMinutes > 0 && !presetDurations.includes(durationMinutes)
+			? String(durationMinutes)
+			: ""
+	);
 
 	$effect(() => {
-		const next = String(durationMinutes);
-
-		if (durationValue !== next) {
-			durationValue = next;
+		if (durationMinutes <= 0) return;
+		if (presetDurations.includes(durationMinutes)) {
+			const next = String(durationMinutes);
+			if (durationValue !== next) durationValue = next;
+		} else if (durationValue !== "custom") {
+			durationValue = "custom";
+			customDuration = String(durationMinutes);
 		}
 	});
 
 	$effect(() => {
-		const next = Number(durationValue);
+		const next = Number(durationValue === "custom" ? customDuration : durationValue);
 
-		if (!Number.isNaN(next) && durationMinutes !== next) {
+		if (!Number.isNaN(next) && next >= 0 && durationMinutes !== next) {
 			durationMinutes = next;
 		}
 	});
@@ -64,11 +77,13 @@
 	];
 
 	const durationItems = [
+		{ label: "2분", value: "2" },
 		{ label: "5분", value: "5" },
 		{ label: "10분", value: "10" },
 		{ label: "15분", value: "15" },
 		{ label: "20분", value: "20" },
-		{ label: "30분", value: "30" }
+		{ label: "30분", value: "30" },
+		{ label: "직접 설정", value: "custom" }
 	];
 
 	const placeItems = [
@@ -138,6 +153,21 @@
 						icon={알람콘}
 						bind:value={durationValue}
 					/>
+
+					{#if durationValue === "custom"}
+						<label class="custom-duration">
+							<span class="sr-only">발표 시간 직접 입력</span>
+							<input
+								type="number"
+								min="1"
+								max="180"
+								step="1"
+								placeholder="분 단위로 입력"
+								bind:value={customDuration}
+							/>
+							<span>분</span>
+						</label>
+					{/if}
 				</div>
 
 				<div class="field">
@@ -167,7 +197,7 @@
 
 					<SegmentedControl
 						items={placeItems}
-						itemWidth="228.33px"
+						itemWidth="calc((100% - 40px) / 3)"
 						bind:selected={place}
 					/>
 				</div>
@@ -178,9 +208,10 @@
 
 <style>
 	.presentation-basic-card {
+		container-type: inline-size;
 		display: flex;
 		flex-direction: column;
-		gap: 64px;
+		gap: 40px;
 	}
 
 	.top-grid {
@@ -192,7 +223,7 @@
 
 	.environment-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 728px) minmax(0, 721px);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 40px;
 		align-items: start;
 	}
@@ -206,7 +237,7 @@
 	}
 
 	.left-column {
-		gap: 40px;
+		gap: 32px;
 	}
 
 	.label {
@@ -220,7 +251,38 @@
 		color: var(--purple);
 	}
 
-	@media (max-width: 1280px) {
+	.custom-duration {
+		height: 50px;
+		padding: 0 var(--space-5);
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+	}
+
+	.custom-duration:focus-within {
+		border-color: var(--primary);
+	}
+
+	.custom-duration input {
+		min-width: 0;
+		flex: 1;
+		border: 0;
+		outline: 0;
+		background: transparent;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+	}
+
+	@container (max-width: 980px) {
 		.top-grid,
 		.environment-grid {
 			grid-template-columns: 1fr;

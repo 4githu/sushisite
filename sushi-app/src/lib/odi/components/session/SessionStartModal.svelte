@@ -180,6 +180,7 @@
 	background:rgba(3,8,18,.55);
 
 	backdrop-filter:blur(2px);
+	overflow-y:auto;
 }
 
 
@@ -188,6 +189,7 @@
 	position:relative;
 
 	width:760px;
+	max-width:100%;
 
 	background:var(--surface);
 
@@ -295,5 +297,25 @@
 .load-button:hover{
 
 	background:var(--blue-light-hover);
+}
+
+@media (max-width: 720px) {
+	.modal-overlay {
+		align-items:flex-start;
+		padding:16px;
+	}
+
+	.popup-card {
+		margin-block:12px;
+	}
+
+	.modal-content {
+		padding:52px 18px 24px;
+	}
+
+	.card-row {
+		flex-direction:column;
+		gap:14px;
+	}
 }
 </style>

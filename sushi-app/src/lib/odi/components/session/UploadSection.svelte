@@ -3,6 +3,7 @@
 <script lang="ts">
 	import {
 		DocumentIcon,
+		PdfIcon,
 		Cloud
 	} from "$lib/odi/icons";
 
@@ -96,44 +97,57 @@
 		{/if}
 	</div>
 
-	<button
-		type="button"
-		class={["upload-box", "clickable", fileRef && "has-file", uploading && "uploading", error && "has-error"]}
-		onclick={openFileDialog}
-		ondragover={handleDragOver}
-		ondrop={handleDrop}
-		disabled={uploading}
-	>
-		<input
-			bind:this={input}
-			class="file-input"
-			type="file"
-			{accept}
-			onchange={handleChange}
-		/>
+	<input
+		bind:this={input}
+		class="file-input"
+		type="file"
+		{accept}
+		onchange={handleChange}
+	/>
 
-		<div class="upload-content">
-			<img class="upload-icon" src={Cloud} alt="" />
+	{#if fileRef && !uploading}
+		<div class="uploaded-card" class:has-error={Boolean(error)}>
+			<button type="button" class="uploaded-main clickable" onclick={openFileDialog} aria-label="다른 파일로 변경">
+				<div class="pdf-icon" aria-hidden="true">
+					<img src={PdfIcon} alt="" />
+				</div>
 
-			{#if uploading}
+				<span class="file-copy">
+					<strong>{fileRef.original_name}</strong>
+					<small>
+						{formatSize(fileRef.size_bytes) || "크기 정보 없음"}
+						{#if fileRef.page_count}
+							· {fileRef.page_count}페이지
+						{/if}
+					</small>
+				</span>
+			</button>
+
+			<div class="upload-status" aria-label="업로드 완료">
+				<span class="status-check">✓</span>
+				<span>업로드 완료</span>
+			</div>
+
+			{#if onClear}
+				<button type="button" class="clear-icon clickable" aria-label="파일 선택 해제" onclick={onClear}>×</button>
+			{/if}
+		</div>
+	{:else}
+		<button
+			type="button"
+			class={["upload-box", "clickable", uploading && "uploading", error && "has-error"]}
+			onclick={openFileDialog}
+			ondragover={handleDragOver}
+			ondrop={handleDrop}
+			disabled={uploading}
+		>
+			<div class="upload-content">
+				<img class="upload-icon" src={Cloud} alt="" />
+
+				{#if uploading}
 				<p class="text-body file-name">업로드 중...</p>
 				<p class="text-body helper">파일을 서버에 저장하고 있습니다</p>
-			{:else if fileRef}
-				<p class="text-body file-name">
-					{fileRef.original_name}
-				</p>
-
-				<p class="text-body helper">
-					{formatSize(fileRef.size_bytes)}
-					{#if fileRef.page_count}
-						· {fileRef.page_count}페이지
-					{/if}
-				</p>
-
-				<p class="text-body helper">
-					다른 파일로 변경하려면 클릭해주세요
-				</p>
-			{:else}
+				{:else}
 				<p class="text-body helper">
 					PDF 파일을 드래그하거나 클릭하여 업로드 해주세요
 				</p>
@@ -141,16 +155,9 @@
 				<p class="text-body helper">
 					최대 {maxSizeMB}MB
 				</p>
-			{/if}
-		</div>
-	</button>
-
-	{#if fileRef && onClear}
-		<div class="file-actions">
-			<button type="button" class="clear-button clickable text-caption-medium" onclick={onClear}>
-				파일 선택 해제
-			</button>
-		</div>
+				{/if}
+			</div>
+		</button>
 	{/if}
 
 	{#if error}
@@ -194,16 +201,102 @@
 		background: var(--blue-light);
 	}
 
-	.upload-box.has-file {
-		border-color: var(--primary);
-	}
-
 	.upload-box.uploading {
 		opacity: 0.72;
 	}
 
 	.upload-box.has-error {
 		border-color: var(--accent);
+	}
+
+	.uploaded-card {
+		width: 100%;
+		min-height: 88px;
+		padding: 11px;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto 36px;
+		align-items: center;
+		gap: 10px;
+		border: 1.4px solid var(--cool-grey-light-active);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+	}
+
+	.uploaded-card.has-error {
+		border-color: var(--accent);
+	}
+
+	.uploaded-main {
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		text-align: left;
+	}
+
+	.pdf-icon {
+		width: 52px;
+		height: 52px;
+		flex: 0 0 52px;
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.pdf-icon img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+	}
+
+	.file-copy {
+		min-width: 0;
+		display: grid;
+		gap: 4px;
+	}
+
+	.file-copy strong {
+		overflow: hidden;
+		color: var(--brand-black);
+		font-size: 18px;
+		font-weight: var(--font-medium);
+		line-height: 1.35;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.file-copy small {
+		color: var(--text-disabled);
+		font-size: 14px;
+	}
+
+	.upload-status {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		color: #44c699;
+		font-size: 14px;
+		font-weight: var(--font-medium);
+		white-space: nowrap;
+	}
+
+	.status-check {
+		font-size: 20px;
+		font-weight: var(--font-bold);
+	}
+
+	.clear-icon {
+		width: 36px;
+		height: 36px;
+		border-radius: 8px;
+		color: var(--text-secondary);
+		font-size: 25px;
+		line-height: 1;
+	}
+
+	.clear-icon:hover {
+		background: var(--cool-grey-light);
+		color: var(--accent);
 	}
 
 	.file-input {
@@ -253,21 +346,31 @@
 		white-space: nowrap;
 	}
 
-	.file-actions {
-		display: flex;
-		justify-content: flex-end;
-		margin-top: calc(var(--space-6) * -1 + var(--space-2));
-	}
-
-	.clear-button {
-		color: var(--text-secondary);
-	}
-
-	.clear-button:hover {
-		color: var(--accent);
-	}
-
 	.error {
 		color: var(--accent);
+	}
+
+	@media (max-width: 640px) {
+		.uploaded-card {
+			grid-template-columns: minmax(0, 1fr) 36px;
+		}
+
+		.upload-status {
+			grid-column: 1;
+			padding-left: 72px;
+		}
+
+		.clear-icon {
+			grid-column: 2;
+			grid-row: 1 / span 2;
+		}
+
+		.uploaded-main {
+			gap: 12px;
+		}
+
+		.file-copy strong {
+			font-size: 15px;
+		}
 	}
 </style>

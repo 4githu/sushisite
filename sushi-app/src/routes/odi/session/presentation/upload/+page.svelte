@@ -64,7 +64,7 @@
 		});
 	});
 
-	const canNext = $derived(Boolean(slideFileRef?.storage_path) && scriptText.trim().length > 0 && !slideUploading && !paperUploading);
+	const canNext = $derived(Boolean(slideFileRef?.storage_path) && !slideUploading && !paperUploading);
 
 	async function handleSlideSelected(file: File) {
 		slideUploading = true;
@@ -240,5 +240,11 @@
 		.content-grid {
 			grid-template-columns: 1fr;
 		}
+	}
+
+	@media (max-width: 640px) {
+		.session-page { padding: 24px 16px 32px; }
+		.page-actions { align-items: stretch; flex-direction: column-reverse; }
+		.page-actions :global(.button) { width: 100% !important; }
 	}
 </style>

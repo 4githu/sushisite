@@ -10,7 +10,7 @@
 	import PresentationAISettingCard from "$lib/odi/components/session/PresentationAISettingCard.svelte";
 	import {Check, whiteright as grayright} from "$lib/odi/icons"
 
-	type PersonaType = "general" | "student" | "judge" | "mixed";
+	type PersonaType = "" | "general" | "student" | "judge" | "mixed";
 
 	const steps = [
 		{ label: "발표 기본 정보" },
@@ -21,10 +21,10 @@
 
 	let ready = $state(false);
 
-	let personaType = $state("general" as PersonaType);
-	let audienceSize = $state(6);
-	let expertiseLevel = $state(2);
-	let interestLevel = $state(2);
+	let personaType = $state("" as PersonaType);
+	let audienceSize = $state(0);
+	let expertiseLevel = $state(0);
+	let interestLevel = $state(0);
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
@@ -46,10 +46,11 @@
 		if (value === "심사위원 중심") return "judge";
 		if (value === "혼합") return "mixed";
 
-		return "general";
+		return "";
 	}
 
 	function toAudienceType(value: PersonaType) {
+		if (value === "") return "";
 		if (value === "general") return "일반 청중";
 		if (value === "student") return "학생 중심";
 		if (value === "judge") return "심사위원 중심";
@@ -57,12 +58,14 @@
 	}
 
 	function toLevelNumber(value: string) {
+		if (!value) return 0;
 		if (value === "낮음") return 1;
 		if (value === "높음") return 3;
 		return 2;
 	}
 
 	function toLevelText(value: number) {
+		if (value === 0) return "";
 		if (value === 1) return "낮음";
 		if (value === 3) return "높음";
 		return "중간";
@@ -89,6 +92,13 @@
 			interest_level: toLevelText(interestLevel)
 		});
 	});
+
+	const canNext = $derived(
+		personaType !== "" &&
+		audienceSize >= 1 &&
+		expertiseLevel >= 1 &&
+		interestLevel >= 1
+	);
 </script>
 
 <main class="session-page">
@@ -151,6 +161,7 @@
 		<Button
 			variant="primary"
 			width="212px"
+			disabled={!canNext}
 			trailingIcon={grayright}
 			onclick={() => goto("/odi/session/presentation/confirm")}
 		>
@@ -207,5 +218,11 @@
 		.content-grid {
 			grid-template-columns: 1fr;
 		}
+	}
+
+	@media (max-width: 640px) {
+		.session-page { padding: 24px 16px 32px; }
+		.page-actions { align-items: stretch; flex-direction: column-reverse; }
+		.page-actions :global(.button) { width: 100% !important; }
 	}
 </style>

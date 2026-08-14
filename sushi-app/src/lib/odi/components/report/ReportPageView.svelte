@@ -52,6 +52,8 @@
 <style>
 	.report-page-view {
 		width: 100%;
+		container-type: inline-size;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-6);
@@ -74,16 +76,19 @@
 
 	.bottom-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 1.15fr) minmax(420px, 0.85fr);
-		gap: var(--space-10);
+		grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+		gap: var(--space-8);
 		align-items: center;
 	}
 
-	@media (max-width: 1500px) {
+	/* 사이드바와 확대 배율을 포함한 실제 리포트 폭을 기준으로 전환합니다. */
+	@container (max-width: 1500px) {
 		.top-grid {
 			grid-template-columns: 1fr;
 		}
+	}
 
+	@container (max-width: 1100px) {
 		.bottom-grid {
 			grid-template-columns: 1fr;
 		}

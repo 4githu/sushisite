@@ -47,4 +47,14 @@
 		display: flex;
 		flex-direction: column;
 	}
+
+	@media (max-width: 640px) {
+		.surface-card {
+			min-height: auto;
+		}
+
+		.surface-card-body {
+			padding: 20px;
+		}
+	}
 </style>

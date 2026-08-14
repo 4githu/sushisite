@@ -33,9 +33,11 @@
 
 <style>
 	.ai-card {
+		min-width: 0;
+		padding: 8px 0;
 		display: flex;
 		flex-direction: column;
-		gap: 36px;
+		gap: var(--space-5);
 	}
 
 	.text-area {
@@ -82,4 +84,5 @@
 	.training-button:hover {
 		background: var(--primary-hover);
 	}
+
 </style>

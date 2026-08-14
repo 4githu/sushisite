@@ -106,4 +106,10 @@
 		font-size: 18px;
 		font-weight: var(--font-medium);
 	}
+
+	@media (max-width: 640px) {
+		.report-page {
+			padding: 20px 12px 32px;
+		}
+	}
 </style>

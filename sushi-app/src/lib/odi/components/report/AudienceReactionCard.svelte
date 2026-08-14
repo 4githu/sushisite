@@ -1,7 +1,6 @@
 <!-- src/lib/odi/components/report/AudienceReactionCard.svelte -->
 
 <script lang="ts">
-	import ReportCard from "./ReportCard.svelte";
 	import type { AudienceGraphPoint, ReportFeedback } from "./reportTypes";
 	import { Exclude, sentiment_satisfied, sms } from "$lib/odi/icons";
 
@@ -53,7 +52,7 @@
 	]);
 </script>
 
-<ReportCard padding="24px 28px" minHeight="260px">
+<div class="audience-shell">
 	<div class="audience-card">
 		<section class="chart-area">
 			<div class="chart-header">
@@ -107,13 +106,18 @@
 			{/each}
 		</section>
 	</div>
-</ReportCard>
+</div>
 
 <style>
+	.audience-shell {
+		container-type: inline-size;
+		min-width: 0;
+	}
+
 	.audience-card {
 		display: grid;
-		grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
-		gap: var(--space-10);
+		grid-template-columns: minmax(320px, 1.25fr) minmax(220px, 0.75fr);
+		gap: var(--space-6);
 		align-items: center;
 	}
 
@@ -291,7 +295,7 @@
 	}
 
 	/* 이 카드는 큰 화면 안에서도 좁은 열에 놓일 수 있으므로 viewport가 아닌 카드 폭을 봅니다. */
-	@container (max-width: 1000px) {
+	@container (max-width: 580px) {
 		.audience-card {
 			grid-template-columns: 1fr;
 		}

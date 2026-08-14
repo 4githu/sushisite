@@ -21,10 +21,10 @@
 
 	let title = $state("");
 	let purpose = $state("");
-	let language = $state("한국어");
+	let language = $state("");
 	let place = $state("");
-	let durationMinutes = $state(10);
-	let questionCount = $state(3);
+	let durationMinutes = $state(0);
+	let questionCount = $state(0);
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
@@ -99,6 +99,7 @@
 		<Button
 			variant="primary"
 			width="212px"
+			disabled={!canNext}
 			trailingIcon={whiteright}
 			onclick={() => goto("/odi/session/presentation/upload")}
 		>
@@ -142,5 +143,11 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: var(--space-4);
+	}
+
+	@media (max-width: 640px) {
+		.session-page { padding: 24px 16px 32px; }
+		.page-actions { align-items: stretch; flex-direction: column-reverse; }
+		.page-actions :global(.button) { width: 100% !important; }
 	}
 </style>

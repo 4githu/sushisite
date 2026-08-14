@@ -41,8 +41,9 @@
 	} = $props();
 
 	const progress = $derived(
-		((value - min) / (max - min)) * 100
+		Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
 	);
+	const unset = $derived(value < min || value > max);
 
 	function left(v: number) {
 		return `${((v - min) / (max - min)) * 100}%`;
@@ -89,6 +90,7 @@
 
 	<div
 		class="track-area"
+		class:unset
 		style={styleVars}
 	>
 
@@ -223,6 +225,11 @@
 		z-index: 4;
 
 		pointer-events: none;
+	}
+
+	.track-area.unset .progress,
+	.track-area.unset .thumb {
+		display: none;
 	}
 		.major,
 	.minor {

@@ -77,7 +77,7 @@
 				</div>
 
 				<h2 class="text-title-middle">발표 스크립트</h2>
-				<span class="required text-title-middle">*</span>
+				<span class="optional text-caption-medium">선택</span>
 			</div>
 
 			<textarea
@@ -94,6 +94,7 @@
 				<Button
 					variant="outline"
 					width="228px"
+					disabled={scriptText.trim().length === 0}
 					onclick={onCheckScript}
 				>
 					스크립트 검사하기
@@ -138,8 +139,11 @@
 		display: block;
 	}
 
-	.required {
-		color: var(--purple);
+	.optional {
+		padding: 3px 8px;
+		border-radius: var(--radius-full);
+		background: var(--cool-grey-light);
+		color: var(--text-secondary);
 	}
 
 	.script-input {
@@ -166,6 +170,17 @@
 		align-items: center;
 		justify-content: flex-end;
 		gap: var(--space-5);
+	}
+
+	@media (max-width: 640px) {
+		.script-footer {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.script-footer :global(.button) {
+			width: 100% !important;
+		}
 	}
 
 	.counter {

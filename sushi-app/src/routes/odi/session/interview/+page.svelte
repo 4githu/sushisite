@@ -19,11 +19,11 @@
 		position: "",
 		jobDetail: "",
 
-		interviewTime: 30,
-		interviewSituation: "one-to-one",
+		interviewTime: 0,
+		interviewSituation: "",
 		language: "",
-		interviewerCount: "1",
-		answerOrder: "first"
+		interviewerCount: "0",
+		answerOrder: ""
 	});
 
 
@@ -78,6 +78,17 @@
 
 		goto("/odi/session/interview/upload");
 	}
+
+	const canNext = $derived(
+		basicInfo.company.trim().length > 0 &&
+		basicInfo.department.trim().length > 0 &&
+		basicInfo.position.trim().length > 0 &&
+		basicInfo.interviewTime > 0 &&
+		basicInfo.interviewSituation.length > 0 &&
+		basicInfo.language.length > 0 &&
+		Number(basicInfo.interviewerCount) > 0 &&
+		basicInfo.answerOrder.length > 0
+	);
 </script>
 
 <section class="session-page">
@@ -125,6 +136,7 @@
 
 		<Button
 			width="212px"
+			disabled={!canNext}
 			onclick={goNext}
 		>
 			다음 단계
@@ -135,11 +147,19 @@
 <style>
 .session-page {
 	width: 100%;
+	min-height: 100vh;
+	padding: 36px 48px 40px;
 
 	display: flex;
 	flex-direction: column;
 
 	gap: var(--space-6);
+}
+
+@media (max-width: 640px) {
+	.session-page { padding: 24px 16px 32px; }
+	.actions { align-items: stretch; flex-direction: column-reverse; }
+	.actions :global(.button) { width: 100% !important; }
 }
 
 .page-header {

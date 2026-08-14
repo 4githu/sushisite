@@ -4,11 +4,11 @@
 	import SessionSelect from "$lib/odi/components/session/SessionSelect.svelte";
 
 	let {
-		interviewTime = $bindable(30),
-		interviewSituation = $bindable("one-to-one"),
+		interviewTime = $bindable(0),
+		interviewSituation = $bindable(""),
 		language = $bindable(""),
-		interviewerCount = $bindable("1"),
-		answerOrder = $bindable("first")
+		interviewerCount = $bindable("0"),
+		answerOrder = $bindable("")
 	}: {
 		interviewTime?: number;
 		interviewSituation?: string;
@@ -44,7 +44,9 @@
 	];
 
 	const answerOrderItems = [
-		{ label: "첫번째", value: "first" }
+		{ label: "순서대로", value: "sequential" },
+		{ label: "자유 순서", value: "free" },
+		{ label: "면접관 지정", value: "interviewer-led" }
 	];
 </script>
 
@@ -102,8 +104,8 @@
 
 			<SessionSelect
 				width="343px"
+				placeholder="선택해주세요"
 				items={interviewerCountItems}
-				disabled
 				bind:value={interviewerCount}
 			/>
 		</div>
@@ -115,8 +117,8 @@
 
 			<SessionSelect
 				width="343px"
+				placeholder="선택해주세요"
 				items={answerOrderItems}
-				disabled
 				bind:value={answerOrder}
 			/>
 		</div>
@@ -132,8 +134,7 @@
 
 	.environment-grid {
 		display: grid;
-		grid-template-columns: 726px 1fr 343px 343px;
-		grid-template-rows: auto auto;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		column-gap: var(--space-10);
 		row-gap: var(--space-8);
 		align-items: start;
@@ -146,36 +147,51 @@
 	}
 
 	.slider-field {
-		grid-column: 1 / 3;
+		grid-column: 1;
 		grid-row: 1;
-		width: 726px;
+		width: 100%;
 	}
 
 	.situation-field {
-		grid-column: 3 / 5;
+		grid-column: 2;
 		grid-row: 1;
-		width: 726px;
+		width: 100%;
 	}
 
 	.language-field {
 		grid-column: 1;
 		grid-row: 2;
-		width: 343px;
+		width: 100%;
 	}
 
 	.interviewer-field {
-		grid-column: 3;
+		grid-column: 2;
 		grid-row: 2;
-		width: 343px;
+		width: 100%;
 	}
 
 	.order-field {
-		grid-column: 4;
-		grid-row: 2;
-		width: 343px;
+		grid-column: 1;
+		grid-row: 3;
+		width: 100%;
 	}
 
 	.slider-wrap {
-		width: 726px;
+		width: 100%;
+	}
+
+	@media (max-width: 900px) {
+		.environment-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.slider-field,
+		.situation-field,
+		.language-field,
+		.interviewer-field,
+		.order-field {
+			grid-column: 1;
+			grid-row: auto;
+		}
 	}
 </style>

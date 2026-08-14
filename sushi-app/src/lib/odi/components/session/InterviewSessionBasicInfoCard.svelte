@@ -10,11 +10,11 @@
 		position = $bindable(""),
 		jobDetail = $bindable(""),
 
-		interviewTime = $bindable(30),
-		interviewSituation = $bindable("one-to-one"),
+		interviewTime = $bindable(0),
+		interviewSituation = $bindable(""),
 		language = $bindable(""),
-		interviewerCount = $bindable("1"),
-		answerOrder = $bindable("first")
+		interviewerCount = $bindable("0"),
+		answerOrder = $bindable("")
 	}: {
 		company?: string;
 		department?: string;

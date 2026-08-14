@@ -52,13 +52,24 @@
 
 <style>
 	.segmented-control {
+		width: 100%;
 		display: inline-flex;
 		align-items: center;
-
+		flex-wrap: wrap;
 		gap: var(--segment-gap);
 	}
 
 	.card {
 		align-items: flex-start;
+	}
+
+	@media (max-width: 640px) {
+		.segmented-control {
+			gap: var(--space-2);
+		}
+
+		.segmented-control :global(.segment-item) {
+			width: 100% !important;
+		}
 	}
 </style>

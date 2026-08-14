@@ -44,6 +44,7 @@
 
 <style>
 	.select {
+		max-width: 100%;
 		height: 50px;
 
 		display: flex;

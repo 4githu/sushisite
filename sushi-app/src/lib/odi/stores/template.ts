@@ -169,19 +169,19 @@ export function createDefaultPresentationTemplate(): PresentationTemplate {
 		environment: {
 			title: "",
 			purpose: "",
-			language: "한국어",
+			language: "",
 			place: "",
-			duration_minutes: 10,
-			question_count: 3
+			duration_minutes: 0,
+			question_count: 0
 		},
 
 		files: createEmptyFiles(),
 
 		audience: {
 			audience_type: "",
-			audience_count: 6,
-			expertise_level: "중간",
-			interest_level: "중간"
+			audience_count: 0,
+			expertise_level: "",
+			interest_level: ""
 		}
 	};
 }
@@ -196,10 +196,10 @@ export function createDefaultInterviewTemplate(): InterviewTemplate {
 			department: "",
 			position: "",
 			job_detail: "",
-			language: "한국어",
-			duration_minutes: 30,
+			language: "",
+			duration_minutes: 0,
 			interview_context: "",
-			interviewer_count: 2,
+			interviewer_count: 0,
 			answer_order: ""
 		},
 

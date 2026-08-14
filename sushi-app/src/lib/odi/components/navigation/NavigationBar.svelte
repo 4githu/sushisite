@@ -350,12 +350,14 @@
 		userName = "사용자",
 		planName = "새싹 보이스",
 		onNewSession,
-		onOpenAccount
+		onOpenAccount,
+		onCloseMobile
 	}: {
 		userName?: string;
 		planName?: string;
 		onNewSession?: () => void;
 		onOpenAccount?: () => void;
+		onCloseMobile?: () => void;
 	} = $props();
 
 	let showProfile = $state(false);
@@ -400,6 +402,13 @@
 		onOpenAccount?.();
 	}
 
+	function navigateTo(path: string) {
+		if (window.matchMedia("(max-width: 900px)").matches) {
+			onCloseMobile?.();
+		}
+		goto(path);
+	}
+
 	onMount(() => {
 		function handleOutside(event: MouseEvent) {
 			if (showProfile && navigation && !navigation.contains(event.target as Node)) {
@@ -416,6 +425,9 @@
 </script>
 
 <aside class="navigation" bind:this={navigation}>
+	<button type="button" class="sidebar-close clickable" aria-label="사이드바 접기" onclick={onCloseMobile}>
+		<span class="desktop-mark">‹</span><span class="mobile-mark">×</span>
+	</button>
 	<div class="top">
 		<div class="logo-area">
 			<img class="logo" src={Logo} alt="Re:hear" />
@@ -427,10 +439,10 @@
 		</Button>
 
 		<div class="menu">
-			<NavigationItem label="Home" icon={Home} selected={currentPage === "home"} onclick={() => goto("/odi")} />
-			<NavigationItem label="Favorites" icon={Favorites} selected={currentPage === "favorites"} onclick={() => goto("/odi/favorites")} />
-			<NavigationItem label="Report" icon={Report} selected={currentPage === "report"} onclick={() => goto("/odi/report")} />
-			<NavigationItem label="My Practice" icon={MyPractice} selected={currentPage === "practice"} onclick={() => goto("/odi/practice")} />
+			<NavigationItem label="Home" icon={Home} selected={currentPage === "home"} onclick={() => navigateTo("/odi")} />
+			<NavigationItem label="Favorites" icon={Favorites} selected={currentPage === "favorites"} onclick={() => navigateTo("/odi/favorites")} />
+			<NavigationItem label="Report" icon={Report} selected={currentPage === "report"} onclick={() => navigateTo("/odi/report")} />
+			<NavigationItem label="My Practice" icon={MyPractice} selected={currentPage === "practice"} onclick={() => navigateTo("/odi/practice")} />
 		</div>
 	</div>
 
@@ -547,6 +559,38 @@
 		left: 0;
 		bottom: 64px;
 		z-index: 10;
+	}
+
+	.sidebar-close {
+		position: absolute;
+		top: 12px;
+		right: 10px;
+		width: 34px;
+		height: 34px;
+		display: grid;
+		place-items: center;
+		border-radius: 8px;
+		color: var(--surface);
+		font-size: 30px;
+		line-height: 1;
+	}
+
+	.sidebar-close:hover {
+		background: rgb(from var(--surface) r g b / 10%);
+	}
+
+	.mobile-mark {
+		display: none;
+	}
+
+	@media (max-width: 900px) {
+		.desktop-mark {
+			display: none;
+		}
+
+		.mobile-mark {
+			display: inline;
+		}
 	}
 </style>
 <!---->

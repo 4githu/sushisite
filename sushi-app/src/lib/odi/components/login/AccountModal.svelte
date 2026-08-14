@@ -280,7 +280,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-6);
-		overflow: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
 		background: var(--surface);
 		border-radius: var(--radius-md);
 	}
@@ -322,6 +323,7 @@
 	}
 
 	.grid {
+		min-width: 0;
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--space-5);
@@ -338,19 +340,18 @@
 
 	.danger-box {
 		padding: var(--space-4);
-		display: flex;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--space-5);
 		border: 1px solid var(--cool-grey-light-active);
 		border-radius: var(--radius-sm);
 		background: var(--surface);
-		flex-wrap: wrap;
 	}
 
 	.danger-box > :first-child {
 		min-width: 0;
-		flex: 1 1 200px;
 	}
 
 	.danger-box strong {
@@ -367,16 +368,16 @@
 	}
 
 	.delete-control {
-		width: auto;
+		width: min(100%, 460px);
 		min-width: 0;
-		flex: 1 1 320px;
-		display: flex;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 140px;
 		align-items: flex-end;
 		gap: var(--space-3);
 	}
 
 	.delete-control :global(.field) {
-		flex: 1;
+		min-width: 0;
 	}
 
 	@media (max-width: 780px) {
@@ -388,9 +389,13 @@
 		.danger-box,
 		.delete-control {
 			grid-template-columns: 1fr;
-			flex-direction: column;
 			align-items: stretch;
 			width: 100%;
+		}
+
+		.section-actions :global(.button),
+		.danger-box :global(.button) {
+			width: 100% !important;
 		}
 	}
 </style>

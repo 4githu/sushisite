@@ -67,6 +67,7 @@ export { default as MyLocationIcon } from './puplegoal.svg';
 export { default as CrownIcon } from './crown.svg'; 
 export { default as Check } from './puplecheck.svg'; 
 export { default as DocumentIcon } from './document.svg'; 
+export { default as PdfIcon } from './pdficon.svg';
 export { default as ArOnYouIcon } from './ar_on_you.png';
 export { default as Cloud } from './cloud.svg';
 
