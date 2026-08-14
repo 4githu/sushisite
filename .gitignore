@@ -20,6 +20,10 @@ venv/
 
 storage/
 sushi-fast/storage/
+evc_logs/
+evc_uploads/
+sushi-fast/evc_logs/
+sushi-fast/evc_uploads/
 
 *.mp3
 *.m4a

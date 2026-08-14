@@ -1,0 +1,426 @@
+{
+  "core": [
+    {
+      "behavior_id": "BL_01", "variation_id": "BL_01.neutral_listening", "parent_group": "Baseline Listening",
+      "trigger_conditions": [{"E": ["mid"], "V": ["mid"], "C": ["mid"]}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Body", "GazeHead"], "cooldown_s": 2.0, "expressivity_target": 0.30, "motion_class": "stable",
+      "unity_actions": [{"layer": "Body", "action_id": "body.neutral_listening", "duration": 2.0}, {"layer": "GazeHead", "action_id": "gaze_head.neutral_listening", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "BL_02", "variation_id": "BL_02.neutral_gaze_shift", "parent_group": "Baseline Listening",
+      "trigger_conditions": [{"E": ["mid"], "V": ["mid"], "C": ["mid"]}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["GazeHead"], "cooldown_s": 4.0, "expressivity_target": 0.35, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.neutral_gaze_shift", "duration": 1.8}]
+    },
+    {
+      "behavior_id": "BL_03", "variation_id": "BL_03.quiet_stable_posture", "parent_group": "Baseline Listening",
+      "trigger_conditions": [{"E": ["mid"], "V": ["mid"], "C": ["mid"]}],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Body"], "cooldown_s": 3.0, "expressivity_target": 0.20, "motion_class": "stable",
+      "unity_actions": [{"layer": "Body", "action_id": "body.quiet_stable_posture", "duration": 3.0}]
+    },
+
+    {
+      "behavior_id": "AL_01", "variation_id": "AL_01.stable_attention", "parent_group": "Attentive Listening",
+      "trigger_conditions": [{"E": ["high"], "V": ["mid", "high"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Body", "GazeHead"], "cooldown_s": 2.0, "expressivity_target": 0.35, "motion_class": "stable",
+      "unity_actions": [{"layer": "Body", "action_id": "body.stable_attention", "duration": 2.0}, {"layer": "GazeHead", "action_id": "gaze_head.stable_attention", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "AL_01", "variation_id": "AL_01.active_following", "parent_group": "Attentive Listening",
+      "trigger_conditions": [{"E": ["high"], "V": ["mid", "high"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "GazeHead"], "cooldown_s": 3.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.active_following", "duration": 1.4}, {"layer": "GazeHead", "action_id": "gaze_head.active_following", "duration": 1.4}]
+    },
+    {
+      "behavior_id": "AL_01", "variation_id": "AL_01.agreement_nod", "parent_group": "Attentive Listening",
+      "trigger_conditions": [{"E": ["high"], "V": ["mid", "high"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body"], "cooldown_s": 3.5, "expressivity_target": 0.60, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.agreement_nod", "duration": 1.2}]
+    },
+    {
+      "behavior_id": "AL_02", "variation_id": "AL_02.attentive_slide_check", "parent_group": "Attentive Listening",
+      "trigger_conditions": [{"E": ["high"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "E", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["GazeHead"], "cooldown_s": 4.0, "expressivity_target": 0.45, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.attentive_slide_check", "duration": 1.6}]
+    },
+    {
+      "behavior_id": "AL_02", "variation_id": "AL_02.slight_head_tilt_check", "parent_group": "Attentive Listening",
+      "trigger_conditions": [{"E": ["high"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "E", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 4.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.slight_head_tilt_check", "duration": 1.4}, {"layer": "Face", "action_id": "face.slight_head_tilt_check", "duration": 1.4, "blend_mode": "additive"}]
+    },
+    {
+      "behavior_id": "AL_03", "variation_id": "AL_03.low_engagement_positive", "parent_group": "Attentive Listening",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["mid", "high"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "negative"},
+        {"E": ["low"], "V": ["high"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "positive"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Body", "GazeHead"], "cooldown_s": 5.0, "expressivity_target": 0.30, "motion_class": "stable",
+      "unity_actions": [{"layer": "Body", "action_id": "body.low_engagement_positive", "duration": 2.5}, {"layer": "GazeHead", "action_id": "gaze_head.low_engagement_positive", "duration": 2.5}]
+    },
+    {
+      "behavior_id": "AL_03", "variation_id": "AL_03.passive_acceptance", "parent_group": "Attentive Listening",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["mid", "high"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "negative"},
+        {"E": ["low"], "V": ["high"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "positive"}
+      ],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 6.0, "expressivity_target": 0.25, "motion_class": "stable",
+      "unity_actions": [{"layer": "Body", "action_id": "body.passive_acceptance", "duration": 3.0}, {"layer": "Face", "action_id": "face.passive_acceptance", "duration": 3.0}]
+    },
+
+    {
+      "behavior_id": "EM_01", "variation_id": "EM_01.positive_monitoring", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead", "Body"], "cooldown_s": 2.5, "expressivity_target": 0.45, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.positive_monitoring", "duration": 2.2}, {"layer": "GazeHead", "action_id": "gaze_head.positive_monitoring", "duration": 2.2}, {"layer": "Body", "action_id": "body.positive_monitoring", "duration": 2.2}]
+    },
+    {
+      "behavior_id": "EM_01", "variation_id": "EM_01.approving_smile", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead"], "cooldown_s": 3.5, "expressivity_target": 0.60, "motion_class": "transient",
+      "unity_actions": [{"layer": "Face", "action_id": "face.approving_smile", "duration": 1.5, "blend_mode": "additive"}, {"layer": "GazeHead", "action_id": "gaze_head.approving_smile", "duration": 1.5}]
+    },
+    {
+      "behavior_id": "EM_01", "variation_id": "EM_01.soft_approval_nod", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 4.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.soft_approval_nod", "duration": 1.3}, {"layer": "Face", "action_id": "face.soft_approval_nod", "duration": 1.3, "blend_mode": "additive"}]
+    },
+    {
+      "behavior_id": "EM_02", "variation_id": "EM_02.positive_but_uncertain", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["low"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead"], "cooldown_s": 3.0, "expressivity_target": 0.45, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.positive_but_uncertain", "duration": 2.0}, {"layer": "GazeHead", "action_id": "gaze_head.positive_but_uncertain", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "EM_02", "variation_id": "EM_02.smile_with_slide_check", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["low"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["Face", "GazeHead"], "cooldown_s": 4.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "Face", "action_id": "face.smile_with_slide_check", "duration": 1.8, "blend_mode": "additive"}, {"layer": "GazeHead", "action_id": "gaze_head.smile_with_slide_check", "duration": 1.8}]
+    },
+    {
+      "behavior_id": "EM_02", "variation_id": "EM_02.curious_head_tilt", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["high"], "C": ["low"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 4.5, "expressivity_target": 0.65, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.curious_head_tilt", "duration": 1.5}, {"layer": "Face", "action_id": "face.curious_head_tilt", "duration": 1.5, "blend_mode": "additive"}]
+    },
+    {
+      "behavior_id": "EM_04", "variation_id": "EM_04.weak_positive_low_clarity", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["low"], "V": ["high"], "C": ["low"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "Body", "GazeHead"], "cooldown_s": 5.0, "expressivity_target": 0.25, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.weak_positive_low_clarity", "duration": 2.5}, {"layer": "Body", "action_id": "body.weak_positive_low_clarity", "duration": 2.5}, {"layer": "GazeHead", "action_id": "gaze_head.weak_positive_low_clarity", "duration": 2.5}]
+    },
+    {
+      "behavior_id": "EM_04", "variation_id": "EM_04.fading_approval", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [{"E": ["low"], "V": ["high"], "C": ["low"], "dominant_axis": "V", "direction": "positive"}],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 6.0, "expressivity_target": 0.20, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.fading_approval", "duration": 3.0}, {"layer": "Body", "action_id": "body.fading_approval", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "EM_05", "variation_id": "EM_05.cold_monitoring", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["high"], "V": ["low"], "dominant_axis": "E", "direction": "positive"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead", "Body"], "cooldown_s": 3.0, "expressivity_target": 0.40, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.cold_monitoring", "duration": 2.2}, {"layer": "GazeHead", "action_id": "gaze_head.cold_monitoring", "duration": 2.2}, {"layer": "Body", "action_id": "body.cold_monitoring", "duration": 2.2}]
+    },
+    {
+      "behavior_id": "EM_05", "variation_id": "EM_05.skeptical_monitoring", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["high"], "V": ["low"], "dominant_axis": "E", "direction": "positive"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 4.0, "expressivity_target": 0.65, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.skeptical_monitoring", "duration": 2.0}, {"layer": "Body", "action_id": "body.skeptical_monitoring", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "EM_05", "variation_id": "EM_05.restrained_disagreement", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["high"], "V": ["low"], "dominant_axis": "E", "direction": "positive"}
+      ],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 5.0, "expressivity_target": 0.70, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "Body", "action_id": "body.restrained_disagreement", "duration": 1.5}, {"layer": "Face", "action_id": "face.restrained_disagreement", "duration": 1.5}]
+    },
+    {
+      "behavior_id": "EM_07", "variation_id": "EM_07.disengaged_negative", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["high"], "V": ["low"], "C": ["low"], "dominant_axis": "E", "direction": "positive"},
+        {"E": ["low"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "E", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead", "Body"], "cooldown_s": 6.0, "expressivity_target": 0.55, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.disengaged_negative", "duration": 2.8}, {"layer": "GazeHead", "action_id": "gaze_head.disengaged_negative", "duration": 2.8}, {"layer": "Body", "action_id": "body.disengaged_negative", "duration": 2.8}]
+    },
+    {
+      "behavior_id": "EM_07", "variation_id": "EM_07.gaze_withdrawal_negative", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead", "Body"], "cooldown_s": 7.0, "expressivity_target": 0.65, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.gaze_withdrawal_negative", "duration": 2.2}, {"layer": "Body", "action_id": "body.gaze_withdrawal_negative", "duration": 2.2}]
+    },
+    {
+      "behavior_id": "EM_07", "variation_id": "EM_07.closed_posture_negative", "parent_group": "Evaluative Monitoring",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["mid", "high"], "dominant_axis": "V", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 8.0, "expressivity_target": 0.60, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.closed_posture_negative", "duration": 3.5}, {"layer": "Body", "action_id": "body.closed_posture_negative", "duration": 3.5}]
+    },
+
+    {
+      "behavior_id": "CT_01", "variation_id": "CT_01.stable_comprehension", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead", "Body"], "cooldown_s": 2.5, "expressivity_target": 0.35, "motion_class": "stable",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.stable_comprehension", "duration": 2.2}, {"layer": "Body", "action_id": "body.stable_comprehension", "duration": 2.2}]
+    },
+    {
+      "behavior_id": "CT_01", "variation_id": "CT_01.comprehension_nod", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body"], "cooldown_s": 3.5, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.comprehension_nod", "duration": 1.2}]
+    },
+    {
+      "behavior_id": "CT_01", "variation_id": "CT_01.slide_speaker_tracking", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["GazeHead"], "cooldown_s": 3.5, "expressivity_target": 0.45, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.slide_speaker_tracking", "duration": 1.8}]
+    },
+    {
+      "behavior_id": "CT_02", "variation_id": "CT_02.understood_but_reserved", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["low"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead", "Body"], "cooldown_s": 3.5, "expressivity_target": 0.40, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.understood_but_reserved", "duration": 2.3}, {"layer": "GazeHead", "action_id": "gaze_head.understood_but_reserved", "duration": 2.3}, {"layer": "Body", "action_id": "body.understood_but_reserved", "duration": 2.3}]
+    },
+    {
+      "behavior_id": "CT_02", "variation_id": "CT_02.closed_comprehension", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["low"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 5.0, "expressivity_target": 0.55, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.closed_comprehension", "duration": 2.5}, {"layer": "Body", "action_id": "body.closed_comprehension", "duration": 2.5}]
+    },
+    {
+      "behavior_id": "CT_02", "variation_id": "CT_02.limited_nod_reserved", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["low"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 5.0, "expressivity_target": 0.55, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.limited_nod_reserved", "duration": 1.4}, {"layer": "Body", "action_id": "body.limited_nod_reserved", "duration": 1.4}]
+    },
+    {
+      "behavior_id": "CT_03", "variation_id": "CT_03.understood_low_engagement", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["low"], "V": ["mid", "high"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead", "Body"], "cooldown_s": 4.0, "expressivity_target": 0.30, "motion_class": "stable",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.understood_low_engagement", "duration": 2.5}, {"layer": "Body", "action_id": "body.understood_low_engagement", "duration": 2.5}]
+    },
+    {
+      "behavior_id": "CT_03", "variation_id": "CT_03.delayed_gaze_return", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["low"], "V": ["mid", "high"], "C": ["high"], "dominant_axis": "C", "direction": "positive"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead"], "cooldown_s": 5.0, "expressivity_target": 0.45, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.delayed_gaze_return", "duration": 1.8}]
+    },
+    {
+      "behavior_id": "CT_05", "variation_id": "CT_05.trying_to_understand", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead"], "cooldown_s": 3.0, "expressivity_target": 0.45, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.trying_to_understand", "duration": 2.2}, {"layer": "GazeHead", "action_id": "gaze_head.trying_to_understand", "duration": 2.2}]
+    },
+    {
+      "behavior_id": "CT_05", "variation_id": "CT_05.confused_glance", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"}],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["GazeHead", "Face"], "cooldown_s": 4.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.confused_glance", "duration": 1.7}, {"layer": "Face", "action_id": "face.confused_glance", "duration": 1.7, "blend_mode": "additive"}]
+    },
+    {
+      "behavior_id": "CT_05", "variation_id": "CT_05.head_tilt_recheck", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [{"E": ["mid", "high"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"}],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Body", "Face"], "cooldown_s": 4.5, "expressivity_target": 0.60, "motion_class": "transient",
+      "unity_actions": [{"layer": "Body", "action_id": "body.head_tilt_recheck", "duration": 1.5}, {"layer": "Face", "action_id": "face.head_tilt_recheck", "duration": 1.5, "blend_mode": "additive"}]
+    },
+    {
+      "behavior_id": "CT_06", "variation_id": "CT_06.confused_skeptical", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "V", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 4.0, "expressivity_target": 0.60, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.confused_skeptical", "duration": 2.4}, {"layer": "Body", "action_id": "body.confused_skeptical", "duration": 2.4}]
+    },
+    {
+      "behavior_id": "CT_06", "variation_id": "CT_06.skeptical_slide_check", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "V", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": true,
+      "channels": ["Face", "GazeHead"], "cooldown_s": 5.0, "expressivity_target": 0.60, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.skeptical_slide_check", "duration": 1.8, "blend_mode": "additive"}, {"layer": "GazeHead", "action_id": "gaze_head.skeptical_slide_check", "duration": 1.8}]
+    },
+    {
+      "behavior_id": "CT_06", "variation_id": "CT_06.furrowed_head_tilt", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["mid", "high"], "V": ["low"], "C": ["low"], "dominant_axis": "V", "direction": "negative"}
+      ],
+      "utterance_positions": ["utterance_boundary"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 5.0, "expressivity_target": 0.70, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.furrowed_head_tilt", "duration": 1.6}, {"layer": "Body", "action_id": "body.furrowed_head_tilt", "duration": 1.6}]
+    },
+    {
+      "behavior_id": "CT_07", "variation_id": "CT_07.lost_understanding", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead", "Body"], "cooldown_s": 5.0, "expressivity_target": 0.45, "motion_class": "stable",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.lost_understanding", "duration": 2.6}, {"layer": "Body", "action_id": "body.lost_understanding", "duration": 2.6}]
+    },
+    {
+      "behavior_id": "CT_07", "variation_id": "CT_07.off_target_gaze", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead"], "cooldown_s": 6.0, "expressivity_target": 0.55, "motion_class": "transient",
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.off_target_gaze", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "CT_07", "variation_id": "CT_07.low_response_flat", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["mid", "high"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 6.0, "expressivity_target": 0.25, "motion_class": "stable",
+      "unity_actions": [{"layer": "Face", "action_id": "face.low_response_flat", "duration": 3.0}, {"layer": "Body", "action_id": "body.low_response_flat", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "CT_08", "variation_id": "CT_08.strong_confusion_disengagement", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["Face", "GazeHead", "Body"], "cooldown_s": 6.0, "expressivity_target": 0.70, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.strong_confusion_disengagement", "duration": 2.8}, {"layer": "GazeHead", "action_id": "gaze_head.strong_confusion_disengagement", "duration": 2.8}, {"layer": "Body", "action_id": "body.strong_confusion_disengagement", "duration": 2.8}]
+    },
+    {
+      "behavior_id": "CT_08", "variation_id": "CT_08.gaze_withdrawal_confusion", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["during_speech"], "requires_slide_reference": false,
+      "channels": ["GazeHead", "Body"], "cooldown_s": 8.0, "expressivity_target": 0.75, "motion_class": "transient", "critical": true,
+      "unity_actions": [{"layer": "GazeHead", "action_id": "gaze_head.gaze_withdrawal_confusion", "duration": 2.3}, {"layer": "Body", "action_id": "body.gaze_withdrawal_confusion", "duration": 2.3}]
+    },
+    {
+      "behavior_id": "CT_08", "variation_id": "CT_08.collapsed_posture_confusion", "parent_group": "Comprehension Tracking",
+      "trigger_conditions": [
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "C", "direction": "negative"},
+        {"E": ["low"], "V": ["low"], "C": ["low"], "dominant_axis": "E", "direction": "negative"}
+      ],
+      "utterance_positions": ["silence_or_pause"], "requires_slide_reference": false,
+      "channels": ["Face", "Body"], "cooldown_s": 8.0, "expressivity_target": 0.70, "motion_class": "stable", "critical": true,
+      "unity_actions": [{"layer": "Face", "action_id": "face.collapsed_posture_confusion", "duration": 3.5}, {"layer": "Body", "action_id": "body.collapsed_posture_confusion", "duration": 3.5}]
+    }
+  ],
+  "actions": [
+    {
+      "behavior_id": "ACT_01", "variation_id": "ACT_01.laptop_typing", "event_triggers": ["information_dense"],
+      "state_gates": [{"E": ["mid", "high"], "C": ["low"]}], "utterance_positions": ["during_speech"],
+      "requires_slide_reference": false, "scene_gate": {"requires_laptop": true},
+      "channels": ["Body", "GazeHead"], "cooldown_s": 20.0, "expressivity_target": 0.45,
+      "unity_actions": [{"layer": "Body", "action_id": "body.laptop_typing", "duration": 4.0}, {"layer": "GazeHead", "action_id": "gaze_head.laptop_typing", "duration": 4.0}]
+    },
+    {
+      "behavior_id": "ACT_02", "variation_id": "ACT_02.photo_slide", "event_triggers": ["information_dense", "slide_reference"],
+      "state_gates": [{"E": ["mid", "high"], "C": ["low"]}], "utterance_positions": ["slide_transition"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Body", "GazeHead"], "cooldown_s": 30.0, "expressivity_target": 0.60,
+      "unity_actions": [{"layer": "Body", "action_id": "body.photo_slide", "duration": 3.0}, {"layer": "GazeHead", "action_id": "gaze_head.photo_slide", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "ACT_03", "variation_id": "ACT_03.device_checking", "event_triggers": ["repeated_disengagement"],
+      "state_gates": [{"E": ["low"]}], "utterance_positions": ["during_speech", "silence_or_pause"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Body", "GazeHead"], "cooldown_s": 35.0, "expressivity_target": 0.60,
+      "unity_actions": [{"layer": "Body", "action_id": "body.device_checking", "duration": 4.0}, {"layer": "GazeHead", "action_id": "gaze_head.device_checking", "duration": 4.0}]
+    },
+    {
+      "behavior_id": "ACT_04", "variation_id": "ACT_04.drowsy_nod", "event_triggers": ["low_arousal"],
+      "state_gates": [{"E": ["low"]}], "utterance_positions": ["silence_or_pause"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Face", "Body"], "cooldown_s": 45.0, "expressivity_target": 0.65,
+      "unity_actions": [{"layer": "Face", "action_id": "face.drowsy_nod", "duration": 3.0}, {"layer": "Body", "action_id": "body.drowsy_nod", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "ACT_05", "variation_id": "ACT_05.seat_adjust", "event_triggers": ["long_static_posture"],
+      "state_gates": [], "utterance_positions": ["silence_or_pause"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Body"], "cooldown_s": 12.0, "expressivity_target": 0.40,
+      "unity_actions": [{"layer": "Body", "action_id": "body.seat_adjust", "duration": 2.0}]
+    },
+    {
+      "behavior_id": "ACT_06", "variation_id": "ACT_06.small_stretch", "event_triggers": ["long_static_posture"],
+      "state_gates": [], "utterance_positions": ["silence_or_pause"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Body"], "cooldown_s": 18.0, "expressivity_target": 0.60,
+      "unity_actions": [{"layer": "Body", "action_id": "body.small_stretch", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "ACT_07", "variation_id": "ACT_07.self_contact", "event_triggers": ["tension"],
+      "state_gates": [{"V": ["low"]}], "utterance_positions": ["during_speech", "utterance_boundary"],
+      "requires_slide_reference": false, "scene_gate": {},
+      "channels": ["Face", "Body"], "cooldown_s": 20.0, "expressivity_target": 0.55,
+      "unity_actions": [{"layer": "Face", "action_id": "face.self_contact", "duration": 3.0}, {"layer": "Body", "action_id": "body.self_contact", "duration": 3.0}]
+    },
+    {
+      "behavior_id": "ACT_08", "variation_id": "ACT_08.side_conversation", "event_triggers": ["nearby_interaction"],
+      "state_gates": [{"E": ["low"]}, {"V": ["low"]}], "utterance_positions": ["silence_or_pause"],
+      "requires_slide_reference": false, "scene_gate": {"allowed_agents": ["audience_05", "audience_06"], "allowed_rows": ["rear"]},
+      "channels": ["Face", "Body", "GazeHead"], "cooldown_s": 40.0, "expressivity_target": 0.65,
+      "unity_actions": [{"layer": "Face", "action_id": "face.side_conversation", "duration": 4.0}, {"layer": "Body", "action_id": "body.side_conversation", "duration": 4.0}, {"layer": "GazeHead", "action_id": "gaze_head.side_conversation", "duration": 4.0}]
+    }
+  ]
+}
