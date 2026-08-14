@@ -1,11 +1,2 @@
-fastapi==0.141.1
-uvicorn==0.52.1
-pydantic==2.13.4
-python-multipart==0.0.32
-python-dotenv==1.2.2
-openai==2.54.0
-deepgram-sdk==5.3.4
-pypdf==6.15.0
-pymupdf==1.28.2
-python-jose==3.5.0
-bcrypt==5.0.0
+# Kept for existing EVC setup commands. Runtime dependencies are shared.
+-r requirements.txt
