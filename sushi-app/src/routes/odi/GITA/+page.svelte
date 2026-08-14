@@ -28,8 +28,7 @@
 	];
 
 	import SessionSelect from "$lib/odi/components/session/SessionSelect.svelte";
-	import Alarm from "$lib/odi/icons/Property 1=Album, Size=24.svg";
-	import Lock from "$lib/odi/icons/Property 1=lock, Size=24.svg";
+	import { alarm as Alarm, lock as Lock } from "$lib/odi/icons";
 	let duration = $state("");
 	let people = $state("");
 	const durationItems = [

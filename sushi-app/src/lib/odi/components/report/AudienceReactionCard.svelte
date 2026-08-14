@@ -3,6 +3,7 @@
 <script lang="ts">
 	import ReportCard from "./ReportCard.svelte";
 	import type { AudienceGraphPoint, ReportFeedback } from "./reportTypes";
+	import { Exclude, sentiment_satisfied, sms } from "$lib/odi/icons";
 
 	let {
 		feedback
@@ -33,16 +34,19 @@
 	const summaryCards = $derived([
 		{
 			type: "eye",
+			icon: Exclude,
 			title: "시선이 집중되는 발표였어요",
 			description: "핵심 구간에서 정면 응시가 길게 유지되었어요"
 		},
 		{
 			type: "question",
+			icon: sms,
 			title: "질문이 생기는 흥미로운 흐름이었어요",
 			description: "결론에서 질문 의도가 가장 많이 나타났어요"
 		},
 		{
 			type: "positive",
+			icon: sentiment_satisfied,
 			title: "공감으로 고개가 절로 끄덕여져요",
 			description: "연구와 사례가 연결될 때 긍정이 증가했어요"
 		}
@@ -91,7 +95,9 @@
 		<section class="summary-list">
 			{#each summaryCards as card}
 				<article class="summary-card">
-					<div class={`summary-icon ${card.type}`}></div>
+					<div class={`summary-icon ${card.type}`}>
+						<img src={card.icon} alt="" aria-hidden="true" />
+					</div>
 
 					<div>
 						<strong>{card.title}</strong>
@@ -106,7 +112,7 @@
 <style>
 	.audience-card {
 		display: grid;
-		grid-template-columns: 520px 1fr;
+		grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
 		gap: var(--space-10);
 		align-items: center;
 	}
@@ -221,6 +227,7 @@
 	}
 
 	.summary-list {
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-5);
@@ -232,11 +239,28 @@
 		gap: var(--space-3);
 	}
 
+	.summary-card > div:last-child {
+		min-width: 0;
+	}
+
 	.summary-icon {
 		width: 42px;
 		height: 42px;
 		border-radius: var(--radius-full);
 		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+	}
+
+	.summary-icon img {
+		width: 24px;
+		height: 24px;
+		object-fit: contain;
+	}
+
+	.summary-icon.eye img {
+		width: 26px;
+		height: 18px;
 	}
 
 	.summary-icon.eye {
@@ -266,9 +290,21 @@
 		line-height: 135%;
 	}
 
-	@media (max-width: 1200px) {
+	/* 이 카드는 큰 화면 안에서도 좁은 열에 놓일 수 있으므로 viewport가 아닌 카드 폭을 봅니다. */
+	@container (max-width: 1000px) {
 		.audience-card {
 			grid-template-columns: 1fr;
+		}
+	}
+
+	@container (max-width: 600px) {
+		.chart-header,
+		.legend {
+			flex-wrap: wrap;
+		}
+
+		.summary-card strong {
+			font-size: 14px;
 		}
 	}
 </style>

@@ -1,6 +1,6 @@
 // src/lib/stores/mainauth.ts
 
-const API = import.meta.env.VITE_SUSHIFASTURL || '';
+import { API_BASE as API } from '$lib/config/api';
 
 import { goto } from "$app/navigation";
 import { writable, get } from "svelte/store";

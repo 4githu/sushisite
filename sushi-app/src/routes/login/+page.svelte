@@ -7,14 +7,12 @@
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";
 	import { odiuser } from "$lib/odi/stores";
+	import { API_BASE as API } from '$lib/config/api';
 
 	import {
 		home as Mail,
 		home as Lock
 	} from "$lib/odi/icons";
-
-	const configuredApi = import.meta.env.VITE_SUSHIFASTURL || '';
-	const API = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApi.replace(/\/$/, '')) ? '' : configuredApi;
 
 	let email = $state("");
 	let password = $state("");

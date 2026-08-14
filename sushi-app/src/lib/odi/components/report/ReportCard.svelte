@@ -22,6 +22,9 @@
 
 <style>
 	.report-card {
+		/* 자식 카드가 실제로 받은 폭을 기준으로 반응형 배치를 할 수 있게 합니다. */
+		container-type: inline-size;
+		min-width: 0;
 		min-height: var(--card-min-height);
 		padding: var(--card-padding);
 		border-radius: var(--radius-md);

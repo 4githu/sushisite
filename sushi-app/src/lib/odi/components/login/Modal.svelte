@@ -55,6 +55,7 @@
 		justify-content: center;
 
 		padding: var(--space-6);
+		overflow: auto;
 	}
 
 	.modal-backdrop {
@@ -73,7 +74,9 @@
 		z-index: 1;
 
 		width: min(var(--modal-width), calc(100vw - 48px));
-		min-height: var(--modal-min-height);
+		max-width: 100%;
+		min-height: min(var(--modal-min-height), calc(100dvh - 48px));
+		max-height: calc(100dvh - 48px);
 
 		margin: 0;
 		padding: 0;
@@ -86,7 +89,7 @@
 
 		box-shadow: 0 0 16px rgba(0, 0, 0, 0.15);
 
-		overflow: visible;
+		overflow: hidden;
 	}
 
 	.modal-panel::backdrop {
@@ -101,6 +104,18 @@
 
 		.modal-panel {
 			margin-block: var(--space-6);
+		}
+	}
+
+	@media (max-width: 560px) {
+		.modal-root {
+			padding: 12px;
+		}
+
+		.modal-panel {
+			width: calc(100vw - 24px);
+			min-height: min(var(--modal-min-height), calc(100dvh - 24px));
+			max-height: calc(100dvh - 24px);
 		}
 	}
 </style>

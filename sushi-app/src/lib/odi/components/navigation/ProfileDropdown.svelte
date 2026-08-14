@@ -9,13 +9,15 @@
 	} from "$lib/odi/icons";
 
 	let {
-		userName = "리히어",
-		planName = "Plus",
+		userName = "사용자",
+		planName = "새싹 보이스",
+		profileImage = AccountCircle,
 
 		onLogout
 	}: {
 		userName?: string;
 		planName?: string;
+		profileImage?: string;
 
 		onLogout?: () => void;
 	} = $props();
@@ -182,13 +184,15 @@
 	} from "$lib/odi/icons";
 
 	let {
-		userName = "리히어",
-		planName = "Plus",
+		userName = "사용자",
+		planName = "새싹 보이스",
+		profileImage = AccountCircle,
 		onOpenAccount,
 		onLogout
 	}: {
 		userName?: string;
 		planName?: string;
+		profileImage?: string;
 		onOpenAccount?: () => void;
 		onLogout?: () => void;
 	} = $props();
@@ -197,7 +201,7 @@
 <div class="dropdown">
 	<button type="button" class="profile clickable" onclick={onOpenAccount}>
 		<div class="left">
-			<img class="profile-icon" src={AccountCircle} alt="" />
+			<img class="profile-icon" src={profileImage} alt="" />
 
 			<div class="info">
 				<span class="text-caption-medium">{userName}</span>

@@ -7,6 +7,7 @@
 
 	import { auth } from "$lib/stores/mainauth";
 	import { odiuser, type JsonObject } from "$lib/odi/stores";
+	import { API_BASE as API } from '$lib/config/api';
 
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";
@@ -24,8 +25,6 @@
 		home as Mail,
 		home as Person
 	} from "$lib/odi/icons";
-
-	const API = import.meta.env.VITE_SUSHIFASTURL;
 
 	const steps = ["계정 확인", "훈련 목표 설정", "계정 설정 완료"];
 

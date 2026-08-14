@@ -9,6 +9,7 @@
 
 	import { auth } from "$lib/stores/mainauth";
 	import { odiuser } from "$lib/odi/stores";
+	import { API_BASE as API } from '$lib/config/api';
 
 	import NavigationBar from "$lib/odi/components/navigation/NavigationBar.svelte";
 	import SessionStartModal from "$lib/odi/components/session/SessionStartModal.svelte";
@@ -43,28 +44,32 @@
 			return;
 		}
 
-		const result = await odiuser.checkAccess();
+		try {
+			const result = await odiuser.checkAccess();
 
-		if (result.status === "odi_authenticated") {
-			showGuestModal = false;
-			showJoinRequiredModal = false;
+			if (result.status === "odi_authenticated") {
+				showGuestModal = false;
+				showJoinRequiredModal = false;
+				return;
+			}
+
+			if (result.status === "main_authenticated_needs_odi_join") {
+				const payload = auth.get();
+
+				mainAuthName = payload?.data?.name ?? "사용자";
+				mainAuthEmail = payload?.data?.email ?? "";
+
+				showJoinRequiredModal = true;
+				return;
+			}
+
+			showGuestModal = true;
+		} catch {
+			// 백엔드가 잠시 응답하지 않아도 빈 화면에 멈추지 않고 로그인 UI를 표시합니다.
+			showGuestModal = true;
+		} finally {
 			checkingAccess = false;
-			return;
 		}
-
-		if (result.status === "main_authenticated_needs_odi_join") {
-			const payload = auth.get();
-
-			mainAuthName = payload?.data?.name ?? "사용자";
-			mainAuthEmail = payload?.data?.email ?? "";
-
-			showJoinRequiredModal = true;
-			checkingAccess = false;
-			return;
-		}
-
-		showGuestModal = true;
-		checkingAccess = false;
 	});
 
 	function openStartModal() {
@@ -147,8 +152,6 @@
 	}
 
 	async function logoutMainAuth() {
-		const API = import.meta.env.VITE_SUSHIFASTURL;
-
 		await Promise.all([
 			fetch(`${API}/auth/logout`, {
 				method: "POST",
@@ -168,8 +171,6 @@
 <div class="layout">
 	<div class="sidebar">
 		<NavigationBar
-			userName="리히어"
-			planName="Plus"
 			onNewSession={openStartModal}
 			onOpenAccount={openAccountModal}
 		/>
@@ -233,8 +234,10 @@
 
 	.content {
 		min-height: 100vh;
+		min-width: 0;
 		margin-left: 260px;
 		padding: 36px 48px;
-		overflow: auto;
+		overflow-x: clip;
+		overflow-y: auto;
 	}
 </style>

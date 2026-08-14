@@ -3,6 +3,7 @@
 	import { goto } from "$app/navigation";
 	import { onDestroy, onMount } from "svelte";
 
+	import { API_BASE as API } from "$lib/config/api";
 	import { session } from "$lib/odi/stores";
 	import Button from "$lib/odi/components/common/Button.svelte";
 
@@ -11,6 +12,7 @@
 	let pinCode = $state("");
 	let preSessionState = $state("waiting");
 	let sessionId = $state(null as string | null);
+	let previewSessionId = $state(null as string | null);
 	let isRegenerating = $state(false);
 
 	function syncFromSessionStore(value: any = sessionStore) {
@@ -21,10 +23,22 @@
 		sessionId = preSession.session_id ?? preSession.sessionId ?? null;
 	}
 
+	async function loadPreviewReport() {
+		try {
+			// 계정별 저장 목록이 아닌 공용 시연 리포트를 사용합니다.
+			const response = await fetch(`${API}/odi/db/demo-report`, { credentials: "include" });
+			const data = await response.json().catch(() => null);
+			previewSessionId = response.ok ? (data?.session?.session_id ?? null) : null;
+		} catch {
+			previewSessionId = null;
+		}
+	}
+
 	onMount(() => {
 		syncFromSessionStore();
 
 		sessionStore.pollUntilFinished?.();
+		void loadPreviewReport();
 
 		const unsubscribe = sessionStore.subscribe?.((value: any) => {
 			syncFromSessionStore(value);
@@ -63,6 +77,13 @@
 		await sessionStore.getReport?.(sessionId);
 		await goto(`/odi/report/${sessionId}`);
 	}
+
+	async function openPreviewReport() {
+		if (!previewSessionId) return;
+
+		await sessionStore.getReport?.(previewSessionId);
+		await goto(`/odi/report/${previewSessionId}`);
+	}
 </script>
 
 <main class="ready-page">
@@ -87,18 +108,33 @@
 				PIN 번호 다시 생성하기
 			</Button>
 
-			<Button
-				variant="primary"
-				size="lg"
-				width="464px"
-				disabled={!canOpenReport}
-				onclick={openReport}
-			>
-				리포트 보러가기
-			</Button>
+			{#if canOpenReport}
+				<Button
+					variant="primary"
+					size="lg"
+					width="464px"
+					onclick={openReport}
+				>
+					리포트 보기
+				</Button>
+			{:else}
+				<Button
+					variant="primary"
+					size="lg"
+					width="464px"
+					disabled={!previewSessionId}
+					onclick={openPreviewReport}
+				>
+					리포트 보기
+				</Button>
+			{/if}
 
 			<p class="report-help text-caption-medium">
-				{canOpenReport ? "세션이 완료되었습니다. 리포트를 확인할 수 있습니다." : "세션이 완료되면 버튼이 활성화됩니다."}
+				{canOpenReport
+					? "세션이 완료되었습니다. 리포트를 확인할 수 있습니다."
+					: previewSessionId
+						? "발표가 끝난 뒤 들어가시면 만들어진 리포트를 보실 수 있습니다."
+						: "저장된 리포트를 불러오는 중입니다."}
 			</p>
 		</div>
 	</section>

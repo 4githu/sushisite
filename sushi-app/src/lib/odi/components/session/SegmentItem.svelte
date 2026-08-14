@@ -111,6 +111,13 @@
 		flex-shrink: 0;
 
 		object-fit: contain;
+		/* Source SVGs have different baked-in colours. Keep every option neutral
+		 * until it is selected, then use the same blue as the control. */
+		filter: grayscale(1) saturate(0) brightness(0.62);
+	}
+
+	.selected .icon {
+		filter: brightness(0) saturate(100%) invert(17%) sepia(97%) saturate(5138%) hue-rotate(233deg) brightness(103%) contrast(102%);
 	}
 
 	.text-group {

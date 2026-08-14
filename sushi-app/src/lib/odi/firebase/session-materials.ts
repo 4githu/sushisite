@@ -2,8 +2,8 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 import { onValue, ref as databaseRef, set, update } from 'firebase/database';
 import { firebaseDatabase, firebaseStorage } from '$lib/firebase/client';
 import type { PresentationTemplate, OdiFileRef } from '$lib/odi/stores/template';
+import { API_BASE as API } from '$lib/config/api';
 
-const API = import.meta.env.VITE_SUSHIFASTURL;
 
 export type PresentationFirebaseData = {
 	created_at: string;

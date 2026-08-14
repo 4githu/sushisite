@@ -1,7 +1,6 @@
 // src/lib/odi/stores/odiuser.ts
 
-const configuredApi = import.meta.env.VITE_SUSHIFASTURL || '';
-const API = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApi.replace(/\/$/, '')) ? '' : configuredApi;
+import { API_BASE as API } from '$lib/config/api';
 
 import { goto } from "$app/navigation";
 import { writable, get } from "svelte/store";
@@ -52,20 +51,8 @@ export const odiuser = {
   },
 
   async checkAccess() {
-    const meRes = await fetch(`${API}/odi/db/me`, {
-      credentials: "include"
-    });
-
-    if (meRes.ok) {
-      const data = await meRes.json();
-      store.set(data.user);
-
-      return {
-        status: "odi_authenticated" as const,
-        user: data.user as OdiUser
-      };
-    }
-
+    // mainauth를 먼저 확인하고 auth_id로 ODI 토큰을 갱신합니다.
+    // ODI 쿠키가 아직 없을 때 /me 404를 먼저 발생시키지 않습니다.
     const authPayload = await auth.check();
 
     if (authPayload === null) {

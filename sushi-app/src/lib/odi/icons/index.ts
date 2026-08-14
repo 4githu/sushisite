@@ -77,6 +77,11 @@ export { default as goggle } from './goggle.svg';
 
 export { default as Close } from "./close.svg";
 
+// 리포트 청중 반응 요약
+export { default as sms } from "./sms.svg";
+export { default as sentiment_satisfied } from "./sentiment_satisfied.svg";
+export { default as Exclude } from "./Exclude.svg";
+
 
 //붙여쓰게 만드는 타윌윈드 css
 //inline-flex items-center gap-1

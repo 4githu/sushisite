@@ -1,6 +1,6 @@
 // src/lib/odi/stores/session.ts
 
-const API = import.meta.env.VITE_SUSHIFASTURL;
+import { API_BASE as API } from '$lib/config/api';
 
 import { get, writable } from "svelte/store";
 import { goto } from "$app/navigation";
@@ -294,5 +294,21 @@ export const session = {
 	async openReport(sessionId: string, path = `/odi/report/${sessionId}`) {
 		await this.getReport(sessionId);
 		goto(path);
+	},
+
+	async deleteSession(sessionId: string) {
+		const user = odiuser.get();
+		if (user === null) throw new Error("ODI 유저가 없습니다.");
+
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}?user_id=${encodeURIComponent(user.user_id)}`, {
+			method: "DELETE",
+			credentials: "include"
+		});
+		await fetchJson(res);
+		store.update((state) => ({
+			...state,
+			sessions: state.sessions.filter((item) => item.session_id !== sessionId),
+			current_session: state.current_session?.session_id === sessionId ? null : state.current_session
+		}));
 	}
 };
