@@ -1,13 +1,11 @@
 <script lang="ts">
-	import type { Snippet } from "svelte";
-
 	let {
 		label,
 		icon,
 		onclick
 	}: {
 		label: string;
-		icon: string;
+		icon?: string;
 		onclick?: (event: MouseEvent) => void;
 	} = $props();
 </script>

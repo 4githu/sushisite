@@ -3,9 +3,9 @@
 	import SegmentedControl from "$lib/odi/components/session/SegmentedControl.svelte";
 
 	import {
-		ArOnYou,
-		PermContactCalendar,
-		Person
+		ArOnYouIcon as ArOnYou,
+		PermContactCalendarIcon as PermContactCalendar,
+		PersonIcon as Person
 	} from "$lib/odi/icons";
 
 	type InterviewerPersona =

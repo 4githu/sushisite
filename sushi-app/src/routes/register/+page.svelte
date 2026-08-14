@@ -11,8 +11,7 @@
 	import RegisterVerifyStep from "$lib/odi/components/login/RegisterVerifyStep.svelte";
 	import RegisterCompleteStep from "$lib/odi/components/login/RegisterCompleteStep.svelte";
 	import { odiuser } from "$lib/odi/stores";
-
-	const API = import.meta.env.VITE_SUSHIFASTURL;
+	import { API_BASE as API } from '$lib/config/api';
 
 	const steps = ["기본 정보 입력", "이메일 인증", "계정 생성 완료"];
 

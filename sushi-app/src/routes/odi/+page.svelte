@@ -179,6 +179,7 @@
 
 	const config = $derived(($odiuser?.config ?? fallbackConfig) as HomeConfig);
 	const profile = $derived(config.profile);
+	const profileImage = $derived(profile.profile_image || sprout);
 	const statistics = $derived(config.statistics);
 	const dashboard = $derived(config.dashboard);
 	let loadedRecentSessions = $state<RecentSession[] | null>(null);
@@ -197,6 +198,7 @@
 	const chartHeight = 170;
 	const chartPaddingX = 28;
 	const chartPaddingY = 14;
+	let greeting = $state("안녕하세요");
 
 	const ePath = $derived(linePath(evcTrend, "E"));
 	const vPath = $derived(linePath(evcTrend, "V"));
@@ -302,6 +304,8 @@
 	}
 
 	onMount(() => {
+		const hour = new Date().getHours();
+		greeting = hour < 6 ? "늦은 밤이에요" : hour < 12 ? "좋은 아침이에요" : hour < 18 ? "좋은 오후예요" : "좋은 저녁이에요";
 		return odiuser.subscribe((user) => {
 			if (user === null || user.user_id === loadedUserId) return;
 
@@ -318,7 +322,7 @@
 <main class="home-page">
 	<header class="home-header">
 		<div>
-			<h1 class="text-title-main">좋은 아침이에요, {profile.nickname}님 ✋</h1>
+			<h1 class="text-title-main">{greeting}, {profile.nickname}님 ✋</h1>
 			<p class="text-caption-main header-subtitle">꾸준한 연습이 자신감을 만듭니다. 오늘도 한 걸음 더 성장해요!</p>
 		</div>
 
@@ -338,9 +342,7 @@
 	<section class="summary-grid">
 		<article class="summary-card profile-card">
 			<div class="profile-image">
-				{#if profile.profile_image}
-					<img src={profile.profile_image} alt={`${profile.nickname} 프로필`} />
-				{/if}
+				<img src={profileImage} alt={`${profile.nickname} 프로필`} />
 			</div>
 
 			<div class="summary-text">
@@ -639,8 +641,9 @@
 		height: 80px;
 		flex-shrink: 0;
 		overflow: hidden;
-		border: 2px solid #ff35d3;
-		background: #ffe7fb;
+		border: 1px solid var(--cool-grey-light-active);
+		border-radius: 18px;
+		background: var(--cool-grey-light);
 	}
 
 	.profile-image img {

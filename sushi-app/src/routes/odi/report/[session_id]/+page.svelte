@@ -74,6 +74,7 @@
 <style>
 	.report-page {
 		width: 100%;
+		min-width: 0;
 		min-height: 100vh;
 		padding: 36px 48px 40px;
 		background: var(--surface);

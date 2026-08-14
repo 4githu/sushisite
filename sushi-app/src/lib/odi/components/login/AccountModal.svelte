@@ -7,8 +7,8 @@
 	import { auth } from "$lib/stores/mainauth";
 	import { odiuser } from "$lib/odi/stores";
 	import { home as Person, home as Mail, home as Lock } from "$lib/odi/icons";
+	import { API_BASE as API } from '$lib/config/api';
 
-	const API = import.meta.env.VITE_SUSHIFASTURL;
 	const titleId = "account-modal-title";
 
 	let {
@@ -23,8 +23,10 @@
 	const currentName = $derived(authPayload?.data?.name ?? "");
 	const currentOdiUser = $derived($odiuser);
 
-	let name = $state(currentName);
-	let email = $state(currentEmail);
+	let name = $state("");
+	let email = $state("");
+	let nickname = $state("");
+	let profileInitialized = $state(false);
 	let currentPassword = $state("");
 	let newPassword = $state("");
 	let newPasswordConfirm = $state("");
@@ -36,9 +38,17 @@
 	const passwordValid = $derived(newPassword.length === 0 || /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(newPassword));
 	const passwordError = $derived(newPassword.length > 0 && !passwordValid ? "영문, 숫자, 특수문자 포함 8자리 이상 입력해주세요" : "");
 	const passwordConfirmError = $derived(newPasswordConfirm.length > 0 && newPassword !== newPasswordConfirm ? "비밀번호가 일치하지 않습니다" : "");
-	const canSaveProfile = $derived(!loading && authId && name.trim().length > 0);
+	const canSaveProfile = $derived(!loading && authId && name.trim().length > 0 && nickname.trim().length >= 2);
 	const canChangePassword = $derived(!loading && authId && currentPassword.length > 0 && newPassword.length > 0 && passwordValid && newPassword === newPasswordConfirm);
 	const canDeleteAccount = $derived(!loading && authId && deletePassword.length > 0);
+
+	$effect(() => {
+		if (profileInitialized || (!currentName && !currentEmail && !currentOdiUser)) return;
+		name = currentName;
+		email = currentEmail;
+		nickname = currentOdiUser?.config?.profile?.nickname ?? currentName;
+		profileInitialized = true;
+	});
 
 	async function fetchJson(res: Response) {
 		const data = await res.json().catch(() => null);
@@ -77,7 +87,16 @@
 				throw new Error(data.message ?? "회원정보 수정에 실패했습니다.");
 			}
 
-			message = "회원정보를 수정했습니다. 변경된 이름과 이메일이 JWT에 반영되지 않으면 다시 로그인해야 표시됩니다.";
+			const currentConfig = currentOdiUser?.config ?? {};
+			await odiuser.updateConfig({
+				...currentConfig,
+				profile: {
+					...(currentConfig.profile ?? {}),
+					nickname: nickname.trim()
+				}
+			});
+
+			message = "이름·이메일·ODI 닉네임을 수정했습니다.";
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : "회원정보 수정에 실패했습니다.";
 		} finally {
@@ -194,6 +213,7 @@
 			<div class="grid">
 				<AuthField label="이름" placeholder="이름" icon={Person} bind:value={name} />
 				<AuthField label="이메일" type="email" placeholder="이메일" icon={Mail} bind:value={email} />
+				<AuthField label="ODI 닉네임" placeholder="사이드바와 홈에 표시할 닉네임" icon={Person} bind:value={nickname} />
 			</div>
 
 			<div class="section-actions">
@@ -253,6 +273,7 @@
 <style>
 	.account-modal {
 		width: 100%;
+		min-width: 0;
 		min-height: 680px;
 		max-height: min(860px, calc(100vh - 48px));
 		padding: 42px;
@@ -324,6 +345,12 @@
 		border: 1px solid var(--cool-grey-light-active);
 		border-radius: var(--radius-sm);
 		background: var(--surface);
+		flex-wrap: wrap;
+	}
+
+	.danger-box > :first-child {
+		min-width: 0;
+		flex: 1 1 200px;
 	}
 
 	.danger-box strong {
@@ -340,7 +367,9 @@
 	}
 
 	.delete-control {
-		width: 320px;
+		width: auto;
+		min-width: 0;
+		flex: 1 1 320px;
 		display: flex;
 		align-items: flex-end;
 		gap: var(--space-3);

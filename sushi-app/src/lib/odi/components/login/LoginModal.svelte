@@ -6,8 +6,8 @@
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import { odiuser } from "$lib/odi/stores";
 	import { home as Mail, home as Lock } from "$lib/odi/icons";
+	import { API_BASE as API } from '$lib/config/api';
 
-	const API = import.meta.env.VITE_SUSHIFASTURL;
 	const titleId = "login-modal-title";
 
 	let {

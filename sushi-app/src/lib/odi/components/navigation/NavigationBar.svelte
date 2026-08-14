@@ -16,12 +16,13 @@
 		home as Home,
 		kid_star as Favorites,
 		list_alt as Report,
-		voice_selection as MyPractice
+		voice_selection as MyPractice,
+		sprout
 	} from "$lib/odi/icons";
 
 	let {
-		userName = "리히어",
-		planName = "Plus",
+		userName = "사용자",
+		planName = "새싹 보이스",
 		onNewSession
 	}: {
 		userName?: string;
@@ -327,6 +328,7 @@
 	import { onMount } from "svelte";
 	import { auth } from "$lib/stores/mainauth";
 	import { odiuser } from "$lib/odi/stores";
+	import { API_BASE as API } from '$lib/config/api';
 
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import NavigationItem from "./NavigationItem.svelte";
@@ -340,12 +342,13 @@
 		home as Home,
 		kid_star as Favorites,
 		list_alt as Report,
-		voice_selection as MyPractice
+		voice_selection as MyPractice,
+		sprout
 	} from "$lib/odi/icons";
 
 	let {
-		userName = "리히어",
-		planName = "Plus",
+		userName = "사용자",
+		planName = "새싹 보이스",
 		onNewSession,
 		onOpenAccount
 	}: {
@@ -359,6 +362,8 @@
 	let navigation: HTMLElement;
 
 	const displayName = $derived($odiuser?.config?.profile?.nickname ?? auth.get()?.data?.name ?? userName);
+	const displayLevel = $derived($odiuser?.config?.profile?.level ?? planName);
+	const displayProfileImage = $derived($odiuser?.config?.profile?.profile_image || sprout);
 
 	const currentPage = $derived.by(() => {
 		const pathname = page.url.pathname;
@@ -377,8 +382,6 @@
 	}
 
 	async function logout() {
-		const API = import.meta.env.VITE_SUSHIFASTURL;
-
 		await Promise.all([
 			fetch(`${API}/auth/logout`, {
 				method: "POST",
@@ -434,8 +437,11 @@
 	<div class="bottom">
 		<button type="button" class="my-page clickable" onclick={toggleProfile}>
 			<div class="my-page-left">
-				<img class="profile-icon" src={AccountCircle} alt="" />
-				<span class="text-body-medium">My page</span>
+				<img class="profile-icon" src={displayProfileImage} alt="" />
+				<span class="account-copy">
+					<strong class="text-body-medium">{displayName}</strong>
+					<small class="text-caption-nav">{displayLevel}</small>
+				</span>
 			</div>
 
 			<span class="arrow">›</span>
@@ -445,7 +451,8 @@
 			<div class="profile-dropdown">
 				<ProfileDropdown
 					userName={displayName}
-					{planName}
+					planName={displayLevel}
+					profileImage={displayProfileImage}
 					onOpenAccount={openAccount}
 					onLogout={logout}
 				/>
@@ -521,6 +528,9 @@
 		align-items: center;
 		gap: 10px;
 	}
+	.account-copy { display: grid; gap: 2px; text-align: left; }
+	.account-copy strong { color: var(--surface); }
+	.account-copy small { color: var(--primary); }
 
 	.profile-icon {
 		width: 32px;

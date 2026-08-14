@@ -592,6 +592,40 @@ def get_session(session_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | No
     }
 
 
+def get_latest_completed_session_by_template_id(
+    template_id: str,
+    db_path: Path = DB_PATH,
+) -> dict[str, Any] | None:
+    """Return a stable completed report used for a public product demo."""
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT session_id, user_id, template_id, template, feedback, state, started_at, ended_at, created_at, updated_at
+            FROM sessions
+            WHERE template_id = ? AND state = 'completed' AND feedback IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (template_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "session_id": row["session_id"],
+        "user_id": row["user_id"],
+        "template_id": row["template_id"],
+        "template": json.loads(row["template"]),
+        "feedback": json_loads_or_none(row["feedback"]),
+        "state": row["state"],
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
 def list_sessions_by_user(
     user_id: str,
     limit: int = 20,
@@ -626,12 +660,54 @@ def list_sessions_by_user(
     ]
 
 
-def delete_session(session_id: str, db_path: Path = DB_PATH) -> None:
+def delete_session(session_id: str, user_id: str | None = None, db_path: Path = DB_PATH) -> None:
     with get_conn(db_path) as conn:
-        conn.execute(
-            """
-            DELETE FROM sessions
-            WHERE session_id = ?
-            """,
-            (session_id,),
+        if user_id is None:
+            conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            return
+
+        cursor = conn.execute(
+            "DELETE FROM sessions WHERE session_id = ? AND user_id = ?",
+            (session_id, user_id),
         )
+        if cursor.rowcount == 0:
+            raise ValueError("삭제할 세션이 없거나 접근 권한이 없습니다.")
+
+
+def delete_expired_unlinked_templates(
+    owner_id: str,
+    favorite_template_ids: list[str],
+    max_age_minutes: int = 60,
+    db_path: Path = DB_PATH,
+) -> list[str]:
+    """Remove old template snapshots that were never turned into a session.
+
+    Completed reports always hold their own template snapshot in ``sessions``.
+    Therefore a template that is neither favourited nor referenced by a session
+    is safe to expire after the short grace period.
+    """
+    safe_minutes = max(1, min(max_age_minutes, 24 * 60))
+    with get_conn(db_path) as conn:
+        placeholders = ",".join("?" for _ in favorite_template_ids)
+        excluded = f" AND t.template_id NOT IN ({placeholders})" if placeholders else ""
+        rows = conn.execute(
+            f"""
+            SELECT t.template_id
+            FROM templates t
+            WHERE t.owner_id = ?
+              AND t.created_at <= datetime('now', ?)
+              AND NOT EXISTS (
+                SELECT 1 FROM sessions s WHERE s.template_id = t.template_id
+              )
+              {excluded}
+            """,
+            [owner_id, f"-{safe_minutes} minutes", *favorite_template_ids],
+        ).fetchall()
+        template_ids = [row["template_id"] for row in rows]
+        if template_ids:
+            delete_placeholders = ",".join("?" for _ in template_ids)
+            conn.execute(
+                f"DELETE FROM templates WHERE template_id IN ({delete_placeholders})",
+                template_ids,
+            )
+    return template_ids

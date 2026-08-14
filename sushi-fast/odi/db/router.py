@@ -31,6 +31,7 @@ router = APIRouter(
 
 
 JWT_COOKIE_KEY = "odi_token"
+DEMO_REPORT_TEMPLATE_ID = "template_demo_algorithm_choice"
 
 
 def raise_404(message: str) -> None:
@@ -550,6 +551,16 @@ def get_session(session_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/demo-report")
+def get_demo_report() -> dict[str, Any]:
+    """Public, account-independent report for the presentation demo button."""
+    report = odidb.get_latest_completed_session_by_template_id(DEMO_REPORT_TEMPLATE_ID)
+    if report is None:
+        raise_404("시연용 리포트가 아직 준비되지 않았습니다.")
+
+    return {"session": report}
+
+
 @router.get("/users/{user_id}/sessions")
 def list_user_sessions(
     user_id: str,
@@ -572,12 +583,32 @@ def list_user_sessions(
 
 
 @router.delete("/sessions/{session_id}")
-def delete_session(session_id: str) -> dict[str, str]:
+def delete_session(session_id: str, user_id: str) -> dict[str, str]:
     try:
-        odidb.delete_session(session_id)
+        odidb.delete_session(session_id, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "message": "session_deleted",
+    }
+
+
+@router.post("/users/{user_id}/templates/cleanup")
+def cleanup_expired_templates(user_id: str) -> dict[str, Any]:
+    user = odidb.get_user(user_id)
+    if user is None:
+        raise_404(f"존재하지 않는 user_id입니다: {user_id}")
+
+    config = user.get("config") or {}
+    raw_favorites = config.get("favorite_template_ids", config.get("favorite_templates", []))
+    favorite_ids = [str(value) for value in raw_favorites if isinstance(value, str)] if isinstance(raw_favorites, list) else []
+    deleted_template_ids = odidb.delete_expired_unlinked_templates(
+        owner_id=user_id,
+        favorite_template_ids=favorite_ids,
+        max_age_minutes=60,
+    )
+    return {
+        "message": "expired_unlinked_templates_deleted",
+        "deleted_template_ids": deleted_template_ids,
     }

@@ -1,8 +1,8 @@
 // src/lib/odi/api/files.ts
 
 import type { OdiFileRef } from "$lib/odi/stores/template";
+import { API_BASE as API } from '$lib/config/api';
 
-const API = import.meta.env.VITE_SUSHIFASTURL;
 
 export type UploadRole = "slide" | "paper" | "script";
 

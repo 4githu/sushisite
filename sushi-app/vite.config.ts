@@ -21,6 +21,18 @@ export default defineConfig({
 		allowedHosts: true,
 		host: '0.0.0.0',
 		proxy: {
+			'/odi/db': {
+				target: 'http://localhost:8000',
+				changeOrigin: false
+			},
+			'/odi/files': {
+				target: 'http://localhost:8000',
+				changeOrigin: false
+			},
+			'/odi/xreal_rehear': {
+				target: 'http://localhost:8000',
+				changeOrigin: false
+			},
 			'/api': {
 				target: 'http://localhost:8000',
 				changeOrigin: false
