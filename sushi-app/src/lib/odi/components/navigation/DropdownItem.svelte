@@ -2,11 +2,15 @@
 	let {
 		label,
 		icon,
-		onclick
+		onclick,
+		disabled = false,
+		status
 	}: {
 		label: string;
 		icon?: string;
 		onclick?: (event: MouseEvent) => void;
+		disabled?: boolean;
+		status?: string;
 	} = $props();
 </script>
 
@@ -14,6 +18,7 @@
 	type="button"
 	class="dropdown-item clickable"
 	onclick={onclick}
+	{disabled}
 >
 	<div class="left">
 		{#if icon}
@@ -29,7 +34,7 @@
 		</span>
 	</div>
 
-	<span class="arrow">›</span>
+	{#if status}<span class="status">{status}</span>{:else}<span class="arrow">›</span>{/if}
 </button>
 
 <style>
@@ -54,6 +59,20 @@
 .dropdown-item:hover{
 
 	background:rgb(from var(--surface) r g b / 8%);
+}
+
+.dropdown-item:disabled {
+	cursor: not-allowed;
+	opacity: .48;
+}
+
+.dropdown-item:disabled:hover { background: transparent; }
+
+.status {
+	padding: 3px 6px;
+	border: 1px solid rgb(from var(--surface) r g b / 35%);
+	border-radius: 999px;
+	font-size: 10px;
 }
 
 .left{

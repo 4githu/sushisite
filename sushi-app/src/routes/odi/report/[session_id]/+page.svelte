@@ -14,13 +14,14 @@
 	let loading = $state(true);
 	let errorMessage = $state("");
 
-	const sessionId = $derived(page.params.session_id);
+	const sessionId = $derived(page.params.session_id ?? "");
 
 	onMount(async () => {
 		loading = true;
 		errorMessage = "";
 
 		try {
+			if (!sessionId) throw new Error("세션 ID가 없습니다.");
 			const result = await session.getReport(sessionId);
 			reportSession = result as unknown as ReportSession;
 		} catch (error) {
@@ -36,10 +37,6 @@
 
 	function downloadReport() {
 		window.print();
-	}
-
-	function openAllFeedback() {
-		console.log("전체 피드백 보기");
 	}
 
 	function startTraining() {
@@ -65,7 +62,6 @@
 			session={reportSession}
 			onOpenPrevious={openPreviousReports}
 			onDownload={downloadReport}
-			onOpenAllFeedback={openAllFeedback}
 			onStartTraining={startTraining}
 		/>
 	{/if}

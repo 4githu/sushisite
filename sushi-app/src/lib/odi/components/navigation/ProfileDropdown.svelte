@@ -176,7 +176,6 @@
 
 <!-- src/lib/odi/components/navigation/ProfileDropdown.svelte -->
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import DropdownItem from "./DropdownItem.svelte";
 
 	import {
@@ -214,15 +213,15 @@
 
 	<div class="divider"></div>
 
-	<DropdownItem label="요금제 업그레이드" onclick={() => goto("/pricing")} />
+	<DropdownItem label="요금제 업그레이드" disabled status="준비 중" />
 
 	<DropdownItem label="회원정보 수정" onclick={onOpenAccount} />
 
-	<DropdownItem label="설정" onclick={() => goto("/settings")} />
+	<DropdownItem label="설정" disabled status="준비 중" />
 
 	<div class="divider"></div>
 
-	<DropdownItem label="도움말" onclick={() => goto("/help")} />
+	<DropdownItem label="도움말" disabled status="준비 중" />
 
 	<DropdownItem label="로그아웃"  onclick={onLogout} />
 </div>

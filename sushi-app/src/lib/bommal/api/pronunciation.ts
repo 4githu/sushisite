@@ -1,6 +1,6 @@
 import type { ProductMode, VoiceEvaluationResponse, WordEvaluationResponse } from '$lib/bommal/types';
 
-const API_BASE = import.meta.env.VITE_SUSHIFASTURL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_SUSHIFASTURL || '';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
 	const body = await response.text();

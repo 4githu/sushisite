@@ -14,13 +14,11 @@
 		session,
 		onOpenPrevious,
 		onDownload,
-		onOpenAllFeedback,
 		onStartTraining
 	}: {
 		session: ReportSession;
 		onOpenPrevious?: () => void;
 		onDownload?: () => void;
-		onOpenAllFeedback?: () => void;
 		onStartTraining?: () => void;
 	} = $props();
 
@@ -38,7 +36,7 @@
 	<section class="top-grid">
 		<ScoreOverviewCard {feedback} />
 		<DetailAnalysisCard {feedback} />
-		<TimelineFeedbackCard {feedback} onOpenAll={onOpenAllFeedback} />
+		<TimelineFeedbackCard {feedback} />
 	</section>
 
 	<section class="bottom-card">

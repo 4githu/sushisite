@@ -3,7 +3,7 @@
 	import EndpointSummary from '$lib/bommal/components/EndpointSummary.svelte';
 	import logo from '$lib/bommal/assets/logo.png';
 
-	const backendDocsUrl = `${import.meta.env.VITE_SUSHIFASTURL || 'http://localhost:8000'}/docs`;
+	const backendDocsUrl = `${import.meta.env.VITE_SUSHIFASTURL || ''}/docs`;
 </script>
 
 <svelte:head>

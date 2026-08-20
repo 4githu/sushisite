@@ -366,6 +366,7 @@
 	const displayName = $derived($odiuser?.config?.profile?.nickname ?? auth.get()?.data?.name ?? userName);
 	const displayLevel = $derived($odiuser?.config?.profile?.level ?? planName);
 	const displayProfileImage = $derived($odiuser?.config?.profile?.profile_image || sprout);
+	const isLoggedIn = $derived(Boolean($odiuser));
 
 	const currentPage = $derived.by(() => {
 		const pathname = page.url.pathname;
@@ -380,6 +381,11 @@
 
 	function toggleProfile(event: MouseEvent) {
 		event.stopPropagation();
+		if (!isLoggedIn) {
+			showProfile = false;
+			onOpenAccount?.();
+			return;
+		}
 		showProfile = !showProfile;
 	}
 
@@ -447,12 +453,12 @@
 	</div>
 
 	<div class="bottom">
-		<button type="button" class="my-page clickable" onclick={toggleProfile}>
+		<button type="button" class="my-page clickable" class:logged-out={!isLoggedIn} onclick={toggleProfile}>
 			<div class="my-page-left">
 				<img class="profile-icon" src={displayProfileImage} alt="" />
 				<span class="account-copy">
-					<strong class="text-body-medium">{displayName}</strong>
-					<small class="text-caption-nav">{displayLevel}</small>
+					<strong class="text-body-medium">{isLoggedIn ? displayName : "로그인"}</strong>
+					<small class="text-caption-nav">{isLoggedIn ? displayLevel : "로그인이 필요해요"}</small>
 				</span>
 			</div>
 
@@ -518,6 +524,10 @@
 
 	.bottom {
 		position: relative;
+	}
+
+	.my-page.logged-out {
+		outline: 1px solid rgb(from var(--surface) r g b / 28%);
 	}
 
 	.my-page {

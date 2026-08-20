@@ -1,12 +1,10 @@
 <!-- src/routes/odi/session/presentation/confirm/+page.svelte -->
 
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import presenimage from "$lib/odi/assets/presentation-ready.png";
 
-	import { template, session, type PresentationTemplate } from "$lib/odi/stores";
-	import Button from "$lib/odi/components/common/Button.svelte";
+	import { template, type PresentationTemplate } from "$lib/odi/stores";
 	import SessionConfirmCard from "$lib/odi/components/session/SessionConfirmCard.svelte";
 
 	import {
@@ -17,11 +15,7 @@
 		goggle
 	} from "$lib/odi/icons";
 
-	const sessionStore = session as any;
-
 	let draft = $state(null as PresentationTemplate | null);
-	let isStarting = $state(false);
-	let errorMessage = $state("");
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
@@ -56,21 +50,6 @@
 		{ label: "청중 페르소나", value: persona, icon: audiencepersona }
 	]);
 
-	async function startPresentationSession() {
-		if (isStarting) return;
-
-		isStarting = true;
-		errorMessage = "";
-
-		try {
-			await sessionStore.startFromCurrentTemplate?.();
-			await goto("/odi/waitvr");
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "세션 시작에 실패했습니다.";
-		} finally {
-			isStarting = false;
-		}
-	}
 </script>
 
 <main class="confirm-page">
@@ -82,10 +61,6 @@
 			<p class="subtitle text-caption-main">모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!</p>
 		</div>
 	</header>
-
-	{#if errorMessage}
-		<p class="error-message text-caption-medium">{errorMessage}</p>
-	{/if}
 
 	<section class="info-card">
 		<p class="text-body-medium">발표 정보</p>
@@ -108,16 +83,10 @@
 	/>
 
 	<section class="start-area">
-		<Button
-			variant="primary"
-			size="lg"
-			width="464px"
-			leadingIcon={goggle}
-			disabled={isStarting}
-			onclick={startPresentationSession}
-		>
-			{isStarting ? "세션 파일 준비 중..." : "시작하기"}
-		</Button>
+		<a class="start-link clickable text-button-start" href="/odi/waitvr?choose=1" data-sveltekit-reload>
+			<img src={goggle} alt="" />
+			<span>시작하기</span>
+		</a>
 
 		<p class="start-help text-caption-medium">클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.</p>
 	</section>
@@ -152,13 +121,6 @@
 
 	.subtitle {
 		color: var(--text-secondary);
-	}
-
-	.error-message {
-		padding: var(--space-4) var(--space-5);
-		border-radius: var(--radius-sm);
-		background: var(--accent-light);
-		color: var(--accent);
 	}
 
 	.info-card {
@@ -203,6 +165,23 @@
 		gap: var(--space-3);
 		margin-top: var(--space-2);
 	}
+
+	.start-link {
+		width: 464px;
+		height: 63px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding-inline: var(--space-5);
+		border-radius: var(--radius-sm);
+		background: var(--primary);
+		color: var(--text-on-primary);
+		text-decoration: none;
+	}
+
+	.start-link:hover { background: var(--primary-hover); }
+	.start-link img { width: 24px; height: 24px; }
 
 	.start-help {
 		color: var(--text-disabled);

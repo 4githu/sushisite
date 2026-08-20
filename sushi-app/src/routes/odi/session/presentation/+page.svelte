@@ -40,11 +40,11 @@
 		const draft = ensurePresentationDraft();
 
 		title = draft.environment.title;
-		purpose = draft.environment.purpose;
-		language = draft.environment.language;
+		purpose = draft.environment.purpose || "프로젝트 목적";
+		language = draft.environment.language || "한국어";
 		place = draft.environment.place;
-		durationMinutes = draft.environment.duration_minutes;
-		questionCount = draft.environment.question_count;
+		durationMinutes = 2;
+		questionCount = draft.environment.question_count ?? 2;
 
 		ready = true;
 	});
@@ -68,7 +68,7 @@
 		language.trim().length > 0 &&
 		place.trim().length > 0 &&
 		durationMinutes > 0 &&
-		questionCount > 0
+		questionCount >= 0
 	);
 </script>
 

@@ -6,7 +6,6 @@
 	import SegmentedControl from "$lib/odi/components/session/SegmentedControl.svelte";
 	import SessionSlider from "$lib/odi/components/session/SessionSlider.svelte";
 	import {
-		down,
 		podium as 세미나실콘,
 		school as 학회장콘,
 		chair_alt as 강의실콘,
@@ -32,38 +31,8 @@
 		questionCount?: number;
 	} = $props();
 
-	const presetDurations = [2, 5, 10, 15, 20, 30];
-	let durationValue = $state(
-		durationMinutes > 0 && !presetDurations.includes(durationMinutes)
-			? "custom"
-			: (durationMinutes > 0 ? String(durationMinutes) : "")
-	);
-	let customDuration = $state(
-		durationMinutes > 0 && !presetDurations.includes(durationMinutes)
-			? String(durationMinutes)
-			: ""
-	);
-
-	$effect(() => {
-		if (durationMinutes <= 0) return;
-		if (presetDurations.includes(durationMinutes)) {
-			const next = String(durationMinutes);
-			if (durationValue !== next) durationValue = next;
-		} else if (durationValue !== "custom") {
-			durationValue = "custom";
-			customDuration = String(durationMinutes);
-		}
-	});
-
-	$effect(() => {
-		const next = Number(durationValue === "custom" ? customDuration : durationValue);
-
-		if (!Number.isNaN(next) && next >= 0 && durationMinutes !== next) {
-			durationMinutes = next;
-		}
-	});
-
 	const purposeItems = [
+		{ label: "프로젝트 목적", value: "프로젝트 목적" },
 		{ label: "연구 결과 공유", value: "연구 결과 공유" },
 		{ label: "프로젝트 발표", value: "프로젝트 발표" },
 		{ label: "사업 제안", value: "사업 제안" },
@@ -82,8 +51,7 @@
 		{ label: "10분", value: "10" },
 		{ label: "15분", value: "15" },
 		{ label: "20분", value: "20" },
-		{ label: "30분", value: "30" },
-		{ label: "직접 설정", value: "custom" }
+		{ label: "30분", value: "30" }
 	];
 
 	const placeItems = [
@@ -93,6 +61,7 @@
 	];
 
 	const questionTicks = [
+		{ value: 0, label: "0개" },
 		{ value: 1, label: "1개" },
 		{ value: 2, label: "2개" },
 		{ value: 3, label: "3개" },
@@ -115,10 +84,10 @@
 			/>
 
 			<div class="field">
-				<label class="label text-body-active">
+				<div class="label text-body-active">
 					<span>발표 목적</span>
 					<span class="required">*</span>
-				</label>
+				</div>
 
 				<SessionSelect
 					items={purposeItems}
@@ -129,7 +98,7 @@
 			</div>
 
 			<div class="field">
-				<label class="label text-body-active">사용 언어</label>
+				<div class="label text-body-active">사용 언어</div>
 
 				<SessionSelect
 					items={languageItems}
@@ -142,43 +111,29 @@
 		<section class="environment-grid">
 			<div class="left-column">
 				<div class="field">
-					<label class="label text-body-active">
+					<div class="label text-body-active">
 						<span>발표 시간</span>
 						<span class="required">*</span>
-					</label>
+					</div>
 
 					<SessionSelect
 						items={durationItems}
+						value={String(durationMinutes)}
 						width="100%"
 						icon={알람콘}
-						bind:value={durationValue}
+						onchange={(event) => durationMinutes = Number((event.currentTarget as HTMLSelectElement).value)}
 					/>
-
-					{#if durationValue === "custom"}
-						<label class="custom-duration">
-							<span class="sr-only">발표 시간 직접 입력</span>
-							<input
-								type="number"
-								min="1"
-								max="180"
-								step="1"
-								placeholder="분 단위로 입력"
-								bind:value={customDuration}
-							/>
-							<span>분</span>
-						</label>
-					{/if}
 				</div>
 
 				<div class="field">
-					<label class="label text-title-small">
+					<div class="label text-title-small">
 						<span>질의 응답 개수</span>
 						<span class="required">*</span>
-					</label>
+					</div>
 
 					<SessionSlider
 						mode="node"
-						min={1}
+						min={0}
 						max={5}
 						step={1}
 						majorTicks={questionTicks}
@@ -190,10 +145,10 @@
 
 			<div class="right-column">
 				<div class="field">
-					<label class="label text-title-small">
+					<div class="label text-title-small">
 						<span>발표 환경</span>
 						<span class="required">*</span>
-					</label>
+					</div>
 
 					<SegmentedControl
 						items={placeItems}
@@ -249,37 +204,6 @@
 
 	.required {
 		color: var(--purple);
-	}
-
-	.custom-duration {
-		height: 50px;
-		padding: 0 var(--space-5);
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		background: var(--surface);
-	}
-
-	.custom-duration:focus-within {
-		border-color: var(--primary);
-	}
-
-	.custom-duration input {
-		min-width: 0;
-		flex: 1;
-		border: 0;
-		outline: 0;
-		background: transparent;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
 	}
 
 	@container (max-width: 980px) {

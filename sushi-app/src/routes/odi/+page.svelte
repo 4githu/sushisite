@@ -199,11 +199,28 @@
 	const chartPaddingX = 28;
 	const chartPaddingY = 14;
 	let greeting = $state("안녕하세요");
+	let selectedRangeDays = $state(14);
+	let showRangeMenu = $state(false);
+	const rangeOptions = [
+		{ days: 7, label: "지난 1주" },
+		{ days: 14, label: "지난 2주" },
+		{ days: 28, label: "지난 4주" }
+	];
 
-	const ePath = $derived(linePath(evcTrend, "E"));
-	const vPath = $derived(linePath(evcTrend, "V"));
-	const cPath = $derived(linePath(evcTrend, "C"));
-	const chartLabels = $derived(evcTrend.filter((_, index) => index % 2 === 0 || index === evcTrend.length - 1));
+	const visibleEvcTrend = $derived.by(() => {
+		const ordered = [...evcTrend].sort((left, right) => left.date.localeCompare(right.date));
+		const latest = ordered.at(-1);
+		if (!latest) return [];
+		const latestTime = new Date(`${latest.date}T00:00:00`).getTime();
+		const cutoff = latestTime - (selectedRangeDays - 1) * 86_400_000;
+		return ordered.filter((point) => new Date(`${point.date}T00:00:00`).getTime() >= cutoff);
+	});
+	const selectedRangeLabel = $derived(rangeOptions.find((option) => option.days === selectedRangeDays)?.label ?? "분석 기간");
+
+	const ePath = $derived(linePath(visibleEvcTrend, "E"));
+	const vPath = $derived(linePath(visibleEvcTrend, "V"));
+	const cPath = $derived(linePath(visibleEvcTrend, "C"));
+	const chartLabels = $derived(visibleEvcTrend.filter((_, index) => index % 2 === 0 || index === visibleEvcTrend.length - 1));
 
 	function clampPercent(value: number) {
 		if (Number.isNaN(value)) return 0;
@@ -434,12 +451,18 @@
 			<div class="panel-header">
 				<h2 class="text-title-small">E/V/C 요소 분석</h2>
 
-				<button type="button" class="range-button clickable">
-					<span class = "inline-flex items-center gap-1">
-						최근 2주
-						<img src={down} alt="" />
-					</span>
-				</button>
+				<div class="range-menu">
+					<button type="button" class="range-button clickable" aria-expanded={showRangeMenu} onclick={() => showRangeMenu = !showRangeMenu}>
+						<span class="inline-flex items-center gap-1">{selectedRangeLabel}<img src={down} alt="" /></span>
+					</button>
+					{#if showRangeMenu}
+						<div class="range-options" role="menu">
+							{#each rangeOptions as option}
+								<button type="button" role="menuitem" class:active={selectedRangeDays === option.days} onclick={() => { selectedRangeDays = option.days; showRangeMenu = false; }}>{option.label}</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<div class="legend">
@@ -867,7 +890,7 @@
 	}
 
 	.range-button {
-		width: 100px;
+		min-width: 108px;
 		height: 36px;
 		padding: 0 var(--space-3);
 		display: flex;
@@ -879,6 +902,11 @@
 		color: var(--text-primary);
 		font-size: 16px;
 	}
+
+	.range-menu { position: relative; z-index: 3; }
+	.range-options { position: absolute; top: calc(100% + 6px); right: 0; min-width: 132px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--cool-grey-light-active); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
+	.range-options button { height: 34px; padding: 0 10px; border-radius: 6px; color: var(--text-secondary); text-align: left; font: inherit; }
+	.range-options button:hover, .range-options button.active { background: var(--blue-light); color: var(--primary); }
 
 	.legend {
 		margin-top: 18px;

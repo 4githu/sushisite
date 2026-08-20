@@ -5,12 +5,16 @@
 		title,
 		description,
 		image,
+		badge,
+		meta,
 		selected = false,
 		onselect
 	}: {
 		title: string;
 		description: string;
 		image: string;
+		badge?: string;
+		meta?: string;
 		selected?: boolean;
 		onselect?: () => void;
 	} = $props();
@@ -22,6 +26,9 @@
 	class:selected
 	onclick={onselect}
 >
+	{#if badge}
+		<span class="badge">{badge}</span>
+	{/if}
 	<div class="content">
 		<div class="image-wrap">
 			<img
@@ -39,6 +46,10 @@
 			<p class="description text-caption-medium">
 				{description}
 			</p>
+
+			{#if meta}
+				<p class="meta">{meta}</p>
+			{/if}
 		</div>
 
 		<div class="arrow-button">
@@ -52,6 +63,7 @@
 
 <style>
 	.session-type-card {
+		position: relative;
 		width: 240px;
 		height: 301px;
 
@@ -68,6 +80,19 @@
 			background var(--transition-fast),
 			border-color var(--transition-fast),
 			box-shadow var(--transition-fast);
+	}
+
+	.badge {
+		position: absolute;
+		top: 12px;
+		right: 12px;
+		z-index: 1;
+		padding: 5px 9px;
+		border-radius: var(--radius-full);
+		background: var(--primary);
+		color: var(--text-on-primary);
+		font-size: 11px;
+		font-weight: var(--font-bold);
 	}
 
 	.session-type-card:hover {
@@ -145,6 +170,13 @@
 		white-space: pre-line;
 
 		transition: var(--transition-fast);
+	}
+
+	.meta {
+		margin: 0;
+		color: var(--primary);
+		font-size: 12px;
+		font-weight: var(--font-medium);
 	}
 
 	.arrow-button {

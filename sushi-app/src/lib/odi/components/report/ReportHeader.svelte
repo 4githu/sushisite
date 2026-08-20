@@ -22,7 +22,7 @@
 
 	const title = $derived(environment.title ?? environment.company_name ?? "세션 리포트");
 	const audienceCount = $derived(template.audience?.audience_count ?? environment.interviewer_count ?? "-");
-	const plannedSeconds = $derived(feedback.duration?.planned_seconds ?? environment.duration_minutes * 60 ?? 0);
+	const plannedSeconds = $derived(feedback.duration?.planned_seconds ?? Number(environment.duration_minutes ?? 0) * 60);
 	const qaSeconds = $derived(feedback.duration?.qa_seconds ?? 0);
 	const totalSeconds = $derived((feedback.duration?.actual_seconds ?? plannedSeconds) + qaSeconds);
 
