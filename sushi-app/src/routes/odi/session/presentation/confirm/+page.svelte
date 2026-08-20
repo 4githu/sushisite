@@ -1,13 +1,13 @@
 <!-- src/routes/odi/session/presentation/confirm/+page.svelte -->
 
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
 	import presenimage from "$lib/odi/assets/presentation-ready.png";
 
-	import { template, session, type PresentationTemplate } from "$lib/odi/stores";
-	import Button from "$lib/odi/components/common/Button.svelte";
+	import { template, type PresentationTemplate } from "$lib/odi/stores";
+	import { auth } from "$lib/stores/mainauth";
 	import SessionConfirmCard from "$lib/odi/components/session/SessionConfirmCard.svelte";
+	import SessionModeModal from "$lib/odi/components/session/SessionModeModal.svelte";
 
 	import {
 		sessiontime,
@@ -17,11 +17,13 @@
 		goggle
 	} from "$lib/odi/icons";
 
-	const sessionStore = session as any;
-
 	let draft = $state(null as PresentationTemplate | null);
-	let isStarting = $state(false);
-	let errorMessage = $state("");
+	let clientReady = $state(false);
+	let showSessionModeModal = $state(false);
+	let isCheckingAccount = $state(false);
+	let startError = $state("");
+
+	const EXPERIENCE_ACCOUNT_EMAIL = "xrealrehear@gmail.com";
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
@@ -30,12 +32,48 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// 확인 화면도 새 세션 흐름에서 이전 recent_template를 표시하면 안 됩니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	onMount(() => {
 		draft = ensurePresentationDraft();
+		clientReady = true;
 	});
+
+	async function getCurrentEmail() {
+		// 레이아웃에 남아 있을 수 있는 이전 인증 store 대신 서버 쿠키를 다시 확인합니다.
+		const payload = await auth.check();
+		return payload?.data?.email?.trim().toLowerCase() ?? "";
+	}
+
+	async function openSession() {
+		if (!clientReady || isCheckingAccount) return;
+
+		isCheckingAccount = true;
+		startError = "";
+
+		try {
+			const email = await getCurrentEmail();
+
+			if (email === EXPERIENCE_ACCOUNT_EMAIL) {
+				showSessionModeModal = true;
+				return;
+			}
+
+			window.location.assign("/odi/waitvr?mode=regular");
+		} catch (error) {
+			startError = error instanceof Error ? error.message : "세션을 시작하지 못했습니다.";
+		} finally {
+			isCheckingAccount = false;
+		}
+	}
+
+	function selectSessionMode(mode: "experience" | "regular") {
+		showSessionModeModal = false;
+		window.location.assign(`/odi/waitvr?mode=${mode}`);
+	}
 
 	const title = $derived(draft?.environment.title || "발표 제목 없음");
 	const purpose = $derived(draft?.environment.purpose || "발표 목적 없음");
@@ -56,21 +94,6 @@
 		{ label: "청중 페르소나", value: persona, icon: audiencepersona }
 	]);
 
-	async function startPresentationSession() {
-		if (isStarting) return;
-
-		isStarting = true;
-		errorMessage = "";
-
-		try {
-			await sessionStore.startFromCurrentTemplate?.();
-			await goto("/odi/waitvr");
-		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "세션 시작에 실패했습니다.";
-		} finally {
-			isStarting = false;
-		}
-	}
 </script>
 
 <main class="confirm-page">
@@ -82,10 +105,6 @@
 			<p class="subtitle text-caption-main">모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!</p>
 		</div>
 	</header>
-
-	{#if errorMessage}
-		<p class="error-message text-caption-medium">{errorMessage}</p>
-	{/if}
 
 	<section class="info-card">
 		<p class="text-body-medium">발표 정보</p>
@@ -108,19 +127,25 @@
 	/>
 
 	<section class="start-area">
-		<Button
-			variant="primary"
-			size="lg"
-			width="464px"
-			leadingIcon={goggle}
-			disabled={isStarting}
-			onclick={startPresentationSession}
+		<button
+			type="button"
+			class="start-link clickable text-button-start"
+			disabled={!clientReady || isCheckingAccount}
+			onclick={openSession}
 		>
-			{isStarting ? "세션 파일 준비 중..." : "시작하기"}
-		</Button>
+			<img src={goggle} alt="" />
+			<span>{!clientReady ? "페이지 준비 중..." : isCheckingAccount ? "계정 확인 중..." : "시작하기"}</span>
+		</button>
 
 		<p class="start-help text-caption-medium">클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.</p>
+		{#if startError}
+			<p class="start-error" role="alert">{startError}</p>
+		{/if}
 	</section>
+
+	{#if showSessionModeModal}
+		<SessionModeModal onselect={selectSessionMode} />
+	{/if}
 </main>
 
 <style>
@@ -152,13 +177,6 @@
 
 	.subtitle {
 		color: var(--text-secondary);
-	}
-
-	.error-message {
-		padding: var(--space-4) var(--space-5);
-		border-radius: var(--radius-sm);
-		background: var(--accent-light);
-		color: var(--accent);
 	}
 
 	.info-card {
@@ -204,7 +222,28 @@
 		margin-top: var(--space-2);
 	}
 
+	.start-link {
+		width: 464px;
+		height: 63px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding-inline: var(--space-5);
+		border-radius: var(--radius-sm);
+		border: 0;
+		background: var(--primary);
+		color: var(--text-on-primary);
+		text-decoration: none;
+	}
+
+	.start-link:hover { background: var(--primary-hover); }
+	.start-link:disabled { cursor: wait; opacity: .7; }
+	.start-link img { width: 24px; height: 24px; }
+
 	.start-help {
 		color: var(--text-disabled);
 	}
+
+	.start-error { margin: 0; color: var(--accent); font-size: 14px; }
 </style>

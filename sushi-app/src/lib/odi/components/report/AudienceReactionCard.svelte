@@ -12,6 +12,12 @@
 
 	const graph = $derived(feedback.audience_analysis?.graph ?? []);
 	const maxTime = $derived(Math.max(...graph.map((point) => point.time_sec), 1));
+	const xTicks = $derived([0, maxTime / 3, (maxTime * 2) / 3, maxTime]);
+
+	function formatTime(seconds: number) {
+		const rounded = Math.max(0, Math.round(seconds));
+		return `${String(Math.floor(rounded / 60)).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`;
+	}
 
 	function pathFor(points: AudienceGraphPoint[], key: "E" | "V" | "C") {
 		if (points.length === 0) return "";
@@ -83,10 +89,9 @@
 				</svg>
 
 				<div class="x-labels">
-					<span>00:00</span>
-					<span>10:00</span>
-					<span>20:00</span>
-					<span>30:00</span>
+					{#each xTicks as tick}
+						<span>{formatTime(tick)}</span>
+					{/each}
 				</div>
 			</div>
 		</section>

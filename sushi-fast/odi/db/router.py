@@ -73,6 +73,22 @@ def get_user_id_from_jwt(request: Request) -> str:
     return user_id
 
 
+def require_pre_session_owner(pin_code: str, user_id: str) -> dict[str, Any]:
+    pre_session = odidb.get_pre_session_by_pin(pin_code)
+
+    if pre_session is None:
+        raise_404(f"존재하지 않는 pin_code입니다: {pin_code}")
+
+    template = odidb.get_template(pre_session["template_id"])
+    if template is None:
+        raise_404("pre_session의 템플릿을 찾을 수 없습니다.")
+
+    if str(template["owner_id"]) != str(user_id):
+        raise HTTPException(status_code=403, detail="다른 사용자의 준비 세션에는 접근할 수 없습니다.")
+
+    return pre_session
+
+
 @router.get("/health")
 def db_health() -> dict[str, str]:
     return {
@@ -85,6 +101,8 @@ def db_health() -> dict[str, str]:
 def init_db() -> dict[str, str]:
     try:
         odidb.init_db()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -141,6 +159,8 @@ def join_odi(
             config=payload.config,
             recent_template=payload.recent_template,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -340,9 +360,14 @@ def delete_template(template_id: str) -> dict[str, str]:
 @router.post("/pre-sessions/start-from-recent")
 def start_pre_session_from_recent(
     payload: PreSessionStartRequest,
+    request: Request,
 ) -> dict[str, Any]:
     try:
-        user = odidb.get_user(str(payload.user_id))
+        user_id = get_user_id_from_jwt(request)
+        if str(payload.user_id) != str(user_id):
+            raise HTTPException(status_code=403, detail="다른 사용자의 세션을 시작할 수 없습니다.")
+
+        user = odidb.get_user(user_id)
 
         if user is None:
             raise ValueError(f"존재하지 않는 user_id입니다: {payload.user_id}")
@@ -353,12 +378,12 @@ def start_pre_session_from_recent(
             raise ValueError("recent_template이 없습니다.")
 
         committed_template, bundle_info = commit_template_files(
-            user_id=str(payload.user_id),
+            user_id=user_id,
             template=recent_template,
         )
 
         template_id = odidb.create_template(
-            owner_id=str(payload.user_id),
+            owner_id=user_id,
             template=committed_template,
         )
 
@@ -368,7 +393,7 @@ def start_pre_session_from_recent(
             raise ValueError("템플릿 저장 후 조회에 실패했습니다.")
 
         odidb.update_recent_template(
-            user_id=str(payload.user_id),
+            user_id=user_id,
             template=saved_template["template"],
         )
 
@@ -377,6 +402,8 @@ def start_pre_session_from_recent(
             expires_minutes=payload.expires_minutes,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -389,11 +416,8 @@ def start_pre_session_from_recent(
     }
 
 @router.get("/pre-sessions/{pin_code}")
-def get_pre_session(pin_code: str) -> dict[str, Any]:
-    pre_session = odidb.get_pre_session_by_pin(pin_code)
-
-    if pre_session is None:
-        raise_404(f"존재하지 않는 pin_code입니다: {pin_code}")
+def get_pre_session(pin_code: str, request: Request) -> dict[str, Any]:
+    pre_session = require_pre_session_owner(pin_code, get_user_id_from_jwt(request))
 
     return {
         "pre_session": pre_session,
@@ -404,12 +428,16 @@ def get_pre_session(pin_code: str) -> dict[str, Any]:
 def update_pre_session_state(
     pin_code: str,
     payload: PreSessionStateUpdateRequest,
+    request: Request,
 ) -> dict[str, Any]:
     try:
+        require_pre_session_owner(pin_code, get_user_id_from_jwt(request))
         odidb.update_pre_session_state(
             pin_code=pin_code,
             state=payload.state,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -425,15 +453,17 @@ def update_pre_session_state(
 def finish_pre_session(
     pin_code: str,
     payload: PreSessionFinishRequest,
+    request: Request,
 ) -> dict[str, Any]:
-    pre_session = odidb.get_pre_session_by_pin(pin_code)
+    user_id = get_user_id_from_jwt(request)
+    if str(payload.user_id) != str(user_id):
+        raise HTTPException(status_code=403, detail="다른 사용자의 세션을 완료할 수 없습니다.")
 
-    if pre_session is None:
-        raise_404(f"존재하지 않는 pin_code입니다: {pin_code}")
+    pre_session = require_pre_session_owner(pin_code, user_id)
 
     try:
         session_id = odidb.start_session_from_template(
-            user_id=payload.user_id,
+            user_id=user_id,
             template_id=pre_session["template_id"],
         )
 

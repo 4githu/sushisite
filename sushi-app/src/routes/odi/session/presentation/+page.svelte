@@ -33,18 +33,21 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// 새 세션 진입 중 store가 비어도 이전 recent_template를 되살리지 않습니다.
+		// 새 발표는 항상 기본값에서 시작해야 다른 사용자의 draft가 보이지 않습니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	onMount(() => {
 		const draft = ensurePresentationDraft();
 
 		title = draft.environment.title;
-		purpose = draft.environment.purpose;
-		language = draft.environment.language;
+		purpose = draft.environment.purpose || "프로젝트 목적";
+		language = draft.environment.language || "한국어";
 		place = draft.environment.place;
-		durationMinutes = draft.environment.duration_minutes;
-		questionCount = draft.environment.question_count;
+		durationMinutes = 2;
+		questionCount = draft.environment.question_count ?? 2;
 
 		ready = true;
 	});
@@ -68,7 +71,7 @@
 		language.trim().length > 0 &&
 		place.trim().length > 0 &&
 		durationMinutes > 0 &&
-		questionCount > 0
+		questionCount >= 0
 	);
 </script>
 

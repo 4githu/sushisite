@@ -110,6 +110,7 @@
 
 <style>
 	.guest-modal {
+		box-sizing: border-box;
 		position: relative;
 
 		width: 100%;
@@ -123,6 +124,7 @@
 
 		background: var(--surface);
 		border-radius: var(--radius-md);
+		overflow-y: auto;
 	}
 
 	.close-button {
@@ -262,12 +264,16 @@
 	}
 
 	.actions {
-		width: 500px;
+		width: 100%;
+		max-width: 500px;
 
 		margin-top: auto;
+		padding-top: var(--space-4);
+		padding-bottom: 2px;
 
 		display: flex;
 		gap: var(--space-3);
+		background: var(--surface);
 	}
 
 	.actions button {

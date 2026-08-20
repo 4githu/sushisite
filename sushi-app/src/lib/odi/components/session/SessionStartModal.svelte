@@ -110,8 +110,8 @@
 				</h2>
 
 				<p class="modal-description text-caption-medium">
-					연습할 유형을 선택하고,
-					맞춤 설정을 시작해보세요.
+					이전 입력값은 가져오지 않고,
+					기본 설정으로 새 연습을 시작해요.
 				</p>
 
 			</header>
@@ -144,7 +144,7 @@
 				disabled={!selectedType}
 				onclick={startSelectedSession}
 			>
-				이 유형으로 시작하기
+				기본 설정으로 시작하기
 			</Button>
 
 			<button

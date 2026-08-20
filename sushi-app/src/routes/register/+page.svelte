@@ -294,5 +294,16 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: var(--space-4);
+		padding: var(--space-4) 0 2px;
+		background: var(--surface);
+		position: sticky;
+		bottom: 0;
+		z-index: 2;
+	}
+
+	@media (max-width: 760px) {
+		.register-page { padding: 24px 16px; }
+		.page-actions { flex-direction: column-reverse; }
+		.page-actions :global(.button) { width: 100% !important; }
 	}
 </style>

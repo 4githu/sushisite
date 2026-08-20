@@ -7,6 +7,7 @@ import { goto } from "$app/navigation";
 import { odiuser, type JsonObject } from "./odiuser";
 import { template } from "./template";
 import { publishPresentationData } from "$lib/odi/firebase/session-materials";
+import { createFixedDemoPresentationTemplate, fixedDemoFeedback } from "$lib/odi/demo/fixedPresentationScenario";
 
 export type PreSessionState = "waiting" | "running" | "finished" | "expired" | "cancelled";
 
@@ -76,6 +77,31 @@ function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function ensureSessionContext() {
+	let user = odiuser.get();
+
+	if (user === null) {
+		const access = await odiuser.checkAccess();
+		user = access.user;
+	}
+
+	if (user === null) {
+		throw new Error("로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.");
+	}
+
+	let currentTemplate = template.get();
+
+	if (currentTemplate === null) {
+		currentTemplate = template.loadFromRecent();
+	}
+
+	if (currentTemplate === null) {
+		throw new Error("저장된 발표 설정을 찾지 못했습니다. 발표 설정 화면에서 다시 확인해 주세요.");
+	}
+
+	return { user, currentTemplate };
+}
+
 export const session = {
 	subscribe: store.subscribe,
 
@@ -87,12 +113,13 @@ export const session = {
 		store.set(initialState);
 	},
 
-	async startFromCurrentTemplate(expires_minutes = 30) {
-		const user = odiuser.get();
+	async saveCurrentTemplateForHandoff() {
+		await ensureSessionContext();
+		return template.saveToRecent();
+	},
 
-		if (user === null) {
-			throw new Error("ODI 유저가 없습니다.");
-		}
+	async startFromCurrentTemplate(expires_minutes = 30, options: { skipPresentationPublish?: boolean } = {}) {
+		const { user } = await ensureSessionContext();
 
 		await template.saveToRecent();
 
@@ -111,20 +138,8 @@ export const session = {
 		const data = await fetchJson(res);
 		const preSession = data.pre_session as OdiPreSession;
 
-		if (data.template?.template) {
-			template.set(data.template.template);
-		}
-
-		const preparedTemplate = data.template?.template;
-		if (preparedTemplate?.type === "presentation") {
-			try {
-				await publishPresentationData(String(data.pin_code), preparedTemplate);
-			} catch (error) {
-				await this.updatePreSessionState(String(data.pin_code), "cancelled").catch(() => undefined);
-				throw error;
-			}
-		}
-
+		// PIN은 백엔드가 만든 즉시 store에 반영합니다. Firebase 자료 전송이 오래 걸리거나
+		// 실패해도 생성 여부와 실패 원인을 화면에서 정확히 구분할 수 있습니다.
 		store.update((state) => ({
 			...state,
 			pin_code: data.pin_code,
@@ -133,7 +148,44 @@ export const session = {
 			file_bundle: data.file_bundle ?? null
 		}));
 
+		if (data.template?.template) {
+			template.set(data.template.template);
+		}
+
+		const preparedTemplate = data.template?.template;
+		if (preparedTemplate?.type === "presentation" && !options.skipPresentationPublish) {
+			try {
+				await publishPresentationData(String(data.pin_code), preparedTemplate);
+			} catch (error) {
+				await this.updatePreSessionState(String(data.pin_code), "cancelled").catch(() => undefined);
+				throw error;
+			}
+		}
+
 		return preSession;
+	},
+
+	async startFixedDemoPresentation(expires_minutes = 30) {
+		const { currentTemplate: originalTemplate } = await ensureSessionContext();
+
+		try {
+			template.set(createFixedDemoPresentationTemplate());
+			return await this.startFromCurrentTemplate(expires_minutes, { skipPresentationPublish: true });
+		} finally {
+			// 체험 세션 때문에 사용자가 설정한 발표 자료와 옵션이 recent_template에서
+			// 사라지지 않도록 반드시 원래 템플릿을 복원합니다.
+			template.set(originalTemplate);
+			await template.saveToRecent();
+		}
+	},
+
+	async finishFixedDemoPresentation(pinCode?: string) {
+		const current = get(store);
+		const targetPin = pinCode ?? current.pin_code;
+		if (!targetPin) throw new Error("시연 PIN 번호가 없습니다.");
+		if (current.pre_session?.state === "finished") return current.current_session;
+
+		return this.finishPreSession(targetPin, fixedDemoFeedback);
 	},
 
 	async refreshPreSession(pinCode?: string) {

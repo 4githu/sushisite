@@ -262,4 +262,46 @@
 		font-weight: var(--font-medium);
 		text-align: right;
 	}
+
+	/* 리포트 3단 그리드와 브라우저 확대 시 카드 자체 폭이 좁아집니다.
+	 * 이때는 절대 위치 레이더와 하단 설명을 분리해 서로 침범하지 않게 합니다. */
+	@container (max-width: 540px) {
+		.score-card {
+			height: auto;
+			min-height: 0;
+		}
+
+		.radar-wrap {
+			position: relative;
+			left: auto;
+			top: auto;
+			width: min(320px, 100%);
+			height: 230px;
+			margin: 10px auto 0;
+			transform: none;
+		}
+
+		.radar {
+			width: 100%;
+			height: 250px;
+		}
+
+		.score-descriptions {
+			margin-top: 8px;
+		}
+
+		.desc-row {
+			min-height: 0;
+			align-items: flex-start;
+			flex-direction: column;
+			gap: 4px;
+		}
+
+		.desc-row p {
+			margin: 0;
+			font-size: 14px;
+			line-height: 1.45;
+			text-align: left;
+		}
+	}
 </style>

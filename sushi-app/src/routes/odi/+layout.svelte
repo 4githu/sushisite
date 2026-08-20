@@ -90,7 +90,8 @@
 
 	function selectSessionType(type: SessionType) {
 		showStartModal = false;
-		// 새 유형 시작은 최근 세션 값을 물려받지 않는 완전히 빈 초안입니다.
+		// 새 세션은 진행 중이던 draft와 최근 사용 설정을 물려받지 않습니다.
+		template.clear();
 		template.setDefault(type);
 
 		if (type === "presentation") {
@@ -140,7 +141,8 @@
 
 	function openAccountModal() {
 		if (!odiuser.get()) {
-			showGuestModal = true;
+			showGuestModal = false;
+			showLoginModal = true;
 			return;
 		}
 

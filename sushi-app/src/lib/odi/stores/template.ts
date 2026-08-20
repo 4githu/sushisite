@@ -168,20 +168,20 @@ export function createDefaultPresentationTemplate(): PresentationTemplate {
 
 		environment: {
 			title: "",
-			purpose: "",
-			language: "",
+			purpose: "프로젝트 목적",
+			language: "한국어",
 			place: "",
-			duration_minutes: 0,
-			question_count: 0
+			duration_minutes: 2,
+			question_count: 2
 		},
 
 		files: createEmptyFiles(),
 
 		audience: {
 			audience_type: "",
-			audience_count: 0,
-			expertise_level: "",
-			interest_level: ""
+			audience_count: 6,
+			expertise_level: "중간",
+			interest_level: "중간"
 		}
 	};
 }

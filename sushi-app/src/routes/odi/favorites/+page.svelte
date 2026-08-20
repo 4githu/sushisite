@@ -29,6 +29,7 @@
 	let loading = $state(true);
 	let errorMessage = $state("");
 	let query = $state("");
+	let categoryFilter = $state<"favorite" | "used" | "temporary" | "all">("favorite");
 	let typeFilter = $state<"all" | "presentation" | "interview">("all");
 	let sortOrder = $state<"recent" | "used">("recent");
 	let selected = $state<TemplateCard | null>(null);
@@ -53,7 +54,7 @@
 
 	function makeCard(row: StoredTemplate): TemplateCard {
 		const value = row.template;
-		const relatedSessions = sessions.filter((item) => item.template_id === row.template_id);
+		const relatedSessions = sessions.filter((item) => item.template_id === row.template_id && item.state === "completed" && item.feedback);
 		const lastUsedAt = relatedSessions[0]?.ended_at ?? relatedSessions[0]?.created_at ?? null;
 
 		if (value.type === "presentation") {
@@ -93,10 +94,13 @@
 	}
 
 	const allCards = $derived(templates.map(makeCard));
-	const favoriteCards = $derived(allCards.filter((item) => favoriteIds.includes(item.template_id)));
 	const visibleCards = $derived.by(() => {
 		const normalized = query.trim().toLowerCase();
-		return [...favoriteCards]
+		return [...allCards]
+			.filter((item) => categoryFilter === "all"
+				|| (categoryFilter === "favorite" && favoriteIds.includes(item.template_id))
+				|| (categoryFilter === "used" && item.usedCount > 0)
+				|| (categoryFilter === "temporary" && item.usedCount === 0))
 			.filter((item) => typeFilter === "all" || item.template.type === typeFilter)
 			.filter((item) => !normalized || [item.title, ...item.tags].join(" ").toLowerCase().includes(normalized))
 			.sort((left, right) => sortOrder === "used"
@@ -144,7 +148,6 @@
 				? favoriteIds.filter((id) => id !== card.template_id)
 				: [...favoriteIds, card.template_id];
 			await odiuser.updateConfig({ ...user.config, favorite_template_ids: next });
-			if (selected?.template_id === card.template_id && !next.includes(card.template_id)) selected = null;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : "즐겨찾기 저장에 실패했습니다.";
 		} finally {
@@ -178,15 +181,20 @@
 
 <main class="favorites-page">
 	<header class="page-header">
-		<p class="eyebrow">Favorites</p>
+		<p class="eyebrow">Templates</p>
 		<div>
-			<h1>즐겨찾는 템플릿</h1>
-			<p>자주 사용하는 발표·면접 템플릿을 저장하고, 빠르게 불러와 연습을 시작해보세요.</p>
+			<h1>나의 템플릿</h1>
+			<p>사용 완료, 즐겨찾기, 발표 전 임시 템플릿을 나누어 관리하세요.</p>
 		</div>
 		<button class="new-template" type="button" onclick={() => goto("/odi")}>＋ 새 템플릿 만들기</button>
 	</header>
 
 	<div class="toolbar">
+		<div class="filter-tabs category-tabs" aria-label="템플릿 상태">
+			{#each [["favorite", "즐겨찾기"], ["used", "사용 완료"], ["temporary", "임시"], ["all", "전체"]] as [value, label]}
+				<button type="button" class:active={categoryFilter === value} onclick={() => categoryFilter = value as typeof categoryFilter}>{label}</button>
+			{/each}
+		</div>
 		<div class="filter-tabs" aria-label="템플릿 종류">
 			{#each [["all", "전체"], ["presentation", "발표"], ["interview", "면접"]] as [value, label]}
 				<button type="button" class:active={typeFilter === value} onclick={() => typeFilter = value as typeof typeFilter}>{label}</button>
@@ -197,13 +205,13 @@
 	</div>
 
 	{#if loading}
-		<div class="empty-state">즐겨찾는 템플릿을 불러오는 중입니다.</div>
+		<div class="empty-state">템플릿을 불러오는 중입니다.</div>
 	{:else if errorMessage}
 		<div class="empty-state error">{errorMessage}<button type="button" onclick={load}>다시 시도</button></div>
 	{:else if visibleCards.length === 0}
 		<div class="empty-state">
-			<strong>{favoriteCards.length ? "조건에 맞는 템플릿이 없습니다." : "아직 즐겨찾는 템플릿이 없습니다."}</strong>
-			<p>저장된 템플릿의 별표를 눌러 이곳에 모아둘 수 있습니다.</p>
+			<strong>조건에 맞는 템플릿이 없습니다.</strong>
+			<p>{categoryFilter === "favorite" ? "전체 또는 임시 탭에서 별표를 눌러 즐겨찾기에 추가할 수 있습니다." : "새 템플릿을 만들거나 검색 조건을 바꿔보세요."}</p>
 			{#if odiuser.get()?.recent_template}
 				<button class="recent-button" type="button" onclick={addRecentTemplate}>최근 사용 설정 열기</button>
 			{/if}
@@ -219,7 +227,7 @@
 						<div class="details"><span>{card.durationLabel}</span><span>{card.audienceLabel}</span></div>
 						<div class="usage"><span>{dateText(card.lastUsedAt)}</span><span>총 사용 {card.usedCount}회</span></div>
 					</button>
-					<button class="favorite-button" class:marked={favoriteIds.includes(card.template_id)} type="button" aria-label="즐겨찾기 해제" disabled={savingFavorite === card.template_id} onclick={() => toggleFavorite(card)}>★</button>
+					<button class="favorite-button" class:marked={favoriteIds.includes(card.template_id)} type="button" aria-label={favoriteIds.includes(card.template_id) ? "즐겨찾기 해제" : "즐겨찾기 추가"} disabled={savingFavorite === card.template_id} onclick={() => toggleFavorite(card)}>★</button>
 					<div class="card-actions"><button type="button" onclick={() => selected = card}>바로 시작</button><button type="button" onclick={() => { selected = card; useSelected(true); }}>수정</button></div>
 				</article>
 			{/each}

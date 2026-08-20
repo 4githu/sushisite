@@ -43,7 +43,9 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// 새 세션 화면에서는 저장된 최근 템플릿 대신 빈 기본 draft만 사용합니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	onMount(() => {

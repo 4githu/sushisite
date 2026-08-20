@@ -16,9 +16,9 @@
 
 	let {
 		personaType = $bindable(""),
-		audienceSize = $bindable(0),
-		expertiseLevel = $bindable(0),
-		interestLevel = $bindable(0)
+		audienceSize = $bindable(6),
+		expertiseLevel = $bindable(2),
+		interestLevel = $bindable(2)
 	}: {
 		personaType?: PersonaType;
 		audienceSize?: number;
@@ -120,6 +120,8 @@
 					max={50}
 					step={1}
 					majorTicks={audienceSizeTicks}
+					showValue
+					valueSuffix="명"
 					bind:value={audienceSize}
 				/>
 			</div>

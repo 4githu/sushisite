@@ -68,17 +68,21 @@
 
 <div class="slider">
 
-	{#if label}
+	{#if label || showValue}
 
 		<div class="header">
 
-			<p class="text-title-small">
-				{label}
-			</p>
+			{#if label}
+				<p class="text-title-small">
+					{label}
+				</p>
+			{:else}
+				<span aria-hidden="true"></span>
+			{/if}
 
 			{#if showValue}
 
-				<p class="text-title-small current-value">
+				<p class="text-title-small current-value" aria-live="polite">
 					{value}{valueSuffix}
 				</p>
 

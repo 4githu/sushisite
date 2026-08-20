@@ -24,6 +24,7 @@
 				class="preview-image"
 				src={previewImage}
 				alt="면접 세션 미리보기"
+				decoding="async"
 			/>
 		{:else}
 			<div class="preview-placeholder">

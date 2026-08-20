@@ -7,16 +7,15 @@
 
 	let {
 		feedback,
-		maxItems = 4,
-		onOpenAll
+		maxItems = 4
 	}: {
 		feedback: ReportFeedback;
 		maxItems?: number;
-		onOpenAll?: () => void;
 	} = $props();
 
+	let expanded = $state(false);
 	const items = $derived(feedback.timeline ?? []);
-	const visibleItems = $derived(items.slice(0, maxItems));
+	const visibleItems = $derived(expanded ? items : items.slice(0, maxItems));
 
 	function itemType(type: string) {
 		if (type === "positive") return "positive";
@@ -43,10 +42,12 @@
 			{/each}
 		</div>
 
-		<button type="button" class="all-button clickable" onclick={onOpenAll}>
-			<span>전체 피드백 보기</span>
-			<span>›</span>
-		</button>
+		{#if items.length > maxItems}
+			<button type="button" class="all-button clickable" aria-expanded={expanded} onclick={() => expanded = !expanded}>
+				<span>{expanded ? "피드백 접기" : `전체 피드백 보기 (${items.length})`}</span>
+				<span>{expanded ? "⌃" : "›"}</span>
+			</button>
+		{/if}
 	</div>
 </ReportCard>
 

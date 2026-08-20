@@ -20,6 +20,8 @@
 	];
 
 	let ready = $state(false);
+	let isSaving = $state(false);
+	let saveError = $state("");
 
 	let personaType = $state("" as PersonaType);
 	let audienceSize = $state(0);
@@ -33,7 +35,9 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// HMR/새로고침으로 store가 비어도 다른 사용자의 recent draft를 복원하지 않습니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	function toPersonaType(value: string): PersonaType {
@@ -75,9 +79,9 @@
 		const draft = ensurePresentationDraft();
 
 		personaType = toPersonaType(draft.audience.audience_type);
-		audienceSize = draft.audience.audience_count;
-		expertiseLevel = toLevelNumber(draft.audience.expertise_level);
-		interestLevel = toLevelNumber(draft.audience.interest_level);
+		audienceSize = draft.audience.audience_count || 6;
+		expertiseLevel = toLevelNumber(draft.audience.expertise_level) || 2;
+		interestLevel = toLevelNumber(draft.audience.interest_level) || 2;
 
 		ready = true;
 	});
@@ -95,10 +99,27 @@
 
 	const canNext = $derived(
 		personaType !== "" &&
-		audienceSize >= 1 &&
 		expertiseLevel >= 1 &&
 		interestLevel >= 1
 	);
+
+	async function goNext() {
+		if (isSaving) return;
+
+		isSaving = true;
+		saveError = "";
+
+		try {
+			// Wait VR에서 새로고침되어 메모리 store가 초기화돼도 일반 세션이 현재
+			// 발표 자료와 옵션을 서버 recent_template에서 복구할 수 있게 보존합니다.
+			await template.saveToRecent();
+			await goto("/odi/session/presentation/confirm");
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : "발표 설정을 저장하지 못했습니다.";
+		} finally {
+			isSaving = false;
+		}
+	}
 </script>
 
 <main class="session-page">
@@ -150,6 +171,9 @@
 	</section>
 
 	<footer class="page-actions">
+		{#if saveError}
+			<p class="save-error" role="alert">{saveError}</p>
+		{/if}
 		<Button
 			variant="primary"
 			width="212px"
@@ -161,11 +185,11 @@
 		<Button
 			variant="primary"
 			width="212px"
-			disabled={!canNext}
+			disabled={!canNext || isSaving}
 			trailingIcon={grayright}
-			onclick={() => goto("/odi/session/presentation/confirm")}
+			onclick={goNext}
 		>
-			다음 단계
+			{isSaving ? "설정 저장 중..." : "다음 단계"}
 		</Button>
 	</footer>
 </main>
@@ -213,6 +237,8 @@
 		justify-content: flex-end;
 		gap: var(--space-4);
 	}
+
+	.save-error { margin: auto 0; color: var(--accent); font-size: 14px; }
 
 	@media (max-width: 1280px) {
 		.content-grid {
