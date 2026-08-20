@@ -5,8 +5,8 @@
 	import { onDestroy, onMount } from "svelte";
 
 	import { session } from "$lib/odi/stores";
+	import { auth } from "$lib/stores/mainauth";
 	import Button from "$lib/odi/components/common/Button.svelte";
-	import SessionModeModal from "$lib/odi/components/session/SessionModeModal.svelte";
 
 	const sessionStore = session as any;
 
@@ -15,7 +15,6 @@
 	let sessionId = $state(null as string | null);
 	let isRegenerating = $state(false);
 	let presentationTimer: ReturnType<typeof setTimeout> | null = null;
-	let showExperiencePrompt = $state(false);
 	let sessionMode = $state<"waiting" | "experience" | "regular">("waiting");
 	let presentationElapsed = $state(false);
 	let isExperienceStarting = $state(false);
@@ -24,6 +23,7 @@
 	const isExperienceSession = $derived(sessionMode === "experience");
 	const displayedPinCode = $derived(isExperienceSession ? "1234" : pinCode);
 	const fixedDemoDurationMs = 2 * 60 * 1000;
+	const EXPERIENCE_ACCOUNT_EMAIL = "xrealrehear@gmail.com";
 
 	function syncFromSessionStore(value: any = sessionStore) {
 		const preSession = value.pre_session ?? value.preSession ?? {};
@@ -43,17 +43,13 @@
 	}
 
 	onMount(() => {
-		if (page.url.searchParams.get("choose") === "1") {
-			sessionStore.clear?.();
-		}
 		syncFromSessionStore();
 
 		if (pinCode) {
 			sessionMode = "regular";
 			sessionStore.pollUntilFinished?.();
 		} else {
-			// Wait VR의 첫 화면은 세션 생성이 아니라 사용자의 명시적인 모드 선택입니다.
-			showExperiencePrompt = true;
+			void startRequestedSession();
 		}
 		if (preSessionState === "finished") {
 			presentationElapsed = true;
@@ -78,12 +74,33 @@
 	const canClickReport = $derived(isExperienceSession ? !!sessionId : canOpenReport);
 	const reportButtonVariant = $derived(isExperienceSession && !presentationElapsed ? "secondary" : "primary");
 
+	async function startRequestedSession() {
+		try {
+			const requestedMode = page.url.searchParams.get("mode");
+			// 체험 권한은 메모리에 남은 계정값이 아니라 현재 인증 쿠키로 매번 확인합니다.
+			const payload = await auth.check();
+			const email = payload?.data?.email?.trim().toLowerCase() ?? "";
+			const canUseExperience = email === EXPERIENCE_ACCOUNT_EMAIL;
+
+			sessionStore.clear?.();
+
+			if (requestedMode === "experience" && canUseExperience) {
+				await startExperienceSession();
+				return;
+			}
+
+			await startRegularSession();
+		} catch (error) {
+			sessionMode = "waiting";
+			experienceError = error instanceof Error ? error.message : "세션을 시작하지 못했습니다.";
+		}
+	}
+
 	async function startExperienceSession() {
 		if (isExperienceStarting || isRegularStarting) return;
 
 		isExperienceStarting = true;
 		experienceError = "";
-		showExperiencePrompt = false;
 		sessionMode = "experience";
 
 		try {
@@ -94,7 +111,6 @@
 		} catch (error) {
 			sessionMode = "waiting";
 			experienceError = error instanceof Error ? error.message : "체험 세션을 시작하지 못했습니다.";
-			showExperiencePrompt = true;
 		} finally {
 			isExperienceStarting = false;
 		}
@@ -105,7 +121,6 @@
 
 		isRegularStarting = true;
 		experienceError = "";
-		showExperiencePrompt = false;
 		sessionMode = "regular";
 
 		try {
@@ -115,19 +130,9 @@
 		} catch (error) {
 			sessionMode = "waiting";
 			experienceError = error instanceof Error ? error.message : "일반 세션을 시작하지 못했습니다.";
-			showExperiencePrompt = true;
 		} finally {
 			isRegularStarting = false;
 		}
-	}
-
-	function selectSessionMode(mode: "experience" | "regular") {
-		if (mode === "experience") {
-			void startExperienceSession();
-			return;
-		}
-
-		void startRegularSession();
 	}
 
 	async function regeneratePin() {
@@ -136,10 +141,16 @@
 		isRegenerating = true;
 
 		try {
-			showExperiencePrompt = true;
-			sessionMode = "waiting";
+			const modeToRestart = sessionMode;
 			presentationElapsed = false;
 			if (presentationTimer !== null) clearTimeout(presentationTimer);
+			sessionStore.clear?.();
+
+			if (modeToRestart === "experience") {
+				await startExperienceSession();
+			} else {
+				await startRegularSession();
+			}
 			return;
 		} finally {
 			isRegenerating = false;
@@ -160,8 +171,8 @@
 
 	<section class="ready-content">
 		<div class="ready-title-group">
-			<h1 class="text-title-main">{sessionMode === "waiting" ? "세션을 시작할 준비가 되었습니다" : "설정한 세션이 준비되었습니다"}</h1>
-			<p class="pin-help text-title-middle">{sessionMode === "waiting" ? "시작하기를 눌러 진행할 세션을 선택하세요" : "생성된 PIN 번호를 가상 환경에서 입력하여 준비된 세션을 진행하세요"}</p>
+			<h1 class="text-title-main">{sessionMode === "waiting" ? "세션을 준비하고 있습니다" : "설정한 세션이 준비되었습니다"}</h1>
+			<p class="pin-help text-title-middle">{sessionMode === "waiting" ? "잠시만 기다려 주세요" : "생성된 PIN 번호를 가상 환경에서 입력하여 준비된 세션을 진행하세요"}</p>
 		</div>
 
 		{#if isExperienceSession}
@@ -171,7 +182,15 @@
 
 		<div class="ready-actions">
 			{#if sessionMode === "waiting"}
-				<Button variant="primary" size="lg" width="464px" onclick={() => showExperiencePrompt = true}>세션 선택하기</Button>
+				<Button
+					variant="primary"
+					size="lg"
+					width="464px"
+					disabled={!experienceError || isExperienceStarting || isRegularStarting}
+					onclick={startRequestedSession}
+				>
+					{experienceError ? "다시 시도하기" : "세션 준비 중..."}
+				</Button>
 			{:else}
 				<Button variant="soft" size="lg" width="464px" disabled={isRegenerating} onclick={regeneratePin}>PIN 번호 다시 생성하기</Button>
 			{/if}
@@ -204,19 +223,11 @@
 						: isExperienceSession ? "체험 세션을 시작하면 결과 리포트를 볼 수 있습니다." : "발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다."}
 			</p>
 
-			{#if experienceError && !showExperiencePrompt}
+			{#if experienceError}
 				<p class="experience-error" role="alert">{experienceError}</p>
 			{/if}
 		</div>
 	</section>
-
-	{#if showExperiencePrompt}
-		<SessionModeModal
-			busy={isExperienceStarting || isRegularStarting}
-			errorMessage={experienceError}
-			onselect={selectSessionMode}
-		/>
-	{/if}
 </main>
 
 <style>

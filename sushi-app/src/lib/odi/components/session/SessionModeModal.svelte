@@ -80,7 +80,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 40px;
+		padding: 16px;
 		background: rgba(3, 8, 18, 0.55);
 		backdrop-filter: blur(2px);
 		overflow-y: auto;
@@ -88,7 +88,8 @@
 
 	.popup-card {
 		position: relative;
-		width: 760px;
+		box-sizing: border-box;
+		width: 720px;
 		max-width: 100%;
 		border-radius: var(--radius-md);
 		background: var(--surface);
@@ -96,11 +97,11 @@
 	}
 
 	.modal-content {
-		padding: 48px 40px 40px;
+		padding: 36px 40px 32px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 24px;
+		gap: 22px;
 	}
 
 	.modal-header {
@@ -137,7 +138,7 @@
 		width: 100%;
 		display: flex;
 		justify-content: center;
-		gap: 28px;
+		gap: 20px;
 	}
 
 	.error-message {

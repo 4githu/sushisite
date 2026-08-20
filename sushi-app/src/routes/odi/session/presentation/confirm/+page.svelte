@@ -5,7 +5,9 @@
 	import presenimage from "$lib/odi/assets/presentation-ready.png";
 
 	import { template, type PresentationTemplate } from "$lib/odi/stores";
+	import { auth } from "$lib/stores/mainauth";
 	import SessionConfirmCard from "$lib/odi/components/session/SessionConfirmCard.svelte";
+	import SessionModeModal from "$lib/odi/components/session/SessionModeModal.svelte";
 
 	import {
 		sessiontime,
@@ -16,6 +18,12 @@
 	} from "$lib/odi/icons";
 
 	let draft = $state(null as PresentationTemplate | null);
+	let clientReady = $state(false);
+	let showSessionModeModal = $state(false);
+	let isCheckingAccount = $state(false);
+	let startError = $state("");
+
+	const EXPERIENCE_ACCOUNT_EMAIL = "xrealrehear@gmail.com";
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
@@ -24,12 +32,48 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// 확인 화면도 새 세션 흐름에서 이전 recent_template를 표시하면 안 됩니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	onMount(() => {
 		draft = ensurePresentationDraft();
+		clientReady = true;
 	});
+
+	async function getCurrentEmail() {
+		// 레이아웃에 남아 있을 수 있는 이전 인증 store 대신 서버 쿠키를 다시 확인합니다.
+		const payload = await auth.check();
+		return payload?.data?.email?.trim().toLowerCase() ?? "";
+	}
+
+	async function openSession() {
+		if (!clientReady || isCheckingAccount) return;
+
+		isCheckingAccount = true;
+		startError = "";
+
+		try {
+			const email = await getCurrentEmail();
+
+			if (email === EXPERIENCE_ACCOUNT_EMAIL) {
+				showSessionModeModal = true;
+				return;
+			}
+
+			window.location.assign("/odi/waitvr?mode=regular");
+		} catch (error) {
+			startError = error instanceof Error ? error.message : "세션을 시작하지 못했습니다.";
+		} finally {
+			isCheckingAccount = false;
+		}
+	}
+
+	function selectSessionMode(mode: "experience" | "regular") {
+		showSessionModeModal = false;
+		window.location.assign(`/odi/waitvr?mode=${mode}`);
+	}
 
 	const title = $derived(draft?.environment.title || "발표 제목 없음");
 	const purpose = $derived(draft?.environment.purpose || "발표 목적 없음");
@@ -83,13 +127,25 @@
 	/>
 
 	<section class="start-area">
-		<a class="start-link clickable text-button-start" href="/odi/waitvr?choose=1" data-sveltekit-reload>
+		<button
+			type="button"
+			class="start-link clickable text-button-start"
+			disabled={!clientReady || isCheckingAccount}
+			onclick={openSession}
+		>
 			<img src={goggle} alt="" />
-			<span>시작하기</span>
-		</a>
+			<span>{!clientReady ? "페이지 준비 중..." : isCheckingAccount ? "계정 확인 중..." : "시작하기"}</span>
+		</button>
 
 		<p class="start-help text-caption-medium">클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.</p>
+		{#if startError}
+			<p class="start-error" role="alert">{startError}</p>
+		{/if}
 	</section>
+
+	{#if showSessionModeModal}
+		<SessionModeModal onselect={selectSessionMode} />
+	{/if}
 </main>
 
 <style>
@@ -175,15 +231,19 @@
 		gap: var(--space-2);
 		padding-inline: var(--space-5);
 		border-radius: var(--radius-sm);
+		border: 0;
 		background: var(--primary);
 		color: var(--text-on-primary);
 		text-decoration: none;
 	}
 
 	.start-link:hover { background: var(--primary-hover); }
+	.start-link:disabled { cursor: wait; opacity: .7; }
 	.start-link img { width: 24px; height: 24px; }
 
 	.start-help {
 		color: var(--text-disabled);
 	}
+
+	.start-error { margin: 0; color: var(--accent); font-size: 14px; }
 </style>

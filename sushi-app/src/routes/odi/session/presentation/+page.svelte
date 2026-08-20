@@ -33,7 +33,10 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// 새 세션 진입 중 store가 비어도 이전 recent_template를 되살리지 않습니다.
+		// 새 발표는 항상 기본값에서 시작해야 다른 사용자의 draft가 보이지 않습니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	onMount(() => {

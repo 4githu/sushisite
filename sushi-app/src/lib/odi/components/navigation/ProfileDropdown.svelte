@@ -223,27 +223,32 @@
 
 	<DropdownItem label="도움말" disabled status="준비 중" />
 
-	<DropdownItem label="로그아웃"  onclick={onLogout} />
+	<DropdownItem label="로그아웃" onclick={onLogout} />
 </div>
+
 
 <style>
 	.dropdown {
 		display: inline-flex;
 		flex-direction: column;
+		box-sizing: border-box;
 		width: 228px;
-		padding: 16px;
+		padding: 12px;
 		gap: 8px;
 		border-radius: var(--radius-sm);
-		background: rgb(from var(--purple-dark) r g b / 70%);
+		background: var(--purple-dark);
+		box-shadow: 0 14px 36px rgba(3, 4, 40, 0.32);
+		overflow: hidden;
 	}
 
 	.profile {
 		display: inline-flex;
 		align-items: center;
 		justify-content: space-between;
-		width: 212px;
+		box-sizing: border-box;
+		width: 100%;
 		height: 50px;
-		padding: 11px;
+		padding: 9px 8px;
 		color: var(--surface);
 		border-radius: var(--radius-sm);
 		text-align: left;
@@ -256,6 +261,7 @@
 	.left {
 		display: flex;
 		align-items: center;
+		min-width: 0;
 		gap: 10px;
 	}
 
@@ -269,7 +275,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
+		min-width: 0;
 		gap: 2px;
+	}
+
+	.info span {
+		max-width: 132px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.plan {

@@ -35,6 +35,7 @@
 				class="type-image"
 				src={image}
 				alt=""
+				decoding="async"
 			/>
 		</div>
 
@@ -64,10 +65,11 @@
 <style>
 	.session-type-card {
 		position: relative;
-		width: 240px;
-		height: 301px;
+		box-sizing: border-box;
+		width: 280px;
+		height: 304px;
 
-		padding: 11px 16px 12px 17px;
+		padding: 16px 20px 14px;
 
 		background: var(--surface);
 
@@ -109,19 +111,20 @@
 	}
 
 	.content {
-		width: 204px;
+		width: 100%;
 		height: 100%;
 
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 
-		gap: var(--space-4);
+		gap: 10px;
 	}
 
 	.image-wrap {
-		width: 143px;
-		height: 143px;
+		flex: 0 0 96px;
+		width: 100%;
+		height: 96px;
 
 		display: flex;
 		align-items: center;
@@ -138,34 +141,38 @@
 	}
 
 	.type-image {
-		width: 143px;
-		height: 143px;
+		max-width: 100%;
+		width: 96px;
+		height: 96px;
 
 		object-fit: contain;
 	}
 
 	.text-group {
 		width: 100%;
+		min-height: 104px;
 
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 
-		gap: var(--space-2);
+		gap: 6px;
 
 		text-align: center;
 	}
 
 	.text-title-small {
+		margin: 0;
 		color: var(--text-primary);
 
 		transition: var(--transition-fast);
 	}
 
 	.description {
+		margin: 0;
 		color: var(--text-secondary);
 
-		line-height: 135%;
+		line-height: 145%;
 
 		white-space: pre-line;
 
@@ -180,14 +187,15 @@
 	}
 
 	.arrow-button {
-		width: 36px;
-		height: 36px;
+		flex: 0 0 28px;
+		width: 28px;
+		height: 28px;
 
 		display: flex;
 		align-items: center;
 		justify-content: center;
 
-		margin-top: auto;
+		margin-top: 0;
 
 		border: 1px solid var(--cool-grey);
 		border-radius: var(--radius-full);
@@ -206,8 +214,8 @@
 	}
 
 	.arrow-button img {
-		width: 16px;
-		height: 16px;
+		width: 14px;
+		height: 14px;
 
 		object-fit: contain;
 	}

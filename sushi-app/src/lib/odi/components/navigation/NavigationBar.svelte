@@ -484,6 +484,7 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
+		box-sizing: border-box;
 		width: 260px;
 		height: 100vh;
 		padding: 38px 17px 18px;

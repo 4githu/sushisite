@@ -42,11 +42,12 @@
 .dropdown-item{
 
 	display:inline-flex;
+	box-sizing:border-box;
 
 	align-items:center;
 	justify-content:space-between;
 
-	width:212px;
+	width:100%;
 	height:40px;
 
 	padding:4px 8px;
@@ -80,6 +81,7 @@
 	display:flex;
 
 	align-items:center;
+	min-width:0;
 
 	gap:10px;
 }

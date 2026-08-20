@@ -35,7 +35,9 @@
 			return current;
 		}
 
-		return template.loadOrCreate("presentation") as PresentationTemplate;
+		// HMR/새로고침으로 store가 비어도 다른 사용자의 recent draft를 복원하지 않습니다.
+		template.setDefault("presentation");
+		return template.get() as PresentationTemplate;
 	}
 
 	function toPersonaType(value: string): PersonaType {
