@@ -77,7 +77,9 @@ def _commands_for_mapping(
             selected_variation_id=choice.variation_id,
             priority=priority,
             blend_mode=mapping.blend_mode,
-            intensity=agent.profile.expressivity,
+            # Kept for API v2 compatibility. Playback parameters must be
+            # identical for every agent that receives the same action.
+            intensity=1.0,
         )
         for mapping in mappings
     ]

@@ -107,3 +107,40 @@ def test_non_contract_setting_is_rejected() -> None:
             topic_interest=0.4,
             prior_knowledge=0.5,
         )
+
+
+def test_behavior_traits_do_not_change_state_update() -> None:
+    common = AudienceState(E=0.2, V=0.2, C=0.2)
+    responsive = agent()
+    responsive.profile.responsiveness = 0.75
+    responsive.profile.critical_bias = 0.75
+    reserved = agent()
+    reserved.profile.responsiveness = 0.40
+    reserved.profile.critical_bias = 0.25
+
+    responsive_state, responsive_sensitivity = update_audience_state(
+        responsive,
+        common,
+        topic_interest=0.5,
+        prior_knowledge=0.5,
+    )
+    reserved_state, reserved_sensitivity = update_audience_state(
+        reserved,
+        common,
+        topic_interest=0.5,
+        prior_knowledge=0.5,
+    )
+
+    assert responsive_sensitivity == reserved_sensitivity
+    assert responsive_state == reserved_state
+
+
+def test_additive_update_remains_clamped_under_repeated_maximum_input() -> None:
+    target = agent()
+    maximum = AudienceState(E=1.0, V=1.0, C=1.0)
+
+    for _ in range(100):
+        next_state, _ = update_audience_state(target, maximum, 0.5, 0.5)
+        target.state = next_state
+
+    assert target.state == AudienceState(E=1.0, V=1.0, C=1.0)

@@ -8,6 +8,7 @@ from uuid import UUID
 from .behavior_engine import (
     build_candidate_set,
     commit_selection,
+    limit_synchronized_core_choice,
     select_behaviors,
     update_engagement_counters,
 )
@@ -183,6 +184,7 @@ async def update_pipeline(
         decisions: list[AudienceDecision] = []
         commands = []
         diagnostics: dict[str, object] = {}
+        core_variation_counts: dict[str, int] = {}
         current_slide_text = (
             record.slides[context.current_slide_index].text if record.slides else ""
         )
@@ -206,6 +208,20 @@ async def update_pipeline(
                 now_s=accepted_time,
             )
             selection = select_behaviors(agent, candidate_set, working_rngs[agent.agent_id])
+            selection.diagnostics["state_update"] = {
+                "common_delta": delta.common.model_dump(),
+                "applied_delta": {
+                    axis: getattr(agent.state, axis) - getattr(previous_state, axis)
+                    for axis in ("E", "V", "C")
+                },
+                "candidate_count": len(candidate_set.core),
+                "used_baseline_fallback": candidate_set.used_baseline_fallback,
+            }
+            selection = limit_synchronized_core_choice(
+                selection,
+                candidate_set,
+                core_variation_counts,
+            )
             agent_commands = build_unity_commands(
                 agent=agent,
                 core=selection.core,

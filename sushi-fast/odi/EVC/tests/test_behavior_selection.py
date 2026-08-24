@@ -6,6 +6,7 @@ import pytest
 from odi.EVC.behavior_engine import (
     build_candidate_set,
     commit_selection,
+    limit_synchronized_core_choice,
     preference_score,
     sample_categorical,
     score_core_candidate,
@@ -150,3 +151,32 @@ def test_baseline_fallback_scores_neutrally_when_trigger_does_not_match() -> Non
 
     assert math.isfinite(score)
     assert diagnostics["state_fit"] == 0.5
+
+
+def test_utterance_boundary_positive_engagement_has_multiple_core_variations() -> None:
+    target = agent(AudienceState(E=0.8, V=0.2, C=0.3))
+    candidates = candidate_set(
+        target,
+        SegmentContext(utterance_position="utterance_boundary", client_time_s=10.0),
+    )
+    assert {
+        "AL_01.active_following",
+        "AL_01.agreement_nod",
+    } <= {clip.variation_id for clip in candidates.core}
+
+
+def test_synchronization_limit_replaces_a_saturated_core_choice() -> None:
+    target = agent(AudienceState(E=0.8, V=0.2, C=0.3))
+    candidates = candidate_set(
+        target,
+        SegmentContext(utterance_position="utterance_boundary", client_time_s=10.0),
+    )
+    selection = select_behaviors(target, candidates, random.Random(3))
+    assert selection.core is not None
+    counts = {selection.core.variation_id: 3}
+
+    diversified = limit_synchronized_core_choice(selection, candidates, counts)
+
+    assert diversified.core is not None
+    assert diversified.core.variation_id != selection.core.variation_id
+    assert "synchronization_limit" in diversified.diagnostics

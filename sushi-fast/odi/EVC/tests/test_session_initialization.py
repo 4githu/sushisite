@@ -43,7 +43,10 @@ def test_six_agent_initialization_is_seed_reproducible() -> None:
     ("setting", "base"),
     [(0.25, -0.5), (0.5, 0.0), (0.75, 0.5)],
 )
-def test_initial_e_and_c_follow_settings_with_bounded_offsets(setting: float, base: float) -> None:
+def test_initial_evc_follows_settings_with_bounded_personal_offsets(
+    setting: float,
+    base: float,
+) -> None:
     audiences = initialize_audiences(options(setting, setting), 1234)
 
     for agent in audiences:

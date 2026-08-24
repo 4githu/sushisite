@@ -222,7 +222,8 @@ def build_candidate_set(
     core = tuple(
         clip
         for clip in catalog.core
-        if core_clip_matches(clip, agent, context, dominant_axis, direction, now_s)
+        if clip.parent_group == base_group_for_axis(dominant_axis)
+        and core_clip_matches(clip, agent, context, dominant_axis, direction, now_s)
     )
     used_fallback = False
     if not core:
@@ -510,6 +511,70 @@ def select_behaviors(
         core=core_choice,
         action=action_choice,
         no_op_reason=no_op_reason,
+        diagnostics=diagnostics,
+    )
+
+
+def limit_synchronized_core_choice(
+    selection: SelectionResult,
+    candidates: CandidateSet,
+    variation_counts: dict[str, int],
+    max_same_variation: int = 3,
+) -> SelectionResult:
+    """Keep one core animation from occupying most of the audience at a step.
+
+    Agents are processed in their stable audience order. When the sampled clip
+    is saturated, the best-scoring non-saturated candidate is used. A no-op is
+    safer than emitting a clip that failed the agent's hard scene gates.
+    """
+    choice = selection.core
+    if choice is None or variation_counts.get(choice.variation_id, 0) < max_same_variation:
+        if choice is not None:
+            variation_counts[choice.variation_id] = (
+                variation_counts.get(choice.variation_id, 0) + 1
+            )
+        return selection
+
+    alternatives = []
+    core_diagnostics = selection.diagnostics.get("core", {})
+    for clip in candidates.core:
+        if variation_counts.get(clip.variation_id, 0) >= max_same_variation:
+            continue
+        parts = core_diagnostics.get(clip.variation_id, {})
+        alternatives.append((float(parts.get("probability", 0.0)), clip))
+
+    diagnostics = dict(selection.diagnostics)
+    diagnostics["synchronization_limit"] = {
+        "replaced": choice.variation_id,
+        "max_same_variation": max_same_variation,
+    }
+    if not alternatives:
+        diagnostics["synchronization_limit"]["replacement"] = None
+        return SelectionResult(
+            dominant_axis=selection.dominant_axis,
+            direction=selection.direction,
+            core=None,
+            action=selection.action,
+            no_op_reason="synchronization_limit",
+            diagnostics=diagnostics,
+        )
+
+    probability, clip = max(alternatives, key=lambda item: item[0])
+    replacement = BehaviorChoice(
+        behavior_id=clip.behavior_id,
+        variation_id=clip.variation_id,
+        probability=probability,
+    )
+    variation_counts[replacement.variation_id] = (
+        variation_counts.get(replacement.variation_id, 0) + 1
+    )
+    diagnostics["synchronization_limit"]["replacement"] = replacement.variation_id
+    return SelectionResult(
+        dominant_axis=selection.dominant_axis,
+        direction=selection.direction,
+        core=replacement,
+        action=selection.action,
+        no_op_reason=selection.no_op_reason,
         diagnostics=diagnostics,
     )
 

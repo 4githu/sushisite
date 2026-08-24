@@ -103,7 +103,7 @@ def test_command_builder_decomposes_layers_and_action_priority() -> None:
     assert len(core_sync) == 1
     assert len(action_sync) == 1
     assert core_sync != action_sync
-    assert all(command.intensity == 0.6 for command in commands)
+    assert all(command.intensity == 1.0 for command in commands)
 
 
 def test_pipeline_update_is_atomic_idempotent_and_step_guarded(tmp_path: Path) -> None:
@@ -262,6 +262,7 @@ def test_fastapi_start_read_and_update_contract(monkeypatch) -> None:
             assert start.status_code == 200, start.text
             started = start.json()
             assert len(started["audiences"]) == 6
+            assert all("archetype" not in item["profile"] for item in started["audiences"])
             headers = {"X-EVC-Session-Token": started["session_token"]}
 
             unauthorized = await client.get(
@@ -290,6 +291,7 @@ def test_fastapi_start_read_and_update_contract(monkeypatch) -> None:
             payload = update.json()
             assert payload["step"] == 1
             assert len(payload["audiences"]) == 6
+            assert all("archetype" not in item for item in payload["audiences"])
             assert "commands" in payload
 
             deleted = await client.delete(
