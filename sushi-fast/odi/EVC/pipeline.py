@@ -35,6 +35,7 @@ from .schema import (
     SmartStartResponseV2,
     StateDeltaBreakdown,
     StateSensitivity,
+    TranscriptSegment,
 )
 from .session_store import SessionStore, session_store
 from .speech2text import SpeechToTextProvider, transcribe_audio
@@ -46,6 +47,10 @@ class StepConflictError(RuntimeError):
 
 
 class ClientTimeRegressionError(RuntimeError):
+    pass
+
+
+class PresentationFinishedError(RuntimeError):
     pass
 
 
@@ -112,6 +117,8 @@ async def read_pipeline_session(
         slide_count=len(record.slides),
         slides=record.slides,
         warnings=record.warnings,
+        presentation_status=record.presentation_status,
+        question_generation_status=record.question_generation_status,
     )
 
 
@@ -133,6 +140,8 @@ async def update_pipeline(
         cached = record.request_cache.get(request_id)
         if cached is not None:
             return cached
+        if record.presentation_status != "running":
+            raise PresentationFinishedError("presentation is already finishing or finished")
         if expected_step != record.step:
             raise StepConflictError(
                 f"expected_step={expected_step} does not match current step={record.step}"
@@ -276,6 +285,15 @@ async def update_pipeline(
         if evaluation.segment_note.strip():
             record.segment_notes.append(evaluation.segment_note.strip())
         record.warnings = warnings
+        record.transcript_segments.append(
+            TranscriptSegment(
+                step=next_step,
+                client_time_s=accepted_time,
+                slide_index=context.current_slide_index,
+                text=stt_result.transcript,
+                word_count=speech_metrics.word_count,
+            )
+        )
         _cache_response(record.request_cache, request_id, response)
         record_update(
             response,

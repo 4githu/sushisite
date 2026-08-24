@@ -12,10 +12,17 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Literal
 from uuid import UUID, uuid4
 
-from .schema import AudienceRuntimeState, SlideInfo, SmartStartOptions
+from .schema import (
+    AudienceRuntimeState,
+    GeneratedQuestion,
+    QuestionGenerationResponse,
+    SlideInfo,
+    SmartStartOptions,
+    TranscriptSegment,
+)
 from .config import EVC_MAX_SESSIONS, EVC_SESSION_TTL_S
 from .state_engine import create_agent_rngs, initialize_audiences
 
@@ -56,6 +63,18 @@ class SessionRecord:
     segment_notes: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     request_cache: OrderedDict[UUID, object] = field(default_factory=OrderedDict)
+    transcript_segments: list[TranscriptSegment] = field(default_factory=list)
+    presentation_status: Literal["running", "finishing", "finished"] = "running"
+    question_generation_status: Literal[
+        "not_started", "generating", "ready", "failed"
+    ] = "not_started"
+    generated_questions: list[GeneratedQuestion] = field(default_factory=list)
+    question_generated_at: datetime | None = None
+    question_generation_request_id: UUID | None = None
+    question_generation_error: str | None = None
+    question_response_cache: OrderedDict[UUID, QuestionGenerationResponse] = field(
+        default_factory=OrderedDict
+    )
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
 

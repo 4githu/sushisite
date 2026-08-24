@@ -147,6 +147,9 @@ def test_pipeline_update_is_atomic_idempotent_and_step_guarded(tmp_path: Path) -
         assert repeated == response
         record = await store.get_authorized_session(created.session_id, created.session_token)
         assert record.step == 1
+        assert len(record.transcript_segments) == 1
+        assert record.transcript_segments[0].step == 1
+        assert record.transcript_segments[0].text == response.latest_speech
 
         with pytest.raises(StepConflictError):
             await update_pipeline(
