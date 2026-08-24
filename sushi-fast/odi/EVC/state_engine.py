@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import random
-
 from .schema import (
     AudienceProfile,
     AudienceRuntimeState,
@@ -72,7 +71,6 @@ def initialize_audiences(
         face = face_raw / channel_total
         body = body_raw / channel_total
         gaze_head = 1.0 - face - body
-
         profile = AudienceProfile(
             row=row,
             seat=seat,
@@ -90,11 +88,16 @@ def initialize_audiences(
             AudienceRuntimeState(
                 agent_id=agent_id,
                 profile=profile,
-                state=AudienceState(E=initial_e + delta_e, V=0.0, C=initial_c + delta_c),
+                state=AudienceState(
+                    E=initial_e + delta_e,
+                    V=0.0,
+                    C=initial_c + delta_c,
+                ),
             )
         )
 
     return audiences
+
 
 
 def aggregate_state(audiences: list[AudienceRuntimeState]) -> AudienceState:
@@ -158,9 +161,8 @@ def update_audience_state(
         C=negative_change_sensitivity(prior_knowledge) if delta.C < 0 else 1.0,
     )
     previous = agent.state
-    next_state = AudienceState(
+    return AudienceState(
         E=previous.E + sensitivity.E * delta.E,
-        V=previous.V + sensitivity.V * delta.V,
+        V=previous.V + delta.V,
         C=previous.C + sensitivity.C * delta.C,
-    )
-    return next_state, sensitivity
+    ), sensitivity

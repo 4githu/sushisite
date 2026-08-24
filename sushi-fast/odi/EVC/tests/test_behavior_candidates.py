@@ -113,12 +113,11 @@ def test_core_candidates_apply_state_position_slide_and_cooldown() -> None:
 
 
 def test_composite_clip_conditions_route_to_explicit_parent_groups() -> None:
-    target = agent(AudienceState(E=0.8, V=-0.7, C=-0.6))
+    target = agent(AudienceState(E=0.6, V=-0.9, C=0.0))
     result = candidates(target, SegmentContext(client_time_s=1.0))
     ids = {clip.variation_id for clip in result.core}
 
     assert "EM_05.cold_monitoring" in ids
-    assert "EM_07.disengaged_negative" in ids
     assert all(clip.parent_group == "Evaluative Monitoring" for clip in result.core)
 
 

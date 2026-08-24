@@ -246,7 +246,7 @@ V_next = V_current + ΔV
 | 내부 행동 성향값 | 의미 | 적용 위치 | 권장 랜덤 범위 |
 | --- | --- | --- | --- |
 | **Responsiveness_i** | 반응을 얼마나 자주 보이는가 | 후보 행동 집합 내 행동 선택 가능성(빈도)에 반영 | `0.40 ~ 0.75` |
-| **Expressivity_i** | 반응을 얼마나 명시적으로 드러내는가 | 표현 강도(intensity) 및 움직임 폭이 큰 클립 변형 선택 점수에 반영 | `0.30 ~ 0.70` |
+| **Expressivity_i** | 반응을 얼마나 명시적으로 드러내는가 | 움직임 폭이 다른 완성된 클립 variation의 선택 점수에만 반영 | `0.30 ~ 0.70` |
 | **ChannelPreference_i** | 어떤 표현 채널을 선호하는가 | Face, Body, Gaze/Head 계열 클립의 선택 가중치에 반영 | - |
 | **CriticalBias_i** | 평가적 반응에서 비판/수용적 경향 수준 | 비판적 백채널 후보군의 선택 확률에 반영 | `0.25 ~ 0.75` |
 
@@ -623,6 +623,7 @@ Action Clip은 $C_action_{i,t}$가 비어 있지 않고 특정 삽입 조건을 
 
 * **독립적 실행 환경**: Face와 Body는 각각 별도의 애니메이션 레이어(Animation Layer)에서 재생하며, Gaze/Head는 애니메이션 클립과 분리되어 스크립트 기반으로 별도 제어한다.
 * **출력 명령 분해**: 확률적 행동 선택 단계에서 결정된 최종 백채널 행동 $B_{i,t}$ (Core Behavior 및 optional Action Clip 포함)는 실행 시점에 각 레이어의 복수 출력 명령 $O_{i,t}$로 분해되어 병렬적으로 실행된다.
+* **재생값 고정**: 같은 `variation_id`/`action_id`는 모든 에이전트에서 같은 시작 offset, duration, 재생 속도 및 표현 강도를 사용한다. `archetype`, `Expressivity` 또는 E/V/C 상태로 동일 애니메이션의 Unity 재생 파라미터를 변경하지 않는다.
 
 **[명령 분해 구조]**
 ```text
