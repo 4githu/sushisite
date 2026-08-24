@@ -51,6 +51,15 @@ from .question_service import (
     generate_session_questions,
     list_session_questions,
 )
+from .report_schema import ReportFinishRequest, ReportFinishResponse, ReportStatusResponse
+from .report_service import (
+    ReportGenerationInProgressError,
+    ReportNotGeneratedError,
+    ReportSourceMissingError,
+    finish_session_with_report,
+    get_session_report_status,
+)
+from odi.db import odidb
 
 
 router = APIRouter(
@@ -66,6 +75,7 @@ async def smart_start(
     prior_knowledge: str = Form("middle"),
     slide_file: UploadFile | None = File(None),
     seed: int | None = Form(None),
+    pre_session_pin: str | None = Form(None),
 ):
     stored_slide: Path | None = None
     try:
@@ -79,11 +89,39 @@ async def smart_start(
         if slide_file is not None:
             stored_slide = await save_slide_upload(slide_file, EVC_UPLOAD_DIR)
             slides = extract_slides(stored_slide)
-        return await create_pipeline_session(
-            options,
-            slides=slides,
-            slide_file_path=str(stored_slide) if stored_slide is not None else None,
-        )
+        owner_user_id = None
+        template_id = None
+        normalized_pin = pre_session_pin.strip() if pre_session_pin else None
+        if normalized_pin:
+            if len(normalized_pin) != 4 or not normalized_pin.isdigit():
+                raise HTTPException(422, detail={"code": "invalid_pre_session_pin", "message": "pre-session PIN must contain four digits"})
+            pre_session = odidb.get_pre_session_by_pin(normalized_pin)
+            if pre_session is None:
+                raise HTTPException(404, detail={"code": "pre_session_not_found", "message": "pre-session does not exist"})
+            if pre_session["state"] != "waiting" or pre_session.get("session_id"):
+                raise HTTPException(409, detail={"code": "pre_session_unavailable", "message": "pre-session is not available"})
+            template_record = odidb.get_template(pre_session["template_id"])
+            if template_record is None:
+                raise HTTPException(404, detail={"code": "template_not_found", "message": "pre-session template does not exist"})
+            owner_user_id = str(template_record["owner_id"])
+            template_id = str(pre_session["template_id"])
+            try:
+                odidb.claim_pre_session(normalized_pin)
+            except ValueError as exc:
+                raise HTTPException(409, detail={"code": "pre_session_unavailable", "message": str(exc)}) from exc
+        try:
+            return await create_pipeline_session(
+                options,
+                slides=slides,
+                slide_file_path=str(stored_slide) if stored_slide is not None else None,
+                owner_user_id=owner_user_id,
+                template_id=template_id,
+                pre_session_pin=normalized_pin,
+            )
+        except Exception:
+            if normalized_pin:
+                odidb.release_pre_session_claim(normalized_pin)
+            raise
     except Exception as exc:
         if stored_slide is not None:
             stored_slide.unlink(missing_ok=True)
@@ -197,6 +235,42 @@ async def get_questions_for_session(
         raise _http_error(exc) from exc
 
 
+@router.post(
+    "/sessions/{session_id}/finish",
+    response_model=ReportFinishResponse,
+)
+async def finish_presentation_session(
+    session_id: UUID,
+    payload: ReportFinishRequest,
+    x_evc_session_token: str | None = Header(None, alias="X-EVC-Session-Token"),
+):
+    try:
+        return await finish_session_with_report(
+            session_id=session_id,
+            token=_required_token(x_evc_session_token),
+            payload=payload,
+        )
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get(
+    "/sessions/{session_id}/report",
+    response_model=ReportStatusResponse,
+)
+async def get_presentation_report(
+    session_id: UUID,
+    x_evc_session_token: str | None = Header(None, alias="X-EVC-Session-Token"),
+):
+    try:
+        return await get_session_report_status(
+            session_id=session_id,
+            token=_required_token(x_evc_session_token),
+        )
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
 def _required_token(token: str | None) -> str:
     if token is None or not token.strip():
         raise InvalidSessionTokenError("X-EVC-Session-Token is required")
@@ -249,6 +323,12 @@ def _http_error(exc: Exception) -> HTTPException:
                 "message": "Question generation provider failed",
             },
         )
+    if isinstance(exc, ReportGenerationInProgressError):
+        return HTTPException(409, detail={"code": "report_generating", "message": str(exc)})
+    if isinstance(exc, ReportNotGeneratedError):
+        return HTTPException(404, detail={"code": "report_not_generated", "message": str(exc)})
+    if isinstance(exc, ReportSourceMissingError):
+        return HTTPException(422, detail={"code": "report_source_missing", "message": str(exc)})
     if isinstance(exc, (InputValidationError, ValidationError, ValueError)):
         return HTTPException(422, detail={"code": "validation_error", "message": str(exc)})
     return HTTPException(

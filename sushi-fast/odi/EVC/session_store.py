@@ -25,6 +25,7 @@ from .schema import (
 )
 from .config import EVC_MAX_SESSIONS, EVC_SESSION_TTL_S
 from .state_engine import create_agent_rngs, initialize_audiences
+from .report_schema import ReportFeedback, ReportFinishResponse, ReportSegmentRecord
 
 
 class SessionStoreError(RuntimeError):
@@ -55,6 +56,9 @@ class SessionRecord:
     rngs: dict[str, random.Random]
     slides: list[SlideInfo]
     slide_file_path: str | None
+    owner_user_id: str | None
+    template_id: str | None
+    pre_session_pin: str | None
     created_at: datetime
     updated_at: datetime
     last_access_monotonic: float
@@ -73,6 +77,18 @@ class SessionRecord:
     question_generation_request_id: UUID | None = None
     question_generation_error: str | None = None
     question_response_cache: OrderedDict[UUID, QuestionGenerationResponse] = field(
+        default_factory=OrderedDict
+    )
+    report_segments: list[ReportSegmentRecord] = field(default_factory=list)
+    report_generation_status: Literal[
+        "not_started", "generating", "ready", "failed"
+    ] = "not_started"
+    report_generation_request_id: UUID | None = None
+    report_generation_error: str | None = None
+    report_feedback: ReportFeedback | None = None
+    report_generated_at: datetime | None = None
+    persistent_session_id: str | None = None
+    report_response_cache: OrderedDict[UUID, ReportFinishResponse] = field(
         default_factory=OrderedDict
     )
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
@@ -100,6 +116,9 @@ class SessionStore:
         options: SmartStartOptions,
         slides: list[SlideInfo] | None = None,
         slide_file_path: str | None = None,
+        owner_user_id: str | None = None,
+        template_id: str | None = None,
+        pre_session_pin: str | None = None,
     ) -> tuple[SessionRecord, str]:
         async with self._store_lock:
             self._cleanup_expired_locked()
@@ -122,6 +141,9 @@ class SessionStore:
                 rngs=rngs,
                 slides=list(slides or []),
                 slide_file_path=slide_file_path,
+                owner_user_id=owner_user_id,
+                template_id=template_id,
+                pre_session_pin=pre_session_pin,
                 created_at=now,
                 updated_at=now,
                 last_access_monotonic=self._clock(),

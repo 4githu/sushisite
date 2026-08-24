@@ -10,6 +10,7 @@ from uuid import uuid4
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = (BASE_DIR / "odi.db").resolve()
+_REPORT_SCHEMA_READY: set[Path] = set()
 
 
 def utc_now() -> str:
@@ -48,6 +49,14 @@ def init_db(schema_path: str | Path = "odi/db/schema.sql", db_path: Path = DB_PA
 
     with get_conn(db_path) as conn:
         conn.executescript(schema)
+
+
+def ensure_report_schema(db_path: Path = DB_PATH) -> None:
+    resolved = Path(db_path).resolve()
+    if resolved in _REPORT_SCHEMA_READY:
+        return
+    init_db(schema_path=BASE_DIR / "schema.sql", db_path=resolved)
+    _REPORT_SCHEMA_READY.add(resolved)
 
 
 def validate_json_owner(data: dict[str, Any], owner_id: str) -> None:
@@ -394,6 +403,7 @@ def get_pre_session_by_pin(pin_code: str, db_path: Path = DB_PATH) -> dict[str, 
     if row is None:
         return None
 
+    report_job = get_report_job_by_pre_session_pin(pin_code, db_path=db_path)
     return {
         "pin_code": row["pin_code"],
         "template_id": row["template_id"],
@@ -401,6 +411,8 @@ def get_pre_session_by_pin(pin_code: str, db_path: Path = DB_PATH) -> dict[str, 
         "state": row["state"],
         "expires_at": row["expires_at"],
         "created_at": row["created_at"],
+        "report_status": report_job["status"] if report_job else "not_started",
+        "report_error": report_job.get("error_code") if report_job else None,
     }
 
 
@@ -421,6 +433,317 @@ def update_pre_session_state(
 
         if cur.rowcount == 0:
             raise ValueError(f"존재하지 않는 pin_code입니다: {pin_code}")
+
+
+def claim_pre_session(pin_code: str, db_path: Path = DB_PATH) -> None:
+    with get_conn(db_path) as conn:
+        cur = conn.execute(
+            """
+            UPDATE pre_sessions
+            SET state = 'running'
+            WHERE pin_code = ? AND state = 'waiting' AND session_id IS NULL AND expires_at > ?
+            """,
+            (pin_code, utc_now()),
+        )
+        if cur.rowcount != 1:
+            raise ValueError("pre-session is not available")
+
+
+def release_pre_session_claim(pin_code: str, db_path: Path = DB_PATH) -> None:
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "UPDATE pre_sessions SET state = 'waiting' WHERE pin_code = ? AND state = 'running' AND session_id IS NULL",
+            (pin_code,),
+        )
+
+
+def finish_linked_pre_session(
+    *,
+    pin_code: str,
+    user_id: str,
+    template_id: str,
+    feedback: dict[str, Any],
+    evc_session_id: str | None = None,
+    report_request_id: str | None = None,
+    db_path: Path = DB_PATH,
+) -> str:
+    ensure_report_schema(db_path)
+    session_id = make_id("session")
+    now = utc_now()
+    with get_conn(db_path) as conn:
+        pre_session = conn.execute(
+            "SELECT template_id, session_id, state FROM pre_sessions WHERE pin_code = ?",
+            (pin_code,),
+        ).fetchone()
+        if pre_session is None:
+            raise ValueError("pre-session does not exist")
+        if pre_session["template_id"] != template_id:
+            raise ValueError("pre-session template does not match EVC session")
+        if pre_session["session_id"] is not None:
+            return str(pre_session["session_id"])
+        if pre_session["state"] != "running":
+            raise ValueError("pre-session is not running")
+        template = conn.execute(
+            "SELECT owner_id, template FROM templates WHERE template_id = ?",
+            (template_id,),
+        ).fetchone()
+        if template is None or str(template["owner_id"]) != str(user_id):
+            raise ValueError("template owner does not match EVC session")
+        conn.execute(
+            """
+            INSERT INTO sessions (
+                session_id, user_id, template_id, template, feedback, state, started_at, ended_at
+            ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)
+            """,
+            (session_id, user_id, template_id, template["template"], json_dumps(feedback), now, now),
+        )
+        updated = conn.execute(
+            """
+            UPDATE pre_sessions SET session_id = ?, state = 'finished'
+            WHERE pin_code = ? AND state = 'running' AND session_id IS NULL
+            """,
+            (session_id, pin_code),
+        )
+        if updated.rowcount != 1:
+            raise ValueError("pre-session changed while report was being stored")
+        if evc_session_id:
+            conn.execute(
+                """
+                INSERT INTO presentation_reports (
+                    report_id, evc_session_id, odi_session_id, version, feedback_json,
+                    generator, generated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(evc_session_id) DO UPDATE SET
+                    odi_session_id = excluded.odi_session_id,
+                    feedback_json = excluded.feedback_json,
+                    generator = excluded.generator,
+                    generated_at = excluded.generated_at
+                """,
+                (
+                    make_id("report"), evc_session_id, session_id,
+                    str(feedback.get("version", "presentation-report-v1")),
+                    json_dumps(feedback),
+                    str((feedback.get("generation") or {}).get("generator", "unknown")),
+                    str((feedback.get("generation") or {}).get("generated_at", now)),
+                ),
+            )
+        if report_request_id:
+            conn.execute(
+                """
+                UPDATE presentation_report_jobs
+                SET status = 'ready', odi_session_id = ?, finished_at = ?, error_code = NULL
+                WHERE request_id = ?
+                """,
+                (session_id, now, report_request_id),
+            )
+    return session_id
+
+
+def upsert_presentation_segment(
+    *,
+    evc_session_id: str,
+    step: int,
+    segment: dict[str, Any],
+    owner_user_id: str | None = None,
+    pre_session_pin: str | None = None,
+    expires_at: str | None = None,
+    db_path: Path = DB_PATH,
+) -> None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO presentation_segments (
+                evc_session_id, step, owner_user_id, pre_session_pin, segment_json, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(evc_session_id, step) DO UPDATE SET
+                segment_json = excluded.segment_json,
+                expires_at = excluded.expires_at
+            """,
+            (evc_session_id, step, owner_user_id, pre_session_pin, json_dumps(segment), expires_at),
+        )
+
+
+def list_presentation_segments(evc_session_id: str, db_path: Path = DB_PATH) -> list[dict[str, Any]]:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT segment_json FROM presentation_segments WHERE evc_session_id = ? ORDER BY step",
+            (evc_session_id,),
+        ).fetchall()
+    return [json.loads(row["segment_json"]) for row in rows]
+
+
+def get_evc_session_id_by_pre_session_pin(
+    pin_code: str, db_path: Path = DB_PATH
+) -> str | None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT evc_session_id FROM presentation_segments
+            WHERE pre_session_pin = ? ORDER BY step DESC LIMIT 1
+            """,
+            (pin_code,),
+        ).fetchone()
+    return str(row["evc_session_id"]) if row else None
+
+
+def start_report_job(
+    *, evc_session_id: str, request_id: str, db_path: Path = DB_PATH
+) -> dict[str, Any]:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        existing = conn.execute(
+            "SELECT * FROM presentation_report_jobs WHERE request_id = ?", (request_id,)
+        ).fetchone()
+        if existing is None:
+            job_id = make_id("report_job")
+            conn.execute(
+                """
+                INSERT INTO presentation_report_jobs (
+                    job_id, evc_session_id, request_id, status, attempt_count, started_at
+                ) VALUES (?, ?, ?, 'generating', 1, ?)
+                """,
+                (job_id, evc_session_id, request_id, utc_now()),
+            )
+        else:
+            job_id = existing["job_id"]
+            if existing["status"] == "failed":
+                conn.execute(
+                    """
+                    UPDATE presentation_report_jobs SET status = 'generating',
+                        attempt_count = attempt_count + 1, error_code = NULL, started_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (utc_now(), job_id),
+                )
+    return get_report_job(request_id=request_id, db_path=db_path) or {}
+
+
+def fail_report_job(request_id: str, error_code: str, db_path: Path = DB_PATH) -> None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            UPDATE presentation_report_jobs
+            SET status = 'failed', error_code = ?, finished_at = ?
+            WHERE request_id = ?
+            """,
+            (error_code, utc_now(), request_id),
+        )
+
+
+def get_report_job(request_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM presentation_report_jobs WHERE request_id = ?", (request_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_presentation_report(evc_session_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM presentation_reports WHERE evc_session_id = ?", (evc_session_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    result["feedback"] = json.loads(result.pop("feedback_json"))
+    return result
+
+
+def get_presentation_transcript_for_session(
+    session_id: str, user_id: str, db_path: Path = DB_PATH
+) -> list[dict[str, Any]]:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        owned = conn.execute(
+            "SELECT 1 FROM sessions WHERE session_id = ? AND user_id = ?",
+            (session_id, user_id),
+        ).fetchone()
+        if owned is None:
+            raise ValueError("session does not exist or is not owned by the user")
+        report = conn.execute(
+            "SELECT evc_session_id FROM presentation_reports WHERE odi_session_id = ?",
+            (session_id,),
+        ).fetchone()
+    if report is None:
+        return []
+    return list_presentation_segments(str(report["evc_session_id"]), db_path=db_path)
+
+
+def delete_presentation_source_data(
+    session_id: str, user_id: str, db_path: Path = DB_PATH
+) -> int:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        owned = conn.execute(
+            "SELECT 1 FROM sessions WHERE session_id = ? AND user_id = ?",
+            (session_id, user_id),
+        ).fetchone()
+        if owned is None:
+            raise ValueError("session does not exist or is not owned by the user")
+        report = conn.execute(
+            "SELECT evc_session_id FROM presentation_reports WHERE odi_session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if report is None:
+            return 0
+        evc_session_id = str(report["evc_session_id"])
+        deleted = conn.execute(
+            "DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,)
+        ).rowcount
+    return deleted
+
+
+def get_report_job_by_pre_session_pin(
+    pin_code: str, db_path: Path = DB_PATH
+) -> dict[str, Any] | None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT j.* FROM presentation_report_jobs j
+            WHERE j.evc_session_id = (
+                SELECT evc_session_id FROM presentation_segments
+                WHERE pre_session_pin = ? ORDER BY step DESC LIMIT 1
+            )
+            ORDER BY j.created_at DESC LIMIT 1
+            """,
+            (pin_code,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def recover_stale_report_jobs(stale_minutes: int = 10, db_path: Path = DB_PATH) -> int:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        cur = conn.execute(
+            """
+            UPDATE presentation_report_jobs
+            SET status = 'queued', error_code = 'worker_interrupted'
+            WHERE status = 'generating' AND started_at <= datetime('now', ?)
+            """,
+            (f"-{max(1, stale_minutes)} minutes",),
+        )
+    return cur.rowcount
+
+
+def delete_expired_presentation_data(db_path: Path = DB_PATH) -> dict[str, int]:
+    ensure_report_schema(db_path)
+    now = utc_now()
+    with get_conn(db_path) as conn:
+        segment_count = conn.execute(
+            "DELETE FROM presentation_segments WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
+        ).rowcount
+        report_count = conn.execute(
+            "DELETE FROM presentation_reports WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
+        ).rowcount
+    return {"segments": segment_count, "reports": report_count}
 
 
 def attach_session_to_pre_session(
@@ -661,17 +984,25 @@ def list_sessions_by_user(
 
 
 def delete_session(session_id: str, user_id: str | None = None, db_path: Path = DB_PATH) -> None:
+    ensure_report_schema(db_path)
     with get_conn(db_path) as conn:
-        if user_id is None:
-            conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-            return
-
-        cursor = conn.execute(
-            "DELETE FROM sessions WHERE session_id = ? AND user_id = ?",
-            (session_id, user_id),
-        )
-        if cursor.rowcount == 0:
+        owner_filter = "" if user_id is None else " AND user_id = ?"
+        params = (session_id,) if user_id is None else (session_id, user_id)
+        owned = conn.execute(
+            f"SELECT session_id FROM sessions WHERE session_id = ?{owner_filter}", params
+        ).fetchone()
+        if owned is None:
             raise ValueError("삭제할 세션이 없거나 접근 권한이 없습니다.")
+        evc_rows = conn.execute(
+            "SELECT evc_session_id FROM presentation_reports WHERE odi_session_id = ?",
+            (session_id,),
+        ).fetchall()
+        for row in evc_rows:
+            evc_session_id = row["evc_session_id"]
+            conn.execute("DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,))
+            conn.execute("DELETE FROM presentation_report_jobs WHERE evc_session_id = ?", (evc_session_id,))
+            conn.execute("DELETE FROM presentation_reports WHERE evc_session_id = ?", (evc_session_id,))
+        conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
 
 
 def delete_expired_unlinked_templates(

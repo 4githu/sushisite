@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import time
+from datetime import datetime, timedelta, timezone
 from collections import OrderedDict
 from uuid import UUID
 
@@ -38,6 +39,9 @@ from .schema import (
     TranscriptSegment,
 )
 from .session_store import SessionStore, session_store
+from .report_schema import ReportSegmentRecord
+from .config import EVC_TRANSCRIPT_RETENTION_DAYS
+from odi.db import odidb
 from .speech2text import SpeechToTextProvider, transcribe_audio
 from .state_engine import aggregate_state, compute_state_delta, update_audience_state
 
@@ -58,12 +62,18 @@ async def create_pipeline_session(
     options: SmartStartOptions,
     slides: list[SlideInfo] | None = None,
     slide_file_path: str | None = None,
+    owner_user_id: str | None = None,
+    template_id: str | None = None,
+    pre_session_pin: str | None = None,
     store: SessionStore = session_store,
 ) -> SmartStartResponseV2:
     record, raw_token = await store.create_session(
         options=options,
         slides=slides,
         slide_file_path=slide_file_path,
+        owner_user_id=owner_user_id,
+        template_id=template_id,
+        pre_session_pin=pre_session_pin,
     )
     snapshots = [
         AudienceSnapshot(
@@ -119,6 +129,7 @@ async def read_pipeline_session(
         warnings=record.warnings,
         presentation_status=record.presentation_status,
         question_generation_status=record.question_generation_status,
+        report_generation_status=record.report_generation_status,
     )
 
 
@@ -294,6 +305,29 @@ async def update_pipeline(
                 word_count=speech_metrics.word_count,
             )
         )
+        report_segment = ReportSegmentRecord(
+                step=next_step,
+                client_time_s=accepted_time,
+                slide_index=context.current_slide_index,
+                transcript=stt_result.transcript,
+                evaluation=evaluation,
+                speech_metrics=speech_metrics,
+                evc_state=aggregate,
+                warnings=warnings,
+            )
+        if record.pre_session_pin:
+            expires_at = (
+                datetime.now(timezone.utc) + timedelta(days=EVC_TRANSCRIPT_RETENTION_DAYS)
+            ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            odidb.upsert_presentation_segment(
+                evc_session_id=str(record.session_id),
+                step=next_step,
+                segment=report_segment.model_dump(mode="json"),
+                owner_user_id=record.owner_user_id,
+                pre_session_pin=record.pre_session_pin,
+                expires_at=expires_at,
+            )
+        record.report_segments.append(report_segment)
         _cache_response(record.request_cache, request_id, response)
         record_update(
             response,

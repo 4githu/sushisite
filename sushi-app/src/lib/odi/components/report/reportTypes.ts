@@ -2,7 +2,7 @@
 
 export type ReportScore = {
 	overall_score?: number;
-	percentile?: number;
+	percentile?: number | null;
 	grade?: string;
 };
 
@@ -31,6 +31,7 @@ export type ReportTimelineItem = {
 	description: string;
 	type: "positive" | "warning" | "negative" | string;
 	slide?: number;
+	source_step?: number;
 };
 
 export type AudienceGraphPoint = {
@@ -42,6 +43,13 @@ export type AudienceGraphPoint = {
 
 export type ReportFeedback = {
 	version?: string;
+	generation?: {
+		generated_at?: string;
+		generator?: string;
+		source_segment_count?: number;
+		transcript_word_count?: number;
+		warnings?: string[];
+	};
 	score?: ReportScore;
 	duration?: ReportDuration;
 	score_card?: ReportScoreCard;
@@ -56,11 +64,12 @@ export type ReportFeedback = {
 	timeline?: ReportTimelineItem[];
 	audience_analysis?: {
 		graph?: AudienceGraphPoint[];
-		events?: {
-			time_sec: number;
-			label: string;
-			type?: string;
-		}[];
+			events?: {
+				time_sec: number;
+				label: string;
+				type?: string;
+				source_step?: number;
+			}[];
 	};
 	ai_insight?: {
 		title?: string;

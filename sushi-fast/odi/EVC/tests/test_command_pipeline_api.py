@@ -150,6 +150,8 @@ def test_pipeline_update_is_atomic_idempotent_and_step_guarded(tmp_path: Path) -
         assert len(record.transcript_segments) == 1
         assert record.transcript_segments[0].step == 1
         assert record.transcript_segments[0].text == response.latest_speech
+        assert len(record.report_segments) == 1
+        assert record.report_segments[0].evaluation == response.evaluation
 
         with pytest.raises(StepConflictError):
             await update_pipeline(

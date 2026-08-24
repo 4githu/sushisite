@@ -22,6 +22,8 @@ from odi.db.schema import (
     TemplateUpdateRequest,
     UserCreateRequest,
 )
+from odi.EVC.report_schema import ReportFinishResponse, ReportRecoveryRequest
+from odi.EVC.report_service import recover_pre_session_report
 
 
 router = APIRouter(
@@ -501,6 +503,31 @@ def delete_expired_pre_sessions() -> dict[str, Any]:
     }
 
 
+@router.post(
+    "/pre-sessions/{pin_code}/report/retry",
+    response_model=ReportFinishResponse,
+)
+async def retry_pre_session_report(
+    pin_code: str,
+    payload: ReportRecoveryRequest,
+    request: Request,
+):
+    user_id = get_user_id_from_jwt(request)
+    require_pre_session_owner(pin_code, user_id)
+    try:
+        return await recover_pre_session_report(
+            pin_code=pin_code,
+            owner_user_id=user_id,
+            request_id=payload.request_id,
+            planned_seconds=payload.planned_seconds,
+            qa_seconds=payload.qa_seconds,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/sessions")
 def create_session(payload: SessionCreateRequest) -> dict[str, Any]:
     try:
@@ -570,11 +597,13 @@ def finish_session(
 
 
 @router.get("/sessions/{session_id}")
-def get_session(session_id: str) -> dict[str, Any]:
+def get_session(session_id: str, request: Request) -> dict[str, Any]:
     session = odidb.get_session(session_id)
 
     if session is None:
         raise_404(f"존재하지 않는 session_id입니다: {session_id}")
+    if str(session["user_id"]) != str(get_user_id_from_jwt(request)):
+        raise HTTPException(status_code=403, detail="다른 사용자의 세션에는 접근할 수 없습니다.")
 
     return {
         "session": session,
@@ -594,8 +623,11 @@ def get_demo_report() -> dict[str, Any]:
 @router.get("/users/{user_id}/sessions")
 def list_user_sessions(
     user_id: str,
+    request: Request,
     limit: int = 20,
 ) -> dict[str, Any]:
+    if str(user_id) != str(get_user_id_from_jwt(request)):
+        raise HTTPException(status_code=403, detail="다른 사용자의 세션에는 접근할 수 없습니다.")
     user = odidb.get_user(user_id)
 
     if user is None:
@@ -613,15 +645,35 @@ def list_user_sessions(
 
 
 @router.delete("/sessions/{session_id}")
-def delete_session(session_id: str, user_id: str) -> dict[str, str]:
+def delete_session(session_id: str, request: Request) -> dict[str, str]:
     try:
-        odidb.delete_session(session_id, user_id=user_id)
+        odidb.delete_session(session_id, user_id=get_user_id_from_jwt(request))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "message": "session_deleted",
     }
+
+
+@router.get("/sessions/{session_id}/transcript")
+def download_session_transcript(session_id: str, request: Request) -> dict[str, Any]:
+    user_id = get_user_id_from_jwt(request)
+    try:
+        segments = odidb.get_presentation_transcript_for_session(session_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"session_id": session_id, "segments": segments}
+
+
+@router.delete("/sessions/{session_id}/source-data")
+def delete_session_source_data(session_id: str, request: Request) -> dict[str, Any]:
+    user_id = get_user_id_from_jwt(request)
+    try:
+        deleted_count = odidb.delete_presentation_source_data(session_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"message": "presentation_source_data_deleted", "deleted_count": deleted_count}
 
 
 @router.post("/users/{user_id}/templates/cleanup")

@@ -626,6 +626,9 @@ class SessionResponseV2(StrictModel):
     question_generation_status: Literal[
         "not_started", "generating", "ready", "failed"
     ] = "not_started"
+    report_generation_status: Literal[
+        "not_started", "generating", "ready", "failed"
+    ] = "not_started"
 
 
 class EVCUpdateResponseV2(StrictModel):

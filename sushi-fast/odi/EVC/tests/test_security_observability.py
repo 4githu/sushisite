@@ -5,7 +5,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from odi.EVC.evaluation import EvaluationProviderError
-from odi.EVC.observability import build_update_log_event, prune_debug_logs, record_update
+from odi.EVC.observability import (
+    build_update_log_event,
+    prune_debug_logs,
+    record_report_generation,
+    record_update,
+)
 from odi.EVC.router import _http_error
 from odi.EVC.schema import (
     AudienceDecision,
@@ -146,3 +151,23 @@ def test_expired_session_removes_owned_slide_file(tmp_path: Path) -> None:
         assert not slide.exists()
 
     asyncio.run(scenario())
+
+
+def test_report_observability_excludes_source_and_generated_text(caplog) -> None:
+    with caplog.at_level("INFO", logger="sushisite.evc"):
+        record_report_generation(
+            session_id="session-id",
+            request_id="request-id",
+            status="ready",
+            latency_ms=10,
+            segment_count=2,
+            word_count=20,
+            generator="test",
+            persistent=True,
+            warning_codes=["low_stt_confidence"],
+        )
+    output = caplog.text
+    assert "session-id" in output
+    assert "transcript" not in output.lower()
+    assert "prompt" not in output.lower()
+    assert "token" not in output.lower()
