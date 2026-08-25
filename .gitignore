@@ -24,6 +24,7 @@ evc_logs/
 evc_uploads/
 sushi-fast/evc_logs/
 sushi-fast/evc_uploads/
+sushi-fast/personal_project/uploads/
 
 *.mp3
 *.m4a
