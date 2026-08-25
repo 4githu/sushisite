@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import fitz
 from fastapi import HTTPException, UploadFile
 
 
@@ -26,6 +25,17 @@ ALLOWED_SUFFIX_BY_ROLE = {
     "paper": {".pdf"},
     "script": {".txt", ".md"},
 }
+
+
+def load_pdf_backend():
+    try:
+        import fitz
+    except (ImportError, OSError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="PDF 처리 라이브러리를 불러올 수 없습니다.",
+        ) from exc
+    return fitz
 
 
 def utc_now() -> datetime:
@@ -89,6 +99,7 @@ def ensure_user_temp_path(user_id: str, storage_path: str) -> Path:
 
 def get_pdf_page_count(pdf_path: Path) -> int | None:
     try:
+        fitz = load_pdf_backend()
         doc = fitz.open(pdf_path)
         page_count = doc.page_count
         doc.close()
@@ -141,6 +152,7 @@ async def save_temp_upload(user_id: str, role: str, upload: UploadFile) -> dict[
 def render_pdf_to_images(pdf_path: Path, output_dir: Path, original_name: str, dpi: int = PDF_RENDER_DPI) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    fitz = load_pdf_backend()
     doc = fitz.open(pdf_path)
     images: list[dict[str, Any]] = []
 

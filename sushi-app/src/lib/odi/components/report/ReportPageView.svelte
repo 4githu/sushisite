@@ -23,6 +23,7 @@
 	} = $props();
 
 	const feedback = $derived((session.feedback ?? {}) as ReportFeedback);
+	const generationWarnings = $derived(feedback.generation?.warnings ?? []);
 </script>
 
 <div class="report-page-view">
@@ -32,6 +33,13 @@
 		{onOpenPrevious}
 		{onDownload}
 	/>
+
+	{#if generationWarnings.length > 0}
+		<section class="generation-notice" aria-label="분석 데이터 안내">
+			<strong>일부 입력이 제한된 상태로 분석되었습니다.</strong>
+			<span>{generationWarnings.join(", ")}</span>
+		</section>
+	{/if}
 
 	<section class="top-grid">
 		<ScoreOverviewCard {feedback} />
@@ -56,6 +64,20 @@
 		flex-direction: column;
 		gap: var(--space-6);
 		background: var(--surface);
+	}
+
+	.generation-notice {
+		padding: 12px 16px;
+		display: flex;
+		gap: var(--space-3);
+		border-radius: var(--radius-sm);
+		background: #fff8df;
+		color: var(--text-secondary);
+		font-size: 14px;
+	}
+
+	.generation-notice strong {
+		color: var(--brand-black);
 	}
 
 	.top-grid {
