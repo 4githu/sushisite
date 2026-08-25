@@ -13,8 +13,8 @@
 
 	const scores = $derived(feedback.score_card?.scores ?? {});
 	const descriptions = $derived(feedback.score_card?.descriptions ?? {});
-	const overall = $derived(feedback.score?.overall_score);
-	const percentile = $derived(feedback.score?.percentile);
+	const overall = $derived(feedback.score?.overall_score ?? null);
+	const percentile = $derived(feedback.score?.percentile ?? null);
 	const averageScores = $derived(feedback.score_card?.average_scores);
 	const hasUserScores = $derived(
 		[scores.engagement, scores.clarity, scores.credibility].some((value) => Number.isFinite(value))
@@ -65,10 +65,10 @@
 		<h2>나의 발표 점수</h2>
 
 		<div class="score-main">
-			{#if Number.isFinite(percentile)}
+			{#if percentile !== null}
 				<span class="percent-chip">발표자 중 상위 {percentile}%예요</span>
 			{:else}
-				<span class="percent-chip pending">비교 데이터 준비 중</span>
+				<span class="percent-chip neutral">비교 통계는 아직 제공되지 않습니다</span>
 			{/if}
 
 			<div class="score-number">
@@ -100,10 +100,11 @@
 				<line class="axis" x1="160" y1="125" x2="70" y2="178" />
 				<line class="axis" x1="160" y1="125" x2="250" y2="178" />
 
-				{#if hasAverageScores}<polygon
+				{#if hasAverageScores}
+					<polygon
 						class="average-polygon"
 						points={polygon(averageValues)}
-					/>{/if}
+				{/if}
 				{#if hasUserScores}<polygon class="user-polygon" points={polygon(radarValues)} />{/if}
 			</svg>
 
@@ -158,9 +159,9 @@
 		font-weight: var(--font-medium);
 	}
 
-	.percent-chip.pending {
-		color: var(--text-secondary);
+	.percent-chip.neutral {
 		background: var(--cool-grey-light);
+		color: var(--text-secondary);
 	}
 
 	.score-number {

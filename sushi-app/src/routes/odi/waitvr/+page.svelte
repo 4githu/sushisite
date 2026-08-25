@@ -21,6 +21,8 @@
 	let isRegularStarting = $state(false);
 	let experienceError = $state('');
 	let pollingError = $state('');
+	let reportStatus = $state('not_started');
+	let isRetryingReport = $state(false);
 	const isExperienceSession = $derived(sessionMode === 'experience');
 	const displayedPinCode = $derived(isExperienceSession ? '1234' : pinCode);
 	const fixedDemoDurationMs = 2 * 60 * 1000;
@@ -32,6 +34,7 @@
 		pinCode = value.pin_code ?? value.pinCode ?? '';
 		preSessionState = preSession.state ?? 'waiting';
 		sessionId = preSession.session_id ?? preSession.sessionId ?? null;
+		reportStatus = preSession.report_status ?? "not_started";
 	}
 
 	function startPresentationTimer() {
@@ -176,6 +179,19 @@
 
 		await goto(`/odi/report/${sessionId}`);
 	}
+	async function retryReport() {
+		if (!pinCode || isRetryingReport) return;
+		isRetryingReport = true;
+		experienceError = '';
+		try {
+			await sessionStore.retryReport?.(pinCode);
+			await sessionStore.refreshPreSession?.(pinCode);
+		} catch (error) {
+			experienceError = error instanceof Error ? error.message : '리포트 생성 재시도에 실패했습니다.';
+		} finally {
+			isRetryingReport = false;
+		}
+	}
 </script>
 
 <main class="ready-page">
@@ -229,14 +245,22 @@
 				</Button>
 			{/if}
 
+			{#if reportStatus === "failed"}
+				<Button variant="soft" size="lg" width="464px" disabled={isRetryingReport} onclick={retryReport}>
+					{isRetryingReport ? "리포트 재생성 중..." : "리포트 생성 다시 시도"}
+				</Button>
+			{/if}
+
 			<p class="report-help text-caption-medium">
-				{isExperienceSession && canClickReport && !presentationElapsed
-					? '발표 시간 전에도 리포트는 미리 확인할 수 있습니다.'
-					: canOpenReport
-						? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
-						: isExperienceSession
-							? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.'
-							: '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
+				{reportStatus === 'generating' || reportStatus === 'queued'
+					? '전체 발표를 분석하고 있어요. 잠시만 기다려 주세요.'
+					: reportStatus === 'failed'
+						? '리포트 생성에 실패했습니다. 발표 데이터는 보존되어 있습니다.'
+						: isExperienceSession && canClickReport && !presentationElapsed
+							? '발표 시간 전에도 리포트는 미리 확인할 수 있습니다.'
+							: canOpenReport
+								? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
+								: isExperienceSession ? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.' : '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
 			</p>
 
 			{#if experienceError}

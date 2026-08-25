@@ -82,6 +82,40 @@ def record_update(
         logger.exception("failed to record EVC observability metadata")
 
 
+def record_report_generation(
+    *,
+    session_id: str,
+    request_id: str,
+    status: str,
+    latency_ms: float,
+    segment_count: int,
+    word_count: int,
+    generator: str,
+    persistent: bool,
+    warning_codes: list[str] | None = None,
+    error_code: str | None = None,
+) -> None:
+    """Emit report metadata without transcript, prompt, token, or generated prose."""
+    try:
+        event = {
+            "event": "presentation_report_generation",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "request_id": request_id,
+            "status": status,
+            "latency_ms": round(latency_ms, 3),
+            "segment_count": segment_count,
+            "word_count": word_count,
+            "generator": generator,
+            "persistent": persistent,
+            "warning_codes": list(warning_codes or []),
+            "error_code": error_code,
+        }
+        logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+    except Exception:
+        logger.exception("failed to record report observability metadata")
+
+
 def prune_debug_logs(directory: Path, retention_days: int, now: float | None = None) -> int:
     if retention_days <= 0 or not directory.exists():
         return 0

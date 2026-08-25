@@ -9,9 +9,14 @@ from odi.router import router as odi_router
 from auth.router import router as auth_router
 from Legendaryvowels.router import router as Legendaryvowels_router
 from personal_project.router import router as personal_project_router
+from odi.db import odidb
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Ensure additive report tables exist and make interrupted jobs retryable after restart.
+odidb.ensure_report_schema()
+odidb.recover_stale_report_jobs()
 
 app.include_router(auth_router)
 app.include_router(odi_router)

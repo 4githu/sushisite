@@ -216,6 +216,61 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+class TranscriptSegment(StrictModel):
+    step: int = Field(ge=1)
+    client_time_s: float = Field(ge=0.0)
+    slide_index: int = Field(ge=0)
+    text: str = Field(min_length=1)
+    word_count: int = Field(ge=0)
+
+    @field_validator("text")
+    @classmethod
+    def text_is_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("transcript text cannot be blank")
+        return stripped
+
+
+class GeneratedQuestion(StrictModel):
+    id: str = Field(min_length=1, max_length=32)
+    order: int = Field(ge=1, le=20)
+    question: str = Field(min_length=2, max_length=500)
+    intent: str = Field(min_length=1, max_length=200)
+    source_steps: list[int] = Field(default_factory=list)
+
+    @field_validator("question", "intent")
+    @classmethod
+    def question_text_is_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("question text cannot be blank")
+        return stripped
+
+
+class GeneratedQuestionSet(StrictModel):
+    questions: list[GeneratedQuestion]
+
+
+class QuestionGenerationRequest(StrictModel):
+    request_id: UUID
+    question_count: int = Field(default=3, ge=1, le=5)
+
+
+class QuestionGenerationResponse(StrictModel):
+    session_id: UUID
+    status: Literal["ready"] = "ready"
+    generated_at: datetime
+    questions: list[GeneratedQuestion]
+
+
+class QuestionListResponse(StrictModel):
+    session_id: UUID
+    status: Literal["ready"] = "ready"
+    total: int = Field(ge=0)
+    questions: list[GeneratedQuestion]
+
+
 class ChannelPreference(StrictModel):
     face: float = Field(alias="Face", ge=0.0, le=1.0)
     body: float = Field(alias="Body", ge=0.0, le=1.0)
@@ -567,6 +622,13 @@ class SessionResponseV2(StrictModel):
     slide_count: int = Field(ge=0)
     slides: list[SlideInfo]
     warnings: list[str] = Field(default_factory=list)
+    presentation_status: Literal["running", "finishing", "finished"] = "running"
+    question_generation_status: Literal[
+        "not_started", "generating", "ready", "failed"
+    ] = "not_started"
+    report_generation_status: Literal[
+        "not_started", "generating", "ready", "failed"
+    ] = "not_started"
 
 
 class EVCUpdateResponseV2(StrictModel):

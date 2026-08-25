@@ -21,6 +21,8 @@ export type OdiPreSession = {
 	state: PreSessionState;
 	expires_at: string;
 	created_at: string;
+	report_status?: "not_started" | "queued" | "generating" | "ready" | "failed";
+	report_error?: string | null;
 };
 
 export type OdiSessionState = 'running' | 'completed' | 'failed' | 'cancelled';
@@ -43,6 +45,12 @@ export type OdiFileBundle = {
 	file_bundle_path: string;
 	expires_at: string;
 	files: JsonObject;
+};
+
+export type EvcReportFinishPayload = {
+	request_id: string;
+	planned_seconds?: number;
+	qa_seconds?: number;
 };
 
 type SessionStoreState = {
@@ -70,7 +78,8 @@ async function fetchJson(res: Response) {
 	const data = await res.json().catch(() => null);
 
 	if (!res.ok) {
-		const message = data?.detail ?? data?.message ?? '요청 실패';
+		const rawMessage = data?.detail?.message ?? data?.detail ?? data?.message ?? '요청 실패';
+		const message = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage);
 		throw new Error(message);
 	}
 
@@ -327,6 +336,39 @@ export const session = {
 		return data.session as OdiSession;
 	},
 
+	async finishEvcPresentation(evcSessionId: string, evcToken: string, payload: EvcReportFinishPayload) {
+		const res = await fetch(`${API}/odi/xreal_rehear/evc/sessions/${evcSessionId}/finish`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-EVC-Session-Token": evcToken
+			},
+			body: JSON.stringify(payload)
+		});
+		return fetchJson(res);
+	},
+
+	async getEvcReportStatus(evcSessionId: string, evcToken: string) {
+		const res = await fetch(`${API}/odi/xreal_rehear/evc/sessions/${evcSessionId}/report`, {
+			headers: { "X-EVC-Session-Token": evcToken }
+		});
+		return fetchJson(res);
+	},
+
+	async retryReport(pinCode: string, plannedSeconds = 0, qaSeconds = 0) {
+		const res = await fetch(`${API}/odi/db/pre-sessions/${pinCode}/report/retry`, {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				request_id: crypto.randomUUID(),
+				planned_seconds: plannedSeconds,
+				qa_seconds: qaSeconds
+			})
+		});
+		return fetchJson(res);
+	},
+
 	async getReport(sessionId: string) {
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
 			credentials: 'include'
@@ -341,6 +383,21 @@ export const session = {
 		}));
 
 		return currentSession;
+	},
+
+	async getTranscript(sessionId: string) {
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/transcript`, {
+			credentials: "include"
+		});
+		return fetchJson(res);
+	},
+
+	async deleteSourceData(sessionId: string) {
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/source-data`, {
+			method: "DELETE",
+			credentials: "include"
+		});
+		return fetchJson(res);
 	},
 
 	async listMySessions(limit = 20) {
@@ -374,13 +431,10 @@ export const session = {
 		const user = odiuser.get();
 		if (user === null) throw new Error('ODI 유저가 없습니다.');
 
-		const res = await fetch(
-			`${API}/odi/db/sessions/${sessionId}?user_id=${encodeURIComponent(user.user_id)}`,
-			{
-				method: 'DELETE',
-				credentials: 'include'
-			}
-		);
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
+			method: 'DELETE',
+			credentials: 'include'
+		});
 		await fetchJson(res);
 		store.update((state) => ({
 			...state,
