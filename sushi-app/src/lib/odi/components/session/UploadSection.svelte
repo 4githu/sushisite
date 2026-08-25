@@ -1,28 +1,26 @@
 <!-- src/lib/odi/components/session/UploadSection.svelte -->
 
 <script lang="ts">
-	import {
-		DocumentIcon,
-		PdfIcon,
-		Cloud
-	} from "$lib/odi/icons";
+	import { DocumentIcon, PdfIcon, Cloud } from '$lib/odi/icons';
 
-	import type { OdiFileRef } from "$lib/odi/stores/template";
+	import type { OdiFileRef } from '$lib/odi/stores/template';
 
 	let {
 		title,
 		required = false,
 		fileRef = null,
-		accept = ".pdf",
+		file = $bindable(null),
+		accept = '.pdf',
 		maxSizeMB = 300,
 		uploading = false,
-		error = "",
+		error = '',
 		onFileSelected,
 		onClear
 	}: {
 		title: string;
 		required?: boolean;
 		fileRef?: OdiFileRef | null;
+		file?: File | null;
 		accept?: string;
 		maxSizeMB?: number;
 		uploading?: boolean;
@@ -32,6 +30,7 @@
 	} = $props();
 
 	let input: HTMLInputElement;
+	const selectedFile = $derived(fileRef ?? file);
 
 	function openFileDialog() {
 		if (uploading) return;
@@ -48,11 +47,20 @@
 			return;
 		}
 
-		await onFileSelected?.(selectedFile);
+		if (onFileSelected) {
+			await onFileSelected(selectedFile);
+		} else {
+			file = selectedFile;
+		}
 
 		if (input) {
-			input.value = "";
+			input.value = '';
 		}
+	}
+
+	function clearSelection() {
+		file = null;
+		onClear?.();
 	}
 
 	function handleChange(event: Event) {
@@ -70,7 +78,7 @@
 	}
 
 	function formatSize(size: number | null | undefined) {
-		if (!size) return "";
+		if (!size) return '';
 
 		const mb = size / 1024 / 1024;
 
@@ -79,6 +87,10 @@
 		}
 
 		return `${Math.ceil(size / 1024)}KB`;
+	}
+
+	function isBrowserFile(value: File | OdiFileRef): value is File {
+		return typeof File !== 'undefined' && value instanceof File;
 	}
 </script>
 
@@ -97,45 +109,54 @@
 		{/if}
 	</div>
 
-	<input
-		bind:this={input}
-		class="file-input"
-		type="file"
-		{accept}
-		onchange={handleChange}
-	/>
+	<input bind:this={input} class="file-input" type="file" {accept} onchange={handleChange} />
 
-	{#if fileRef && !uploading}
+	{#if selectedFile && !uploading}
 		<div class="uploaded-card" class:has-error={Boolean(error)}>
-			<button type="button" class="uploaded-main clickable" onclick={openFileDialog} aria-label="다른 파일로 변경">
+			<button
+				type="button"
+				class="uploaded-main clickable"
+				onclick={openFileDialog}
+				aria-label="다른 파일로 변경"
+			>
 				<div class="pdf-icon" aria-hidden="true">
 					<img src={PdfIcon} alt="" />
 				</div>
 
 				<span class="file-copy">
-					<strong>{fileRef.original_name}</strong>
+					<strong
+						>{isBrowserFile(selectedFile) ? selectedFile.name : selectedFile.original_name}</strong
+					>
 					<small>
-						{formatSize(fileRef.size_bytes) || "크기 정보 없음"}
-						{#if fileRef.page_count}
-							· {fileRef.page_count}페이지
+						{formatSize(
+							isBrowserFile(selectedFile) ? selectedFile.size : selectedFile.size_bytes
+						) || '크기 정보 없음'}
+						{#if !isBrowserFile(selectedFile) && selectedFile.page_count}
+							· {selectedFile.page_count}페이지
 						{/if}
 					</small>
 				</span>
 			</button>
 
-			<div class="upload-status" aria-label="업로드 완료">
+			<div
+				class="upload-status"
+				aria-label={isBrowserFile(selectedFile) ? '파일 선택 완료' : '업로드 완료'}
+			>
 				<span class="status-check">✓</span>
-				<span>업로드 완료</span>
+				<span>{isBrowserFile(selectedFile) ? '선택 완료' : '업로드 완료'}</span>
 			</div>
 
-			{#if onClear}
-				<button type="button" class="clear-icon clickable" aria-label="파일 선택 해제" onclick={onClear}>×</button>
-			{/if}
+			<button
+				type="button"
+				class="clear-icon clickable"
+				aria-label="파일 선택 해제"
+				onclick={clearSelection}>×</button
+			>
 		</div>
 	{:else}
 		<button
 			type="button"
-			class={["upload-box", "clickable", uploading && "uploading", error && "has-error"]}
+			class={['upload-box', 'clickable', uploading && 'uploading', error && 'has-error']}
 			onclick={openFileDialog}
 			ondragover={handleDragOver}
 			ondrop={handleDrop}
@@ -145,16 +166,14 @@
 				<img class="upload-icon" src={Cloud} alt="" />
 
 				{#if uploading}
-				<p class="text-body file-name">업로드 중...</p>
-				<p class="text-body helper">파일을 서버에 저장하고 있습니다</p>
+					<p class="text-body file-name">업로드 중...</p>
+					<p class="text-body helper">파일을 서버에 저장하고 있습니다</p>
 				{:else}
-				<p class="text-body helper">
-					PDF 파일을 드래그하거나 클릭하여 업로드 해주세요
-				</p>
+					<p class="text-body helper">PDF 파일을 드래그하거나 클릭하여 업로드 해주세요</p>
 
-				<p class="text-body helper">
-					최대 {maxSizeMB}MB
-				</p>
+					<p class="text-body helper">
+						최대 {maxSizeMB}MB
+					</p>
 				{/if}
 			</div>
 		</button>

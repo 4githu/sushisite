@@ -15,11 +15,11 @@
 	}
 
 	function saveJSON() {
-		const document = editor?.getJSON() ?? result;
-		if (!document) return;
-		const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' });
+		const editorDocument = editor?.getJSON() ?? result;
+		if (!editorDocument) return;
+		const blob = new Blob([JSON.stringify(editorDocument, null, 2)], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement('a');
+		const anchor = window.document.createElement('a');
 		anchor.href = url;
 		anchor.download = `textediter-${new Date().toISOString().slice(0, 10)}.json`;
 		anchor.click();

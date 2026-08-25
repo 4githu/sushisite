@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
-	import UploadSection from "$lib/odi/components/session/UploadSection.svelte";
+	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
+	import UploadSection from '$lib/odi/components/session/UploadSection.svelte';
 
 	let {
 		resumeFile = $bindable(null),
@@ -21,12 +21,7 @@
 			bind:file={resumeFile}
 		/>
 
-		<UploadSection
-			title="포트폴리오 PDF"
-			accept=".pdf"
-			maxSizeMB={300}
-			bind:file={portfolioFile}
-		/>
+		<UploadSection title="포트폴리오 PDF" accept=".pdf" maxSizeMB={300} bind:file={portfolioFile} />
 	</div>
 </SurfaceCard>
 

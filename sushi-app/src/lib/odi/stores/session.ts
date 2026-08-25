@@ -2,14 +2,17 @@
 
 import { API_BASE as API } from '$lib/config/api';
 
-import { get, writable } from "svelte/store";
-import { goto } from "$app/navigation";
-import { odiuser, type JsonObject } from "./odiuser";
-import { template } from "./template";
-import { publishPresentationData } from "$lib/odi/firebase/session-materials";
-import { createFixedDemoPresentationTemplate, fixedDemoFeedback } from "$lib/odi/demo/fixedPresentationScenario";
+import { get, writable } from 'svelte/store';
+import { goto } from '$app/navigation';
+import { odiuser, type JsonObject } from './odiuser';
+import { template } from './template';
+import { publishPresentationData } from '$lib/odi/firebase/session-materials';
+import {
+	createFixedDemoPresentationTemplate,
+	fixedDemoFeedback
+} from '$lib/odi/demo/fixedPresentationScenario';
 
-export type PreSessionState = "waiting" | "running" | "finished" | "expired" | "cancelled";
+export type PreSessionState = 'waiting' | 'running' | 'finished' | 'expired' | 'cancelled';
 
 export type OdiPreSession = {
 	pin_code: string;
@@ -22,7 +25,7 @@ export type OdiPreSession = {
 	report_error?: string | null;
 };
 
-export type OdiSessionState = "running" | "completed" | "failed" | "cancelled";
+export type OdiSessionState = 'running' | 'completed' | 'failed' | 'cancelled';
 
 export type OdiSession = {
 	session_id: string;
@@ -69,13 +72,14 @@ const initialState: SessionStoreState = {
 };
 
 const store = writable<SessionStoreState>(initialState);
+let pollingGeneration = 0;
 
 async function fetchJson(res: Response) {
 	const data = await res.json().catch(() => null);
 
 	if (!res.ok) {
-		const rawMessage = data?.detail?.message ?? data?.detail ?? data?.message ?? "요청 실패";
-		const message = typeof rawMessage === "string" ? rawMessage : JSON.stringify(rawMessage);
+		const rawMessage = data?.detail?.message ?? data?.detail ?? data?.message ?? '요청 실패';
+		const message = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage);
 		throw new Error(message);
 	}
 
@@ -95,7 +99,7 @@ async function ensureSessionContext() {
 	}
 
 	if (user === null) {
-		throw new Error("로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.");
+		throw new Error('로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.');
 	}
 
 	let currentTemplate = template.get();
@@ -105,7 +109,7 @@ async function ensureSessionContext() {
 	}
 
 	if (currentTemplate === null) {
-		throw new Error("저장된 발표 설정을 찾지 못했습니다. 발표 설정 화면에서 다시 확인해 주세요.");
+		throw new Error('저장된 발표 설정을 찾지 못했습니다. 발표 설정 화면에서 다시 확인해 주세요.');
 	}
 
 	return { user, currentTemplate };
@@ -119,6 +123,7 @@ export const session = {
 	},
 
 	clear() {
+		pollingGeneration += 1;
 		store.set(initialState);
 	},
 
@@ -127,16 +132,19 @@ export const session = {
 		return template.saveToRecent();
 	},
 
-	async startFromCurrentTemplate(expires_minutes = 30, options: { skipPresentationPublish?: boolean } = {}) {
+	async startFromCurrentTemplate(
+		expires_minutes = 30,
+		options: { skipPresentationPublish?: boolean } = {}
+	) {
 		const { user } = await ensureSessionContext();
 
 		await template.saveToRecent();
 
 		const res = await fetch(`${API}/odi/db/pre-sessions/start-from-recent`, {
-			method: "POST",
-			credentials: "include",
+			method: 'POST',
+			credentials: 'include',
 			headers: {
-				"Content-Type": "application/json"
+				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
 				user_id: user.user_id,
@@ -162,11 +170,11 @@ export const session = {
 		}
 
 		const preparedTemplate = data.template?.template;
-		if (preparedTemplate?.type === "presentation" && !options.skipPresentationPublish) {
+		if (preparedTemplate?.type === 'presentation' && !options.skipPresentationPublish) {
 			try {
 				await publishPresentationData(String(data.pin_code), preparedTemplate);
 			} catch (error) {
-				await this.updatePreSessionState(String(data.pin_code), "cancelled").catch(() => undefined);
+				await this.updatePreSessionState(String(data.pin_code), 'cancelled').catch(() => undefined);
 				throw error;
 			}
 		}
@@ -179,7 +187,9 @@ export const session = {
 
 		try {
 			template.set(createFixedDemoPresentationTemplate());
-			return await this.startFromCurrentTemplate(expires_minutes, { skipPresentationPublish: true });
+			return await this.startFromCurrentTemplate(expires_minutes, {
+				skipPresentationPublish: true
+			});
 		} finally {
 			// 체험 세션 때문에 사용자가 설정한 발표 자료와 옵션이 recent_template에서
 			// 사라지지 않도록 반드시 원래 템플릿을 복원합니다.
@@ -191,8 +201,8 @@ export const session = {
 	async finishFixedDemoPresentation(pinCode?: string) {
 		const current = get(store);
 		const targetPin = pinCode ?? current.pin_code;
-		if (!targetPin) throw new Error("시연 PIN 번호가 없습니다.");
-		if (current.pre_session?.state === "finished") return current.current_session;
+		if (!targetPin) throw new Error('시연 PIN 번호가 없습니다.');
+		if (current.pre_session?.state === 'finished') return current.current_session;
 
 		return this.finishPreSession(targetPin, fixedDemoFeedback);
 	},
@@ -202,11 +212,11 @@ export const session = {
 		const targetPin = pinCode ?? current.pin_code;
 
 		if (!targetPin) {
-			throw new Error("조회할 pin_code가 없습니다.");
+			throw new Error('조회할 pin_code가 없습니다.');
 		}
 
 		const res = await fetch(`${API}/odi/db/pre-sessions/${targetPin}`, {
-			credentials: "include"
+			credentials: 'include'
 		});
 
 		const data = await fetchJson(res);
@@ -223,10 +233,10 @@ export const session = {
 
 	async updatePreSessionState(pinCode: string, nextState: PreSessionState) {
 		const res = await fetch(`${API}/odi/db/pre-sessions/${pinCode}/state`, {
-			method: "PUT",
-			credentials: "include",
+			method: 'PUT',
+			credentials: 'include',
 			headers: {
-				"Content-Type": "application/json"
+				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
 				state: nextState
@@ -245,22 +255,31 @@ export const session = {
 		return preSession;
 	},
 
-	async pollUntilFinished(pinCode?: string, intervalMs = 1500) {
+	async pollUntilFinished(pinCode?: string, intervalMs = 1500, timeoutMs = 30 * 60 * 1000) {
+		const generation = ++pollingGeneration;
+		const startedAt = Date.now();
+
 		store.update((state) => ({
 			...state,
 			polling: true
 		}));
 
 		try {
-			while (get(store).polling) {
+			while (generation === pollingGeneration && get(store).polling) {
+				if (Date.now() - startedAt >= timeoutMs) {
+					throw new Error(
+						'분석 완료를 기다리는 시간이 길어지고 있습니다. 잠시 후 다시 시도해 주세요.'
+					);
+				}
+
 				const preSession = await this.refreshPreSession(pinCode);
 
-				if (preSession.state === "finished" && preSession.session_id) {
+				if (preSession.state === 'finished' && preSession.session_id) {
 					const report = await this.getReport(preSession.session_id);
 					return report;
 				}
 
-				if (preSession.state === "expired" || preSession.state === "cancelled") {
+				if (preSession.state === 'expired' || preSession.state === 'cancelled') {
 					throw new Error(`pre_session 상태가 ${preSession.state}입니다.`);
 				}
 
@@ -269,14 +288,17 @@ export const session = {
 
 			return null;
 		} finally {
-			store.update((state) => ({
-				...state,
-				polling: false
-			}));
+			if (generation === pollingGeneration) {
+				store.update((state) => ({
+					...state,
+					polling: false
+				}));
+			}
 		}
 	},
 
 	stopPolling() {
+		pollingGeneration += 1;
 		store.update((state) => ({
 			...state,
 			polling: false
@@ -287,14 +309,14 @@ export const session = {
 		const user = odiuser.get();
 
 		if (user === null) {
-			throw new Error("ODI 유저가 없습니다.");
+			throw new Error('ODI 유저가 없습니다.');
 		}
 
 		const res = await fetch(`${API}/odi/db/pre-sessions/${pinCode}/finish`, {
-			method: "POST",
-			credentials: "include",
+			method: 'POST',
+			credentials: 'include',
 			headers: {
-				"Content-Type": "application/json"
+				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
 				user_id: user.user_id,
@@ -349,7 +371,7 @@ export const session = {
 
 	async getReport(sessionId: string) {
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
-			credentials: "include"
+			credentials: 'include'
 		});
 
 		const data = await fetchJson(res);
@@ -382,11 +404,11 @@ export const session = {
 		const user = odiuser.get();
 
 		if (user === null) {
-			throw new Error("ODI 유저가 없습니다.");
+			throw new Error('ODI 유저가 없습니다.');
 		}
 
 		const res = await fetch(`${API}/odi/db/users/${user.user_id}/sessions?limit=${limit}`, {
-			credentials: "include"
+			credentials: 'include'
 		});
 
 		const data = await fetchJson(res);
@@ -407,17 +429,18 @@ export const session = {
 
 	async deleteSession(sessionId: string) {
 		const user = odiuser.get();
-		if (user === null) throw new Error("ODI 유저가 없습니다.");
+		if (user === null) throw new Error('ODI 유저가 없습니다.');
 
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
-			method: "DELETE",
-			credentials: "include"
+			method: 'DELETE',
+			credentials: 'include'
 		});
 		await fetchJson(res);
 		store.update((state) => ({
 			...state,
 			sessions: state.sessions.filter((item) => item.session_id !== sessionId),
-			current_session: state.current_session?.session_id === sessionId ? null : state.current_session
+			current_session:
+				state.current_session?.session_id === sessionId ? null : state.current_session
 		}));
 	}
 };

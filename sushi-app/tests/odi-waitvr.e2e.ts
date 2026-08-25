@@ -29,42 +29,64 @@ const odiUser = {
 };
 
 async function mockSessionApi(page: Page, email = 'xrealrehear@gmail.com') {
-	await page.route('**/auth/isjwt?key=mainauth', (route) => route.fulfill({
-		json: { sub: '7', data: { id: '7', name: '테스트', email }, exp: 9999999999 }
-	}));
+	await page.route('**/auth/isjwt?key=mainauth', (route) =>
+		route.fulfill({
+			json: { sub: '7', data: { id: '7', name: '테스트', email }, exp: 9999999999 }
+		})
+	);
 	await page.route('**/odi/db/login', (route) => route.fulfill({ json: { user: odiUser } }));
-	await page.route('**/odi/db/users/7/recent-template', (route) => route.fulfill({
-		json: { user: { ...odiUser, recent_template: presentationTemplate } }
-	}));
-	await page.route('**/odi/db/pre-sessions/start-from-recent', (route) => route.fulfill({
-		json: {
-			pin_code: '9876',
-			pre_session: {
-				pin_code: '9876', template_id: 'template-test', session_id: null,
-				state: 'waiting', expires_at: '2026-08-15T10:00:00Z', created_at: '2026-08-15T09:00:00Z'
-			},
-			// 일반 세션의 화면 전환/PIN 표시를 Firebase 네트워크와 독립적으로 검증한다.
-			template: null,
-			file_bundle: null
-		}
-	}));
-	await page.route('**/odi/db/pre-sessions/9876/finish', (route) => route.fulfill({
-		json: {
-			pre_session: {
-				pin_code: '9876', template_id: 'template-test', session_id: 'session-test',
-				state: 'finished', expires_at: '2026-08-15T10:00:00Z', created_at: '2026-08-15T09:00:00Z'
-			},
-			session: { session_id: 'session-test', feedback: {}, state: 'completed' }
-		}
-	}));
-	await page.route('**/odi/db/pre-sessions/9876', (route) => route.fulfill({
-		json: {
-			pre_session: {
-				pin_code: '9876', template_id: 'template-test', session_id: null,
-				state: 'waiting', expires_at: '2026-08-15T10:00:00Z', created_at: '2026-08-15T09:00:00Z'
+	await page.route('**/odi/db/users/7/recent-template', (route) =>
+		route.fulfill({
+			json: { user: { ...odiUser, recent_template: presentationTemplate } }
+		})
+	);
+	await page.route('**/odi/db/pre-sessions/start-from-recent', (route) =>
+		route.fulfill({
+			json: {
+				pin_code: '9876',
+				pre_session: {
+					pin_code: '9876',
+					template_id: 'template-test',
+					session_id: null,
+					state: 'waiting',
+					expires_at: '2026-08-15T10:00:00Z',
+					created_at: '2026-08-15T09:00:00Z'
+				},
+				// 일반 세션의 화면 전환/PIN 표시를 Firebase 네트워크와 독립적으로 검증한다.
+				template: null,
+				file_bundle: null
 			}
-		}
-	}));
+		})
+	);
+	await page.route('**/odi/db/pre-sessions/9876/finish', (route) =>
+		route.fulfill({
+			json: {
+				pre_session: {
+					pin_code: '9876',
+					template_id: 'template-test',
+					session_id: 'session-test',
+					state: 'finished',
+					expires_at: '2026-08-15T10:00:00Z',
+					created_at: '2026-08-15T09:00:00Z'
+				},
+				session: { session_id: 'session-test', feedback: {}, state: 'completed' }
+			}
+		})
+	);
+	await page.route('**/odi/db/pre-sessions/9876', (route) =>
+		route.fulfill({
+			json: {
+				pre_session: {
+					pin_code: '9876',
+					template_id: 'template-test',
+					session_id: null,
+					state: 'waiting',
+					expires_at: '2026-08-15T10:00:00Z',
+					created_at: '2026-08-15T09:00:00Z'
+				}
+			}
+		})
+	);
 }
 
 async function openSessionFromConfirm(page: Page) {
@@ -83,9 +105,11 @@ test('연습 계정은 Confirm의 시작하기에서 체험/일반 선택창을 
 
 	const dialog = page.getByRole('dialog', { name: '진행할 세션을 선택해 주세요' });
 	await page.waitForTimeout(300);
-	if (await dialog.count() === 0) {
+	if ((await dialog.count()) === 0) {
 		const alerts = await page.locator('[role="alert"]').allTextContents();
-		throw new Error(`Confirm 선택창 미표시: url=${page.url()}, alerts=${JSON.stringify(alerts)}, browserErrors=${JSON.stringify(browserErrors)}`);
+		throw new Error(
+			`Confirm 선택창 미표시: url=${page.url()}, alerts=${JSON.stringify(alerts)}, browserErrors=${JSON.stringify(browserErrors)}`
+		);
 	}
 	await expect(dialog).toBeVisible();
 	const experienceCard = dialog.getByRole('button', { name: /체험 세션/ });
@@ -95,7 +119,10 @@ test('연습 계정은 Confirm의 시작하기에서 체험/일반 선택창을 
 	await expect(regularCard).toBeVisible();
 
 	const [dialogBox, experienceBox, regularBox, submitBox] = await Promise.all([
-		dialog.boundingBox(), experienceCard.boundingBox(), regularCard.boundingBox(), submitButton.boundingBox()
+		dialog.boundingBox(),
+		experienceCard.boundingBox(),
+		regularCard.boundingBox(),
+		submitButton.boundingBox()
 	]);
 	expect(dialogBox).not.toBeNull();
 	expect(experienceBox).not.toBeNull();
@@ -131,7 +158,9 @@ test('일반 세션은 선택 후 백엔드가 생성한 PIN을 표시한다', a
 	await expect(page.getByText('체험 세션', { exact: true })).toHaveCount(0);
 });
 
-test('Wait VR을 새로 열어 store가 비어 있어도 일반 세션 설정을 서버에서 복구한다', async ({ page }) => {
+test('Wait VR을 새로 열어 store가 비어 있어도 일반 세션 설정을 서버에서 복구한다', async ({
+	page
+}) => {
 	await mockSessionApi(page);
 	await page.goto('/odi/waitvr?mode=regular');
 
@@ -155,7 +184,49 @@ test('일반 계정이 체험 URL로 직접 들어와도 일반 세션으로 시
 	await expect(page.getByText('1234', { exact: true })).toHaveCount(0);
 });
 
-test('모바일 프로필 드롭다운은 본문 텍스트가 비치거나 카드 밖으로 새지 않는다', async ({ page }) => {
+test('세션 상태 조회가 실패하면 오류와 재시도 버튼을 표시한다', async ({ page }) => {
+	await mockSessionApi(page, 'normal@example.com');
+	await page.route('**/odi/db/pre-sessions/9876', (route) =>
+		route.fulfill({ status: 503, json: { detail: '세션 상태를 확인하지 못했습니다.' } })
+	);
+
+	await page.goto('/odi/waitvr?mode=regular');
+
+	await expect(page.getByText('9876', { exact: true })).toBeVisible();
+	await expect(page.getByRole('alert').getByText('세션 상태를 확인하지 못했습니다.')).toBeVisible();
+	await expect(page.getByRole('button', { name: '상태 다시 확인' })).toBeVisible();
+});
+
+test('분석값이 비어 있는 리포트는 0점 대신 준비 상태를 표시한다', async ({ page }) => {
+	await mockSessionApi(page, 'normal@example.com');
+	await page.route('**/odi/db/sessions/session-empty', (route) =>
+		route.fulfill({
+			json: {
+				session: {
+					session_id: 'session-empty',
+					user_id: '7',
+					template_id: 'template-test',
+					template: presentationTemplate,
+					feedback: {},
+					state: 'completed',
+					started_at: null,
+					ended_at: null,
+					created_at: '2026-08-25T00:00:00Z',
+					updated_at: '2026-08-25T00:00:00Z'
+				}
+			}
+		})
+	);
+
+	await page.goto('/odi/report/session-empty');
+
+	await expect(page.getByText('비교 데이터 준비 중')).toBeVisible();
+	await expect(page.getByText('상위 0%')).toHaveCount(0);
+});
+
+test('모바일 프로필 드롭다운은 본문 텍스트가 비치거나 카드 밖으로 새지 않는다', async ({
+	page
+}) => {
 	await page.setViewportSize({ width: 280, height: 520 });
 	await mockSessionApi(page);
 	await page.goto('/odi/session/presentation/confirm');
@@ -177,7 +248,9 @@ test('모바일 프로필 드롭다운은 본문 텍스트가 비치거나 카�
 	await expect(dropdown).toBeVisible();
 	await expect(page.getByText(/지금화면순서/)).toHaveCount(0);
 
-	const backgroundColor = await dropdown.evaluate((element) => getComputedStyle(element).backgroundColor);
+	const backgroundColor = await dropdown.evaluate(
+		(element) => getComputedStyle(element).backgroundColor
+	);
 	expect(backgroundColor).toBe('rgb(96, 94, 191)');
 
 	const box = await dropdown.boundingBox();

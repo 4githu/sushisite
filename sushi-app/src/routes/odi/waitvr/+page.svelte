@@ -1,37 +1,38 @@
 <!-- src/routes/odi/session/presentation/ready/+page.svelte -->
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { onDestroy, onMount } from "svelte";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onDestroy, onMount } from 'svelte';
 
-	import { session } from "$lib/odi/stores";
-	import { auth } from "$lib/stores/mainauth";
-	import Button from "$lib/odi/components/common/Button.svelte";
+	import { session } from '$lib/odi/stores';
+	import { auth } from '$lib/stores/mainauth';
+	import Button from '$lib/odi/components/common/Button.svelte';
 
 	const sessionStore = session as any;
 
-	let pinCode = $state("");
-	let preSessionState = $state("waiting");
+	let pinCode = $state('');
+	let preSessionState = $state('waiting');
 	let sessionId = $state(null as string | null);
 	let isRegenerating = $state(false);
 	let presentationTimer: ReturnType<typeof setTimeout> | null = null;
-	let sessionMode = $state<"waiting" | "experience" | "regular">("waiting");
+	let sessionMode = $state<'waiting' | 'experience' | 'regular'>('waiting');
 	let presentationElapsed = $state(false);
 	let isExperienceStarting = $state(false);
 	let isRegularStarting = $state(false);
-	let experienceError = $state("");
-	let reportStatus = $state("not_started");
+	let experienceError = $state('');
+	let pollingError = $state('');
+	let reportStatus = $state('not_started');
 	let isRetryingReport = $state(false);
-	const isExperienceSession = $derived(sessionMode === "experience");
-	const displayedPinCode = $derived(isExperienceSession ? "1234" : pinCode);
+	const isExperienceSession = $derived(sessionMode === 'experience');
+	const displayedPinCode = $derived(isExperienceSession ? '1234' : pinCode);
 	const fixedDemoDurationMs = 2 * 60 * 1000;
-	const EXPERIENCE_ACCOUNT_EMAIL = "xrealrehear@gmail.com";
+	const EXPERIENCE_ACCOUNT_EMAIL = 'xrealrehear@gmail.com';
 
 	function syncFromSessionStore(value: any = sessionStore) {
 		const preSession = value.pre_session ?? value.preSession ?? {};
 
-		pinCode = value.pin_code ?? value.pinCode ?? "";
-		preSessionState = preSession.state ?? "waiting";
+		pinCode = value.pin_code ?? value.pinCode ?? '';
+		preSessionState = preSession.state ?? 'waiting';
 		sessionId = preSession.session_id ?? preSession.sessionId ?? null;
 		reportStatus = preSession.report_status ?? "not_started";
 	}
@@ -49,12 +50,12 @@
 		syncFromSessionStore();
 
 		if (pinCode) {
-			sessionMode = "regular";
-			sessionStore.pollUntilFinished?.();
+			sessionMode = 'regular';
+			void startPolling();
 		} else {
 			void startRequestedSession();
 		}
-		if (preSessionState === "finished") {
+		if (preSessionState === 'finished') {
 			presentationElapsed = true;
 		}
 		const unsubscribe = sessionStore.subscribe?.((value: any) => {
@@ -63,7 +64,7 @@
 
 		return () => {
 			if (presentationTimer !== null) clearTimeout(presentationTimer);
-			if (typeof unsubscribe === "function") {
+			if (typeof unsubscribe === 'function') {
 				unsubscribe();
 			}
 		};
@@ -73,29 +74,41 @@
 		sessionStore.stopPolling?.();
 	});
 
-	const canOpenReport = $derived(preSessionState === "finished" && !!sessionId);
+	const canOpenReport = $derived(preSessionState === 'finished' && !!sessionId);
 	const canClickReport = $derived(isExperienceSession ? !!sessionId : canOpenReport);
-	const reportButtonVariant = $derived(isExperienceSession && !presentationElapsed ? "secondary" : "primary");
+	const reportButtonVariant = $derived(
+		isExperienceSession && !presentationElapsed ? 'secondary' : 'primary'
+	);
+
+	async function startPolling() {
+		pollingError = '';
+
+		try {
+			await sessionStore.pollUntilFinished?.();
+		} catch (error) {
+			pollingError = error instanceof Error ? error.message : '세션 상태를 확인하지 못했습니다.';
+		}
+	}
 
 	async function startRequestedSession() {
 		try {
-			const requestedMode = page.url.searchParams.get("mode");
+			const requestedMode = page.url.searchParams.get('mode');
 			// 체험 권한은 메모리에 남은 계정값이 아니라 현재 인증 쿠키로 매번 확인합니다.
 			const payload = await auth.check();
-			const email = payload?.data?.email?.trim().toLowerCase() ?? "";
+			const email = payload?.data?.email?.trim().toLowerCase() ?? '';
 			const canUseExperience = email === EXPERIENCE_ACCOUNT_EMAIL;
 
 			sessionStore.clear?.();
 
-			if (requestedMode === "experience" && canUseExperience) {
+			if (requestedMode === 'experience' && canUseExperience) {
 				await startExperienceSession();
 				return;
 			}
 
 			await startRegularSession();
 		} catch (error) {
-			sessionMode = "waiting";
-			experienceError = error instanceof Error ? error.message : "세션을 시작하지 못했습니다.";
+			sessionMode = 'waiting';
+			experienceError = error instanceof Error ? error.message : '세션을 시작하지 못했습니다.';
 		}
 	}
 
@@ -103,8 +116,8 @@
 		if (isExperienceStarting || isRegularStarting) return;
 
 		isExperienceStarting = true;
-		experienceError = "";
-		sessionMode = "experience";
+		experienceError = '';
+		sessionMode = 'experience';
 
 		try {
 			await sessionStore.startFixedDemoPresentation?.();
@@ -112,8 +125,8 @@
 			await sessionStore.finishFixedDemoPresentation?.();
 			startPresentationTimer();
 		} catch (error) {
-			sessionMode = "waiting";
-			experienceError = error instanceof Error ? error.message : "체험 세션을 시작하지 못했습니다.";
+			sessionMode = 'waiting';
+			experienceError = error instanceof Error ? error.message : '체험 세션을 시작하지 못했습니다.';
 		} finally {
 			isExperienceStarting = false;
 		}
@@ -123,16 +136,17 @@
 		if (isExperienceStarting || isRegularStarting) return;
 
 		isRegularStarting = true;
-		experienceError = "";
-		sessionMode = "regular";
+		experienceError = '';
+		sessionMode = 'regular';
 
 		try {
+			pollingError = '';
 			await sessionStore.startFromCurrentTemplate?.();
 			syncFromSessionStore(sessionStore.get?.());
-			sessionStore.pollUntilFinished?.();
+			void startPolling();
 		} catch (error) {
-			sessionMode = "waiting";
-			experienceError = error instanceof Error ? error.message : "일반 세션을 시작하지 못했습니다.";
+			sessionMode = 'waiting';
+			experienceError = error instanceof Error ? error.message : '일반 세션을 시작하지 못했습니다.';
 		} finally {
 			isRegularStarting = false;
 		}
@@ -149,7 +163,7 @@
 			if (presentationTimer !== null) clearTimeout(presentationTimer);
 			sessionStore.clear?.();
 
-			if (modeToRestart === "experience") {
+			if (modeToRestart === 'experience') {
 				await startExperienceSession();
 			} else {
 				await startRegularSession();
@@ -163,24 +177,21 @@
 	async function openReport() {
 		if (!canOpenReport || !sessionId) return;
 
-		await sessionStore.getReport?.(sessionId);
 		await goto(`/odi/report/${sessionId}`);
 	}
-
 	async function retryReport() {
 		if (!pinCode || isRetryingReport) return;
 		isRetryingReport = true;
-		experienceError = "";
+		experienceError = '';
 		try {
 			await sessionStore.retryReport?.(pinCode);
 			await sessionStore.refreshPreSession?.(pinCode);
 		} catch (error) {
-			experienceError = error instanceof Error ? error.message : "리포트 생성 재시도에 실패했습니다.";
+			experienceError = error instanceof Error ? error.message : '리포트 생성 재시도에 실패했습니다.';
 		} finally {
 			isRetryingReport = false;
 		}
 	}
-
 </script>
 
 <main class="ready-page">
@@ -188,17 +199,23 @@
 
 	<section class="ready-content">
 		<div class="ready-title-group">
-			<h1 class="text-title-main">{sessionMode === "waiting" ? "세션을 준비하고 있습니다" : "설정한 세션이 준비되었습니다"}</h1>
-			<p class="pin-help text-title-middle">{sessionMode === "waiting" ? "잠시만 기다려 주세요" : "생성된 PIN 번호를 가상 환경에서 입력하여 준비된 세션을 진행하세요"}</p>
+			<h1 class="text-title-main">
+				{sessionMode === 'waiting' ? '세션을 준비하고 있습니다' : '설정한 세션이 준비되었습니다'}
+			</h1>
+			<p class="pin-help text-title-middle">
+				{sessionMode === 'waiting'
+					? '잠시만 기다려 주세요'
+					: '생성된 PIN 번호를 가상 환경에서 입력하여 준비된 세션을 진행하세요'}
+			</p>
 		</div>
 
 		{#if isExperienceSession}
 			<p class="experience-chip">체험 세션</p>
 		{/if}
-		<p class="pin-code" class:demo-pin={isExperienceSession}>{displayedPinCode || "----"}</p>
+		<p class="pin-code" class:demo-pin={isExperienceSession}>{displayedPinCode || '----'}</p>
 
 		<div class="ready-actions">
-			{#if sessionMode === "waiting"}
+			{#if sessionMode === 'waiting'}
 				<Button
 					variant="primary"
 					size="lg"
@@ -206,28 +223,24 @@
 					disabled={!experienceError || isExperienceStarting || isRegularStarting}
 					onclick={startRequestedSession}
 				>
-					{experienceError ? "다시 시도하기" : "세션 준비 중..."}
+					{experienceError ? '다시 시도하기' : '세션 준비 중...'}
 				</Button>
 			{:else}
-				<Button variant="soft" size="lg" width="464px" disabled={isRegenerating} onclick={regeneratePin}>PIN 번호 다시 생성하기</Button>
+				<Button
+					variant="soft"
+					size="lg"
+					width="464px"
+					disabled={isRegenerating}
+					onclick={regeneratePin}>PIN 번호 다시 생성하기</Button
+				>
 			{/if}
 
 			{#if canClickReport}
-				<Button
-					variant={reportButtonVariant}
-					size="lg"
-					width="464px"
-					onclick={openReport}
-				>
+				<Button variant={reportButtonVariant} size="lg" width="464px" onclick={openReport}>
 					결과 리포트 보기
 				</Button>
 			{:else}
-				<Button
-					variant="primary"
-					size="lg"
-					width="464px"
-					disabled
-				>
+				<Button variant="primary" size="lg" width="464px" disabled>
 					발표가 완료되면 볼 수 있습니다
 				</Button>
 			{/if}
@@ -239,19 +252,28 @@
 			{/if}
 
 			<p class="report-help text-caption-medium">
-				{reportStatus === "generating" || reportStatus === "queued"
-					? "전체 발표를 분석하고 있어요. 잠시만 기다려 주세요."
-					: reportStatus === "failed"
-						? "리포트 생성에 실패했습니다. 발표 데이터는 보존되어 있습니다."
+				{reportStatus === 'generating' || reportStatus === 'queued'
+					? '전체 발표를 분석하고 있어요. 잠시만 기다려 주세요.'
+					: reportStatus === 'failed'
+						? '리포트 생성에 실패했습니다. 발표 데이터는 보존되어 있습니다.'
 						: isExperienceSession && canClickReport && !presentationElapsed
-							? "발표 시간 전에도 리포트는 미리 확인할 수 있습니다."
+							? '발표 시간 전에도 리포트는 미리 확인할 수 있습니다.'
 							: canOpenReport
-								? "세션이 완료되었습니다. 리포트를 확인할 수 있습니다."
-								: isExperienceSession ? "체험 세션을 시작하면 결과 리포트를 볼 수 있습니다." : "발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다."}
+								? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
+								: isExperienceSession ? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.' : '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
 			</p>
 
 			{#if experienceError}
 				<p class="experience-error" role="alert">{experienceError}</p>
+			{/if}
+
+			{#if pollingError && sessionMode === 'regular'}
+				<div class="polling-error" role="alert">
+					<p>{pollingError}</p>
+					<button type="button" class="retry-button clickable" onclick={startPolling}
+						>상태 다시 확인</button
+					>
+				</div>
 			{/if}
 		</div>
 	</section>
@@ -276,7 +298,11 @@
 		top: -70vh;
 		transform: translateX(-50%);
 		border-radius: var(--radius-full);
-		background: radial-gradient(ellipse at center, rgba(0, 51, 255, 0.28) 0%, rgba(0, 51, 255, 0) 68%);
+		background: radial-gradient(
+			ellipse at center,
+			rgba(0, 51, 255, 0.28) 0%,
+			rgba(0, 51, 255, 0) 68%
+		);
 		pointer-events: none;
 	}
 
@@ -317,7 +343,15 @@
 		color: var(--primary);
 	}
 
-	.experience-chip { margin: 46px 0 -74px; padding: 6px 12px; border-radius: var(--radius-full); background: rgba(0, 51, 255, 0.08); color: var(--primary); font-size: 14px; font-weight: var(--font-bold); }
+	.experience-chip {
+		margin: 46px 0 -74px;
+		padding: 6px 12px;
+		border-radius: var(--radius-full);
+		background: rgba(0, 51, 255, 0.08);
+		color: var(--primary);
+		font-size: 14px;
+		font-weight: var(--font-bold);
+	}
 
 	.ready-actions {
 		margin-top: 86px;
@@ -332,6 +366,26 @@
 		color: var(--text-disabled);
 	}
 
-	.experience-error { margin: 0; color: var(--accent); }
+	.experience-error {
+		margin: 0;
+		color: var(--accent);
+	}
 
+	.polling-error {
+		display: grid;
+		gap: var(--space-2);
+		justify-items: center;
+		color: var(--accent);
+	}
+	.polling-error p {
+		margin: 0;
+	}
+	.retry-button {
+		padding: 8px 14px;
+		border: 1px solid currentColor;
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--primary);
+		font-weight: var(--font-medium);
+	}
 </style>

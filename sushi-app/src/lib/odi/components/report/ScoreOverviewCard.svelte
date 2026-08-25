@@ -1,9 +1,9 @@
 <!-- src/lib/odi/components/report/ScoreOverviewCard.svelte -->
 
 <script lang="ts">
-	import ReportCard from "./ReportCard.svelte";
-	import { clampScore, scoreCardLabel } from "./reportUtils";
-	import type { ReportFeedback } from "./reportTypes";
+	import ReportCard from './ReportCard.svelte';
+	import { clampScore, scoreCardLabel } from './reportUtils';
+	import type { ReportFeedback } from './reportTypes';
 
 	let {
 		feedback
@@ -13,9 +13,18 @@
 
 	const scores = $derived(feedback.score_card?.scores ?? {});
 	const descriptions = $derived(feedback.score_card?.descriptions ?? {});
-	const overall = $derived(feedback.score?.overall_score ?? 0);
+	const overall = $derived(feedback.score?.overall_score ?? null);
 	const percentile = $derived(feedback.score?.percentile ?? null);
-	const hasComparisonData = $derived(percentile !== null);
+	const averageScores = $derived(feedback.score_card?.average_scores);
+	const hasUserScores = $derived(
+		[scores.engagement, scores.clarity, scores.credibility].some((value) => Number.isFinite(value))
+	);
+	const hasAverageScores = $derived(
+		Boolean(averageScores) &&
+			[averageScores?.engagement, averageScores?.clarity, averageScores?.credibility].every(
+				(value) => Number.isFinite(value)
+			)
+	);
 
 	const radarValues = $derived([
 		clampScore(scores.engagement),
@@ -23,7 +32,11 @@
 		clampScore(scores.credibility)
 	]);
 
-	const averageValues = [70, 74, 72];
+	const averageValues = $derived([
+		clampScore(averageScores?.engagement),
+		clampScore(averageScores?.clarity),
+		clampScore(averageScores?.credibility)
+	]);
 
 	function point(index: number, value: number, radius = 92) {
 		const angle = -Math.PI / 2 + index * ((Math.PI * 2) / 3);
@@ -35,7 +48,7 @@
 	}
 
 	function polygon(values: number[]) {
-		return values.map((value, index) => point(index, value)).join(" ");
+		return values.map((value, index) => point(index, value)).join(' ');
 	}
 
 	function axisPoint(index: number, radius = 105) {
@@ -59,43 +72,57 @@
 			{/if}
 
 			<div class="score-number">
-				<strong>{overall}</strong>
-				<span>점</span>
+				<strong>{Number.isFinite(overall) ? overall : '--'}</strong>
+				{#if Number.isFinite(overall)}<span>점</span>{/if}
 			</div>
 		</div>
 
 		<div class="radar-wrap">
 			<svg class="radar" viewBox="0 0 320 250" aria-label="발표 점수 레이더 그래프">
-				<polygon class="grid" points={`${axisPoint(0, 105)} ${axisPoint(1, 105)} ${axisPoint(2, 105)}`} />
-				<polygon class="grid" points={`${axisPoint(0, 78)} ${axisPoint(1, 78)} ${axisPoint(2, 78)}`} />
-				<polygon class="grid" points={`${axisPoint(0, 52)} ${axisPoint(1, 52)} ${axisPoint(2, 52)}`} />
-				<polygon class="grid" points={`${axisPoint(0, 26)} ${axisPoint(1, 26)} ${axisPoint(2, 26)}`} />
+				<polygon
+					class="grid"
+					points={`${axisPoint(0, 105)} ${axisPoint(1, 105)} ${axisPoint(2, 105)}`}
+				/>
+				<polygon
+					class="grid"
+					points={`${axisPoint(0, 78)} ${axisPoint(1, 78)} ${axisPoint(2, 78)}`}
+				/>
+				<polygon
+					class="grid"
+					points={`${axisPoint(0, 52)} ${axisPoint(1, 52)} ${axisPoint(2, 52)}`}
+				/>
+				<polygon
+					class="grid"
+					points={`${axisPoint(0, 26)} ${axisPoint(1, 26)} ${axisPoint(2, 26)}`}
+				/>
 
 				<line class="axis" x1="160" y1="125" x2="160" y2="20" />
 				<line class="axis" x1="160" y1="125" x2="70" y2="178" />
 				<line class="axis" x1="160" y1="125" x2="250" y2="178" />
 
-				{#if hasComparisonData}
-					<polygon class="average-polygon" points={polygon(averageValues)} />
+				{#if hasAverageScores}
+					<polygon
+						class="average-polygon"
+						points={polygon(averageValues)}
 				{/if}
-				<polygon class="user-polygon" points={polygon(radarValues)} />
+				{#if hasUserScores}<polygon class="user-polygon" points={polygon(radarValues)} />{/if}
 			</svg>
 
-			<div class="radar-label top">몰입도 {scores.engagement ?? 0}</div>
-			<div class="radar-label left">신뢰도 {scores.credibility ?? 0}</div>
-			<div class="radar-label right">명확도 {scores.clarity ?? 0}</div>
+			<div class="radar-label top">몰입도 {scores.engagement ?? '--'}</div>
+			<div class="radar-label left">신뢰도 {scores.credibility ?? '--'}</div>
+			<div class="radar-label right">명확도 {scores.clarity ?? '--'}</div>
 
 			<div class="legend">
-				<span><i class="dot user"></i>나의 발표</span>
-				{#if hasComparisonData}<span><i class="dot avg"></i>평균 발표</span>{/if}
+				{#if hasUserScores}<span><i class="dot user"></i>나의 발표</span>{/if}
+				{#if hasAverageScores}<span><i class="dot avg"></i>평균 발표</span>{/if}
 			</div>
 		</div>
 
 		<div class="score-descriptions">
-			{#each ["engagement", "credibility", "clarity"] as key}
+			{#each ['engagement', 'credibility', 'clarity'] as key}
 				<div class="desc-row">
-					<strong>{scoreCardLabel(key as "engagement" | "clarity" | "credibility")}</strong>
-					<p>{descriptions[key as keyof typeof descriptions] ?? "분석 설명이 없습니다."}</p>
+					<strong>{scoreCardLabel(key as 'engagement' | 'clarity' | 'credibility')}</strong>
+					<p>{descriptions[key as keyof typeof descriptions] ?? '분석 설명이 없습니다.'}</p>
 				</div>
 			{/each}
 		</div>
