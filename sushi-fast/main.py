@@ -22,6 +22,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:9000",
         "http://localhost:5173",
+        "https://chobab.app",
+        "https://aura.chobab.app",
+        "https://rehear.chobab.app",
         "https://territories-tickets-donna-twist.trycloudflare.com",
     ],
     allow_origin_regex=r"https://.*\.trycloudflare\.com",

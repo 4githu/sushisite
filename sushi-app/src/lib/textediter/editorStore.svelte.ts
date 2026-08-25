@@ -37,16 +37,17 @@ export class EditorStore {
 	}
 
 	setMark(mark: MarkName, value: TextMarks[MarkName] | undefined) {
+		const selection = this.selection;
 		const collapsed =
-			!this.selection ||
-			(this.selection.anchor.blockId === this.selection.focus.blockId &&
-				this.selection.anchor.offset === this.selection.focus.offset);
+			!selection ||
+			(selection.anchor.blockId === selection.focus.blockId &&
+				selection.anchor.offset === selection.focus.offset);
 		if (collapsed) {
 			if (value == null || value === false) delete this.pendingMarks[mark];
 			else Object.assign(this.pendingMarks, { [mark]: value });
 			return;
 		}
-		this.mutate(applyMark(this.document, this.selection, mark, value).document);
+		this.mutate(applyMark(this.document, selection, mark, value).document);
 	}
 
 	undo() {

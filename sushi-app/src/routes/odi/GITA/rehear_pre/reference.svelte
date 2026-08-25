@@ -313,8 +313,8 @@
   </div>
   <div class="popup-card">
     <div class="popup-card_01"><span class="popupcard_01_span">Popup card</span></div>
-    <img class="image-68033" src="https://placehold.co/180x180" />
-    <img class="image-68034" src="https://placehold.co/213x213" />
+    <img class="image-68033" src="https://placehold.co/180x180" alt="" />
+    <img class="image-68034" src="https://placehold.co/213x213" alt="" />
     <div class="frame-2134282821">
       <div class="bounding-box_04"></div>
       <div class="close"></div>
@@ -408,7 +408,7 @@
             <div data-속성-1="기본" class="frame-2134282829">
               <div class="frame-2134282828">
                 <div class="frame-2134282827">
-                  <img class="image-68032" src="https://placehold.co/143x143" />
+                  <img class="image-68032" src="https://placehold.co/143x143" alt="" />
                   <div class="frame-2134282826_01">
                     <div class="text_01_01"><span class="text_01_span_01">발표 연습</span></div>
                     <div class="text_23"><span class="text_23_span">발표 시뮬레이션을 통해 <br/>전달력과 설득력을 향상시켜요.</span></div>
@@ -423,7 +423,7 @@
             <div data-속성-1="기본" class="frame-2134282830_01">
               <div class="frame-2134282828_01">
                 <div class="frame-2134282827_01">
-                  <img class="image-68032_01" src="https://placehold.co/143x143" />
+                  <img class="image-68032_01" src="https://placehold.co/143x143" alt="" />
                   <div class="frame-2134282826_02">
                     <div class="text_02_01"><span class="text_02_span_01">면접 연습</span></div>
                     <div class="text_24"><span class="text_24_span">면접 시뮬레이션으로<br/>질문 대응력을 키워요.</span></div>
@@ -441,7 +441,7 @@
           </div>
         </div>
       </div>
-      <img class="image-68035" src="https://placehold.co/143x143" />
+      <img class="image-68035" src="https://placehold.co/143x143" alt="" />
       <div class="bounding-box_11"></div>
       <div class="close_02"></div>
     </div>
@@ -704,7 +704,7 @@
         <div class="component--1">
           <div class="frame-2134282828_02">
             <div class="frame-2134282827_02">
-              <img class="image-68032_02" src="https://placehold.co/143x143" />
+              <img class="image-68032_02" src="https://placehold.co/143x143" alt="" />
               <div class="frame-2134282826_04">
                 <div class="text_03_01"><span class="text_03_span_01">Text</span></div>
                 <div class="text_42"><span class="text_42_span">text</span></div>
@@ -719,7 +719,7 @@
         <div class="component--1selected_01_01">
           <div class="frame-2134282828_03">
             <div class="frame-2134282827_03">
-              <img class="image-68032_03" src="https://placehold.co/143x143" />
+              <img class="image-68032_03" src="https://placehold.co/143x143" alt="" />
               <div class="frame-2134282826_05">
                 <div class="text_04_01"><span class="text_04_span_01">Text</span></div>
                 <div class="text_43"><span class="text_43_span">text</span></div>
@@ -752,7 +752,7 @@
       </div>
       <div class="tip-card">
         <div class="component--1-">
-          <img class="image-68025" src="https://placehold.co/445x790" />
+          <img class="image-68025" src="https://placehold.co/445x790" alt="" />
           <div class="frame-2087331574">
             <div class="frame-2087331582">
               <div><span class="title_span">Title</span></div>
@@ -777,7 +777,7 @@
           </div>
         </div>
         <div class="component--1-_01">
-          <img class="image-68026" src="https://placehold.co/458x610" />
+          <img class="image-68026" src="https://placehold.co/458x610" alt="" />
           <div class="text_46"><span class="text_46_span">text</span></div>
           <div class="frame-2087331574_01">
             <div class="frame-2087331582_01">
@@ -1307,7 +1307,7 @@
       <div class="frame-2134282886">
         <div class="frame-2134282855">
           <div class="frame-2087331583_13">
-            <img class="image-68049" src="https://placehold.co/80x80" />
+            <img class="image-68049" src="https://placehold.co/80x80" alt="" />
             <div class="frame-2134282779">
               <div><span class="lv_span">Lv. 새싹 보이스</span></div>
               <div class="frame-2134282799_01">
@@ -2010,8 +2010,8 @@
       <div class="frame-2134282856_01">
         <div class="frame-2134282874_01">
           <div class="logo">
-            <img class="rectangle--1-2" src="https://placehold.co/106x38" />
-            <img class="rectangle--1-3" src="https://placehold.co/33x33" />
+            <img class="rectangle--1-2" src="https://placehold.co/106x38" alt="" />
+            <img class="rectangle--1-3" src="https://placehold.co/33x33" alt="" />
             <div class="rectangle--1-1"></div>
           </div>
           <div class="practice-feedback-real-growth"><span class="practicefeedbackrealgrowth_span">Practice. Feedback. Real Growth.</span></div>
@@ -2070,8 +2070,8 @@
       </div>
     </div>
     <div class="logo_01">
-      <img class="rectangle--1-2_01" src="https://placehold.co/106x38" />
-      <img class="rectangle--1-3_01" src="https://placehold.co/33x33" />
+      <img class="rectangle--1-2_01" src="https://placehold.co/106x38" alt="" />
+      <img class="rectangle--1-3_01" src="https://placehold.co/33x33" alt="" />
       <div class="rectangle--1-1_01"></div>
     </div>
     <div class="my-page_01_01">
@@ -2115,7 +2115,7 @@
         <div><span class="home_09_span">My Practice</span></div>
       </div>
     </div>
-    <img class="image-68019_01" src="https://placehold.co/139x52" />
+    <img class="image-68019_01" src="https://placehold.co/139x52" alt="" />
     <div class="frame-2134282852_02">
       <div class="frame-2134282851_02">
         <div class="plus_02">

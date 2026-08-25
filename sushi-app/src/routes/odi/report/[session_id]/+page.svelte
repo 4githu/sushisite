@@ -1,38 +1,50 @@
 <!-- src/routes/odi/report/[session_id]/+page.svelte -->
 
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { onMount } from "svelte";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { session } from '$lib/odi/stores';
+	import ReportPageView from '$lib/odi/components/report/ReportPageView.svelte';
 
-	import { session } from "$lib/odi/stores";
-	import ReportPageView from "$lib/odi/components/report/ReportPageView.svelte";
-
-	import type { ReportSession } from "$lib/odi/components/report/reportTypes";
+	import type { ReportSession } from '$lib/odi/components/report/reportTypes';
 
 	let reportSession = $state(null as ReportSession | null);
 	let loading = $state(true);
-	let errorMessage = $state("");
+	let errorMessage = $state('');
 
-	const sessionId = $derived(page.params.session_id ?? "");
+	const sessionId = $derived(page.params.session_id ?? '');
+	let requestVersion = 0;
 
-	onMount(async () => {
+	async function loadReport(targetSessionId = sessionId) {
+		const version = ++requestVersion;
+		reportSession = null;
 		loading = true;
-		errorMessage = "";
+		errorMessage = '';
 
 		try {
-			if (!sessionId) throw new Error("세션 ID가 없습니다.");
-			const result = await session.getReport(sessionId);
+			if (!targetSessionId) throw new Error('세션 ID가 없습니다.');
+			const result = await session.getReport(targetSessionId);
+			if (version !== requestVersion) return;
 			reportSession = result as unknown as ReportSession;
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "리포트를 불러오지 못했습니다.";
+			if (version !== requestVersion) return;
+			errorMessage = error instanceof Error ? error.message : '리포트를 불러오지 못했습니다.';
 		} finally {
-			loading = false;
+			if (version === requestVersion) loading = false;
 		}
+	}
+
+	$effect(() => {
+		const targetSessionId = sessionId;
+		void loadReport(targetSessionId);
+
+		return () => {
+			requestVersion += 1;
+		};
 	});
 
 	function openPreviousReports() {
-		goto("/odi/report");
+		goto('/odi/report');
 	}
 
 	function downloadReport() {
@@ -40,7 +52,7 @@
 	}
 
 	function startTraining() {
-		goto("/odi/practice");
+		goto('/odi/practice');
 	}
 </script>
 
@@ -53,9 +65,14 @@
 		<div class="state-card error">
 			<p class="text-caption-main">{errorMessage}</p>
 
-			<button type="button" class="back-button clickable" onclick={() => goto("/odi")}>
-				홈으로 이동하기
-			</button>
+			<div class="state-actions">
+				<button type="button" class="retry-button clickable" onclick={() => void loadReport()}
+					>다시 시도</button
+				>
+				<button type="button" class="back-button clickable" onclick={() => goto('/odi')}
+					>홈으로 이동하기</button
+				>
+			</div>
 		</div>
 	{:else if reportSession}
 		<ReportPageView
@@ -99,6 +116,23 @@
 		border-radius: var(--radius-sm);
 		background: var(--primary);
 		color: var(--text-on-primary);
+		font-size: 18px;
+		font-weight: var(--font-medium);
+	}
+
+	.state-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--space-3);
+	}
+	.retry-button {
+		height: 50px;
+		padding: 0 var(--space-6);
+		border: 1px solid var(--primary);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--primary);
 		font-size: 18px;
 		font-weight: var(--font-medium);
 	}

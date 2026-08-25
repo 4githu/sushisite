@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Component } from 'svelte';
 	import AddPhotoCamera from '$lib/odi/components/icons/molloo/AddPhotoCamera.svelte';
 	import Album from '$lib/odi/components/icons/molloo/Album.svelte';
 	import BadgeTwo from '$lib/odi/components/icons/molloo/BadgeTwo.svelte';
@@ -72,7 +73,7 @@
 	import Vector from '$lib/odi/components/icons/molloo/Vector.svelte';
 	import WavyCheck from '$lib/odi/components/icons/molloo/WavyCheck.svelte';
 
-	const icons = [
+	const icons: Array<[string, Component]> = [
 		['AddPhotoCamera', AddPhotoCamera],
 		['Album', Album],
 		['BadgeTwo', BadgeTwo],

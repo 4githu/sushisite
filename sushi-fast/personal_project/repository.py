@@ -1530,10 +1530,11 @@ def get_or_create_target_report(user_id: int, target_id: int):
                 conn, user_id, target
             )
             template = templates[0] if len(templates) == 1 else None
-            cursor = conn.execute(
+            conn.execute(
                 """INSERT INTO aura_target_reports
                    (target_id, template_id, template_version, content_json)
-                   VALUES (?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(target_id) DO NOTHING""",
                 (
                     target_id,
                     template["id"] if template else None,
@@ -1543,8 +1544,8 @@ def get_or_create_target_report(user_id: int, target_id: int):
             )
             conn.commit()
             report = conn.execute(
-                "SELECT * FROM aura_target_reports WHERE id = ?",
-                (cursor.lastrowid,),
+                "SELECT * FROM aura_target_reports WHERE target_id = ?",
+                (target_id,),
             ).fetchone()
         content = json.loads(report["content_json"])
         siblings = conn.execute(

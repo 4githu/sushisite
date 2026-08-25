@@ -23,14 +23,20 @@ export type ReportScoreCard = {
 		clarity?: string;
 		credibility?: string;
 	};
+	average_scores?: {
+		engagement?: number;
+		clarity?: number;
+		credibility?: number;
+	};
 };
 
 export type ReportTimelineItem = {
 	time_sec: number;
 	title: string;
 	description: string;
-	type: "positive" | "warning" | "negative" | string;
+	type: 'positive' | 'warning' | 'negative' | string;
 	slide?: number;
+	end_sec?: number;
 };
 
 export type AudienceGraphPoint = {
@@ -66,6 +72,10 @@ export type ReportFeedback = {
 		title?: string;
 		description?: string;
 	};
+	media?: {
+		video_url?: string;
+		title?: string;
+	};
 };
 
 export type ReportTemplateFileRef = {
@@ -73,13 +83,13 @@ export type ReportTemplateFileRef = {
 	original_name?: string | null;
 	mime_type?: string | null;
 	size_bytes?: number | null;
-	status?: "temp" | "committed";
+	status?: 'temp' | 'committed';
 	page_count?: number | null;
 	image_manifest_path?: string | null;
 };
 
 export type ReportTemplate = {
-	type?: "presentation" | "interview";
+	type?: 'presentation' | 'interview';
 	environment?: Record<string, any>;
 	files?: {
 		slide?: ReportTemplateFileRef | null;

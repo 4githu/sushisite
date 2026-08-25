@@ -1,26 +1,23 @@
 <!-- src/lib/odi/components/login/AuthField.svelte -->
 <script lang="ts">
-	import {
-		home as Check,
-		home as Visibility,
-		home as VisibilityOff
-	} from "$lib/odi/icons";
+	import type { HTMLInputAttributes } from 'svelte/elements';
+	import { home as Check, home as Visibility, home as VisibilityOff } from '$lib/odi/icons';
 
 	let {
 		label,
-		type = "text",
-		value = $bindable(""),
-		placeholder = "",
+		type = 'text',
+		value = $bindable(''),
+		placeholder = '',
 		icon,
-		message = "",
-		error = "",
-		success = "",
+		message = '',
+		error = '',
+		success = '',
 		disabled = false,
-		autocomplete = "",
+		autocomplete = undefined,
 		required = false
 	}: {
 		label: string;
-		type?: "text" | "email" | "password";
+		type?: 'text' | 'email' | 'password';
 		value?: string;
 		placeholder?: string;
 		icon?: string;
@@ -28,17 +25,18 @@
 		error?: string;
 		success?: string;
 		disabled?: boolean;
-		autocomplete?: string;
+		autocomplete?: HTMLInputAttributes['autocomplete'];
 		required?: boolean;
 	} = $props();
 
 	let visible = $state(false);
-	const inputType = $derived(type === "password" && visible ? "text" : type);
+	const inputId = $props.id();
+	const inputType = $derived(type === 'password' && visible ? 'text' : type);
 	const hasFeedback = $derived(Boolean(error || success || message));
 </script>
 
 <div class="field">
-	<label class="field-label text-body-active">
+	<label class="field-label text-body-active" for={inputId}>
 		{label}
 		{#if required}
 			<span>*</span>
@@ -51,23 +49,35 @@
 		{/if}
 
 		<input
+			id={inputId}
 			class="field-input text-body"
 			type={inputType}
 			bind:value
 			{placeholder}
 			{disabled}
 			{autocomplete}
+			{required}
+			aria-invalid={Boolean(error)}
 		/>
 
-		{#if type === "password"}
-			<button type="button" class="visibility-button clickable" onclick={() => (visible = !visible)} aria-label={visible ? "비밀번호 숨기기" : "비밀번호 보기"}>
+		{#if type === 'password'}
+			<button
+				type="button"
+				class="visibility-button clickable"
+				onclick={() => (visible = !visible)}
+				aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
+			>
 				<img src={visible ? VisibilityOff : Visibility} alt="" />
 			</button>
 		{/if}
 	</div>
 
 	{#if hasFeedback}
-		<p class="feedback text-caption-medium" class:error={Boolean(error)} class:success={Boolean(success)}>
+		<p
+			class="feedback text-caption-medium"
+			class:error={Boolean(error)}
+			class:success={Boolean(success)}
+		>
 			{#if success}
 				<img src={Check} alt="" />
 				<span>{success}</span>
