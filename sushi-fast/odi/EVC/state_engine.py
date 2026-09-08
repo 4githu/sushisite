@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import random
 from .schema import (
     AudienceProfile,
@@ -56,14 +57,15 @@ def initialize_audiences(
         raise ValueError("agent RNG map must contain exactly audience_01 through audience_06")
 
     laptop_agents = choose_laptop_agents(seed)
-    initial_e = (options.topic_interest - 0.50) * 2.0
-    initial_c = (options.prior_knowledge - 0.50) * 2.0
+    interests = distribute_population_trait(options.topic_interest, seed, "topic_interest")
+    knowledge = distribute_population_trait(options.prior_knowledge, seed, "prior_knowledge")
     audiences: list[AudienceRuntimeState] = []
 
-    for agent_id, row, seat in AUDIENCE_LAYOUT:
+    for index, (agent_id, row, seat) in enumerate(AUDIENCE_LAYOUT):
         rng = agent_rngs[agent_id]
-        delta_e = rng.uniform(-0.05, 0.05)
-        delta_c = rng.uniform(-0.05, 0.05)
+        # Preserve the independent behavioral-trait RNG sequence for an existing seed.
+        rng.uniform(-0.05, 0.05)
+        rng.uniform(-0.05, 0.05)
         face_raw = rng.uniform(0.20, 1.00)
         body_raw = rng.uniform(0.20, 1.00)
         gaze_raw = rng.uniform(0.20, 1.00)
@@ -75,6 +77,8 @@ def initialize_audiences(
             row=row,
             seat=seat,
             has_laptop=agent_id in laptop_agents,
+            topic_interest=interests[index],
+            prior_knowledge=knowledge[index],
             responsiveness=rng.uniform(0.40, 0.75),
             expressivity=rng.uniform(0.30, 0.70),
             critical_bias=rng.uniform(0.25, 0.75),
@@ -89,14 +93,33 @@ def initialize_audiences(
                 agent_id=agent_id,
                 profile=profile,
                 state=AudienceState(
-                    E=initial_e + delta_e,
+                    E=(interests[index] - 0.50) * 2.0,
                     V=0.0,
-                    C=initial_c + delta_c,
+                    C=(knowledge[index] - 0.50) * 2.0,
                 ),
             )
         )
 
     return audiences
+
+
+def distribute_population_trait(mean: float, seed: int, trait: str) -> list[float]:
+    """Six bounded, distinct traits whose mean is exactly the web setting (within FP precision).
+
+    Three positive/negative pairs avoid shifting the mean through clipping. Shuffle
+    interest and knowledge independently so they are not tied to gender or seat order.
+    The maximum spread is a tuning parameter, not an extra random EVC perturbation.
+    """
+    if not math.isfinite(mean) or not 0.0 <= mean <= 1.0:
+        raise ValueError("population mean must be finite and within [0, 1]")
+    rng = random.Random(derive_agent_seed(seed, "population:" + trait))
+    spread = min(0.20, mean, 1.0 - mean)
+    values = []
+    for low, high in ((0.25, 0.45), (0.50, 0.70), (0.75, 0.95)):
+        offset = spread * rng.uniform(low, high)
+        values.extend((mean - offset, mean + offset))
+    rng.shuffle(values)
+    return values
 
 
 
@@ -149,16 +172,27 @@ def negative_change_sensitivity(setting: float) -> float:
     raise ValueError("state setting must be exactly 0.25, 0.50, or 0.75")
 
 
+def individual_negative_sensitivity(value: float) -> float:
+    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+        raise ValueError("individual state trait must be finite and within [0, 1]")
+    # Continuous extension of the existing anchors: .25->1.2, .50->1, .75->.8.
+    return max(0.6, min(1.4, 1.4 - 0.8 * value))
+
+
 def update_audience_state(
     agent: AudienceRuntimeState,
     delta: AudienceState,
     topic_interest: float,
     prior_knowledge: float,
 ) -> tuple[AudienceState, StateSensitivity]:
+    interest = agent.profile.topic_interest
+    knowledge = agent.profile.prior_knowledge
     sensitivity = StateSensitivity(
-        E=negative_change_sensitivity(topic_interest) if delta.E < 0 else 1.0,
+        E=(individual_negative_sensitivity(interest) if interest is not None
+           else negative_change_sensitivity(topic_interest)) if delta.E < 0 else 1.0,
         V=1.0,
-        C=negative_change_sensitivity(prior_knowledge) if delta.C < 0 else 1.0,
+        C=(individual_negative_sensitivity(knowledge) if knowledge is not None
+           else negative_change_sensitivity(prior_knowledge)) if delta.C < 0 else 1.0,
     )
     previous = agent.state
     return AudienceState(

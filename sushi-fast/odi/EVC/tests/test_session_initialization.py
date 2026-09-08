@@ -50,9 +50,34 @@ def test_initial_evc_follows_settings_with_bounded_personal_offsets(
     audiences = initialize_audiences(options(setting, setting), 1234)
 
     for agent in audiences:
-        assert base - 0.05 <= agent.state.E <= base + 0.05
-        assert base - 0.05 <= agent.state.C <= base + 0.05
+        assert base - 0.4 <= agent.state.E <= base + 0.4
+        assert base - 0.4 <= agent.state.C <= base + 0.4
+        assert agent.state.E == pytest.approx(2 * agent.profile.topic_interest - 1)
+        assert agent.state.C == pytest.approx(2 * agent.profile.prior_knowledge - 1)
         assert agent.state.V == 0.0
+    assert sum(a.state.E for a in audiences) / 6 == pytest.approx(base)
+    assert sum(a.state.C for a in audiences) / 6 == pytest.approx(base)
+
+
+@pytest.mark.parametrize("interest", [.25, .5, .75])
+@pytest.mark.parametrize("knowledge", [.25, .5, .75])
+def test_web_values_are_population_means_with_six_distinct_individuals(interest, knowledge):
+    for seed in range(100):
+        actors = initialize_audiences(options(interest, knowledge, seed), seed)
+        for field, expected in (("topic_interest", interest), ("prior_knowledge", knowledge)):
+            values = [getattr(a.profile, field) for a in actors]
+            assert len(set(values)) == 6
+            assert all(0 <= value <= 1 for value in values)
+            assert sum(values) / 6 == pytest.approx(expected, abs=1e-12)
+
+
+def test_individual_traits_are_not_tied_to_seat_or_to_each_other():
+    pairs = []
+    for seed in range(10):
+        actors = initialize_audiences(options(), seed)
+        pairs.append(tuple(a.profile.topic_interest for a in actors))
+        assert [a.profile.topic_interest for a in actors] != [a.profile.prior_knowledge for a in actors]
+    assert len(set(pairs)) == 10
 
 
 def test_rng_map_must_contain_exact_agent_ids() -> None:
@@ -123,5 +148,8 @@ def test_pipeline_session_create_and_read_return_six_agents() -> None:
         assert len(created.audiences) == 6
         assert len(read.audiences) == 6
         assert read.evc_state == created.initial_evc_state
+        assert [a.profile for a in read.audiences] == [a.profile for a in created.audiences]
+        assert all(a.profile.topic_interest is not None and a.profile.prior_knowledge is not None
+                   for a in read.audiences)
 
     asyncio.run(scenario())

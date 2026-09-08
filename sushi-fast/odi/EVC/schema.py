@@ -293,6 +293,9 @@ class AudienceProfile(StrictModel):
     row: AudienceRow
     seat: AudienceSeat
     has_laptop: bool
+    # None preserves sessions saved before individual state traits were introduced.
+    topic_interest: float | None = Field(default=None, ge=0.0, le=1.0)
+    prior_knowledge: float | None = Field(default=None, ge=0.0, le=1.0)
     responsiveness: float = Field(ge=0.40, le=0.75)
     expressivity: float = Field(ge=0.30, le=0.70)
     critical_bias: float = Field(ge=0.25, le=0.75)
@@ -305,9 +308,9 @@ class AudienceProfile(StrictModel):
 
 
 class StateSensitivity(StrictModel):
-    E: float = Field(ge=0.8, le=1.2)
+    E: float = Field(ge=0.6, le=1.4)
     V: float = Field(ge=0.8, le=1.2)
-    C: float = Field(ge=0.8, le=1.2)
+    C: float = Field(ge=0.6, le=1.4)
 
     @field_validator("E", "V", "C")
     @classmethod

@@ -9,7 +9,7 @@ from odi.EVC.schema import (
     DeliveryScores,
     MtDtEvaluation,
 )
-from odi.EVC.state_engine import compute_state_delta, update_audience_state
+from odi.EVC.state_engine import compute_state_delta, update_audience_state, individual_negative_sensitivity
 
 
 def evaluation(value: float) -> MtDtEvaluation:
@@ -144,3 +144,37 @@ def test_additive_update_remains_clamped_under_repeated_maximum_input() -> None:
         target.state = next_state
 
     assert target.state == AudienceState(E=1.0, V=1.0, C=1.0)
+
+
+def test_personal_traits_override_population_mean_for_negative_evc_changes():
+    low, high = agent(), agent()
+    low.profile.topic_interest = .1
+    low.profile.prior_knowledge = .2
+    high.profile.topic_interest = .9
+    high.profile.prior_knowledge = .8
+    delta = AudienceState(E=-.2, V=-.2, C=-.2)
+    low_state, low_sensitivity = update_audience_state(low, delta, .5, .5)
+    high_state, high_sensitivity = update_audience_state(high, delta, .5, .5)
+    assert low_state.E < high_state.E
+    assert low_state.C < high_state.C
+    assert low_state.V == high_state.V
+    assert low_sensitivity.E == pytest.approx(1.32)
+    assert high_sensitivity.E == pytest.approx(.68)
+    # The group mean cannot overwrite a trait already assigned to this actor.
+    assert update_audience_state(low, delta, .75, .25)[0] == low_state
+
+
+@pytest.mark.parametrize("trait,expected", [(0, 1.4), (.25, 1.2), (.5, 1), (.75, .8), (1, .6)])
+def test_personal_sensitivity_preserves_original_anchors(trait, expected):
+    assert individual_negative_sensitivity(trait) == pytest.approx(expected)
+
+
+def test_old_profile_without_personal_traits_keeps_legacy_session_behavior():
+    original = agent()
+    saved = original.model_dump()
+    saved["profile"].pop("topic_interest")
+    saved["profile"].pop("prior_knowledge")
+    restored = AudienceRuntimeState.model_validate(saved)
+    assert restored.profile.topic_interest is None
+    assert update_audience_state(restored, AudienceState(E=-.2, V=0, C=-.2), .25, .75) == \
+        update_audience_state(original, AudienceState(E=-.2, V=0, C=-.2), .25, .75)
