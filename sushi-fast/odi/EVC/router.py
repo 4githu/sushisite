@@ -3,8 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile, Request
 from pydantic import ValidationError
+from fastapi.responses import Response
+from .answer_service import submit_answer, checked_question
+from .azure_speech import synthesize, VOICES, MAX_WAV_BYTES
 
 from .config import EVC_UPLOAD_DIR
 from .evaluation import EvaluationProviderError
@@ -335,3 +338,39 @@ def _http_error(exc: Exception) -> HTTPException:
         500,
         detail={"code": "internal_pipeline_error", "message": "EVC pipeline failed"},
     )
+
+
+@router.post("/sessions/{session_id}/questions/{index}/speech")
+async def question_speech(session_id: UUID, index: int,
+                          x_evc_session_token: str = Header(default=""),
+                          x_speech_voice: str = Header(default=""), x_audience_id: str = Header(default="")):
+    try:
+        async with session_store.locked_session(session_id, _required_token(x_evc_session_token)) as record:
+            question = checked_question(record, index)
+            if x_speech_voice not in VOICES or not any(a.agent_id == x_audience_id for a in record.audiences):
+                raise HTTPException(422, "Valid audience and voice profile required")
+            if index != sum(bool(v.get("response")) for v in record.qa_answers.values()):
+                raise HTTPException(409, "Question is not the current turn")
+            text = question.question
+        audio = await synthesize(text, x_speech_voice)
+        return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/sessions/{session_id}/questions/{index}/answer")
+async def question_answer(session_id: UUID, index: int, request: Request,
+                          x_evc_session_token: str = Header(default=""),
+                          x_request_id: UUID = Header(...), x_next_audience_id: str = Header(default="")):
+    try:
+        token = _required_token(x_evc_session_token)
+        await session_store.get_authorized_session(session_id, token)
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_WAV_BYTES:
+                raise HTTPException(413, "Answer too large")
+            data.extend(chunk)
+        return await submit_answer(session_id=session_id, token=token, index=index,
+                                   request_id=x_request_id, audio=bytes(data), next_audience_id=x_next_audience_id)
+    except Exception as exc:
+        raise _http_error(exc) from exc

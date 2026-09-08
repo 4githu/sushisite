@@ -79,6 +79,8 @@ class SessionRecord:
     question_response_cache: OrderedDict[UUID, QuestionGenerationResponse] = field(
         default_factory=OrderedDict
     )
+    qa_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    qa_answers: dict[int, dict] = field(default_factory=dict)
     report_segments: list[ReportSegmentRecord] = field(default_factory=list)
     report_generation_status: Literal[
         "not_started", "generating", "ready", "failed"

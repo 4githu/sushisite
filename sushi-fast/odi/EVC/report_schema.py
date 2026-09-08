@@ -101,6 +101,12 @@ class AIInsight(StrictModel):
     description: str
 
 
+class QuestionAnswerEvidence(StrictModel):
+    question_index: int = Field(ge=0)
+    question: str
+    answer: str
+
+
 class ReportFeedback(StrictModel):
     version: Literal["presentation-report-v1"] = "presentation-report-v1"
     generation: ReportGenerationMetadata
@@ -111,6 +117,7 @@ class ReportFeedback(StrictModel):
     timeline: list[TimelineItem] = Field(default_factory=list)
     audience_analysis: AudienceAnalysis
     ai_insight: AIInsight
+    qa_history: list[QuestionAnswerEvidence] = Field(default_factory=list)
 
 
 class ReportFinishRequest(StrictModel):

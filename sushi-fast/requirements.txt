@@ -15,3 +15,6 @@ bcrypt==5.0.0
 # Used by Legendaryvowels audio analysis and optional Google STT.
 numpy==2.4.3
 google-cloud-speech==2.40.0
+
+azure-cognitiveservices-speech==1.51.2
+httpx==0.28.1

@@ -16,6 +16,7 @@ from .report_generation import (
 )
 from .report_schema import (
     ReportFeedback,
+    QuestionAnswerEvidence,
     ReportFinishRequest,
     ReportFinishResponse,
     ReportStatusResponse,
@@ -78,6 +79,8 @@ async def finish_session_with_report(
             return response
         if record.report_generation_status == "generating":
             raise ReportGenerationInProgressError("report is already being generated")
+        if record.qa_lock.locked() or any(not v.get("response") for v in record.qa_answers.values()):
+            raise ReportGenerationInProgressError("Q&A answer processing is not complete")
         if not record.report_segments:
             raise ReportSourceMissingError("no analyzed presentation segments are available")
 
@@ -85,6 +88,8 @@ async def finish_session_with_report(
         record.report_generation_status = "generating"
         record.report_generation_request_id = payload.request_id
         record.report_generation_error = None
+        qa_history = [QuestionAnswerEvidence(question_index=k, question=v["question"], answer=v["transcript"])
+                      for k, v in sorted(record.qa_answers.items()) if v.get("response")]
         title = record.presentation_title
         slides = list(record.slides)
         segments = [item.model_copy(deep=True) for item in record.report_segments]
@@ -118,7 +123,8 @@ async def finish_session_with_report(
     if provider is not None or os.getenv("OPENAI_API_KEY"):
         try:
             insight = await generate_report_insight(
-                build_report_insight_payload(title, slides, segments),
+                {**build_report_insight_payload(title, slides, segments),
+                 "qa_history": [v.model_dump() for v in qa_history]},
                 provider=provider,
             )
             generator = "deterministic-v1+openai-insight"
@@ -134,6 +140,7 @@ async def finish_session_with_report(
             generator=generator,
             extra_warnings=warnings,
         )
+        report.qa_history = qa_history
         feedback_json = report.model_dump(mode="json")
         if persistence_record.pre_session_pin:
             persistent_session_id = odidb.finish_linked_pre_session(
