@@ -565,6 +565,7 @@ class StateDeltaBreakdown(StrictModel):
 
 
 class SmartStartOptions(StrictModel):
+    independent_reactions: bool = False
     presentation_title: str = Field(min_length=1, max_length=200)
     topic_interest: Literal[0.25, 0.5, 0.75] = 0.5
     prior_knowledge: Literal[0.25, 0.5, 0.75] = 0.5
@@ -587,6 +588,7 @@ class UpdateRequestMetadata(StrictModel):
 
 
 class SmartStartResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     session_id: UUID
     session_token: str = Field(min_length=32)
@@ -610,6 +612,7 @@ class SmartStartResponseV2(StrictModel):
 
 
 class SessionResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     session_id: UUID
     presentation_title: str
@@ -635,6 +638,7 @@ class SessionResponseV2(StrictModel):
 
 
 class EVCUpdateResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     request_id: UUID
     session_id: UUID

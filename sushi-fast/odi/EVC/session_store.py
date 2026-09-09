@@ -63,6 +63,10 @@ class SessionRecord:
     updated_at: datetime
     last_access_monotonic: float
     step: int = 0
+    # Presentation evidence and reaction playback have separate clocks. The report
+    # keeps the full analytical state, while the scheduler consumes each fact once
+    # per listener without waiting for a slow STT/LLM request's session lock.
+    reaction_scheduler: object | None = field(default=None, repr=False)
     accepted_client_time_s: float = 0.0
     segment_notes: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)

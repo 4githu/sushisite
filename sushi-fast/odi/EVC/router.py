@@ -10,6 +10,7 @@ from .answer_service import submit_answer, checked_question
 from .azure_speech import synthesize, VOICES, MAX_WAV_BYTES
 
 from .config import EVC_UPLOAD_DIR
+from .reaction_scheduler import ReactionRequest, ReactionResponse
 from .evaluation import EvaluationProviderError
 from .inputs import (
     InputValidationError,
@@ -79,10 +80,12 @@ async def smart_start(
     slide_file: UploadFile | None = File(None),
     seed: int | None = Form(None),
     pre_session_pin: str | None = Form(None),
+    independent_reactions: bool = Form(False),
 ):
     stored_slide: Path | None = None
     try:
         options = SmartStartOptions(
+            independent_reactions=independent_reactions,
             presentation_title=presentation_title,
             topic_interest=normalize_contract_setting(topic_interest),
             prior_knowledge=normalize_contract_setting(prior_knowledge),
@@ -141,6 +144,27 @@ async def read_session(
             session_id,
             _required_token(x_evc_session_token),
         )
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/sessions/{session_id}/reactions", response_model=ReactionResponse)
+async def poll_reactions(
+    session_id: UUID,
+    body: ReactionRequest,
+    x_evc_session_token: str | None = Header(None, alias="X-EVC-Session-Token"),
+):
+    try:
+        record = await session_store.get_authorized_session(session_id, _required_token(x_evc_session_token))
+        scheduler = record.reaction_scheduler
+        if scheduler is None:
+            raise HTTPException(409, detail={"code": "independent_reactions_not_enabled"})
+        if record.presentation_status != "running":
+            return ReactionResponse(session_id=session_id, request_id=body.request_id,
+                                    sequence=scheduler.sequence)
+        # No await/mutation of analysis state: a slow provider cannot freeze the
+        # reaction clock, and a retry gets the exact cached decision/command IDs.
+        return scheduler.tick(session_id, body)
     except Exception as exc:
         raise _http_error(exc) from exc
 

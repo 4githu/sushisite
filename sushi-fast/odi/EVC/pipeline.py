@@ -10,6 +10,7 @@ from .behavior_engine import (
     build_candidate_set,
     commit_selection,
     limit_synchronized_core_choice,
+    limit_synchronized_action_choice,
     select_behaviors,
     update_engagement_counters,
 )
@@ -44,6 +45,7 @@ from .config import EVC_TRANSCRIPT_RETENTION_DAYS
 from odi.db import odidb
 from .speech2text import SpeechToTextProvider, transcribe_audio
 from .state_engine import aggregate_state, compute_state_delta, update_audience_state
+from .reaction_scheduler import AudienceReactionScheduler, Evidence
 
 
 class StepConflictError(RuntimeError):
@@ -83,7 +85,11 @@ async def create_pipeline_session(
         )
         for agent in record.audiences
     ]
+    if options.independent_reactions:
+        record.reaction_scheduler = AudienceReactionScheduler(
+            record.audiences, record.seed, record.topic_interest, record.prior_knowledge)
     return SmartStartResponseV2(
+        independent_reactions=record.reaction_scheduler is not None,
         session_id=record.session_id,
         session_token=raw_token,
         seed=record.seed,
@@ -113,6 +119,7 @@ async def read_pipeline_session(
         for agent in record.audiences
     ]
     return SessionResponseV2(
+        independent_reactions=record.reaction_scheduler is not None,
         session_id=record.session_id,
         presentation_title=record.presentation_title,
         evc_state=aggregate_state(record.audiences),
@@ -205,10 +212,15 @@ async def update_pipeline(
         commands = []
         diagnostics: dict[str, object] = {}
         core_variation_counts: dict[str, int] = {}
+        action_variation_counts: dict[str, int] = {}
         current_slide_text = (
             record.slides[context.current_slide_index].text if record.slides else ""
         )
-        for agent in working_agents:
+        # Rotate who gets first choice so sparse candidate sets do not permanently
+        # suppress the same seats. Keep the persisted audience list in canonical order.
+        offset = record.step % len(working_agents) if working_agents else 0
+        selection_order = working_agents[offset:] + working_agents[:offset]
+        for agent in selection_order:
             previous_state = agent.state.model_copy()
             next_state, sensitivity = update_audience_state(
                 agent,
@@ -218,6 +230,15 @@ async def update_pipeline(
             )
             agent.state = next_state
             update_engagement_counters(agent)
+            if record.reaction_scheduler is not None:
+                # Full analytical snapshots remain available to questions/reports.
+                # Actual listener evaluation and motion run on the reaction clock.
+                decisions.append(AudienceDecision(
+                    agent_id=agent.agent_id, previous_state=previous_state,
+                    sensitivity=sensitivity, state=agent.state,
+                    dominant_axis=None, direction=None, core_behavior=None,
+                    action_overlay=None, no_op_reason="independent_reaction_clock"))
+                continue
             candidate_set = build_candidate_set(
                 agent=agent,
                 context=context,
@@ -241,7 +262,10 @@ async def update_pipeline(
                 selection,
                 candidate_set,
                 core_variation_counts,
+                rng=working_rngs[agent.agent_id],
             )
+            selection = limit_synchronized_action_choice(
+                selection, candidate_set, action_variation_counts, working_rngs[agent.agent_id])
             agent_commands = build_unity_commands(
                 agent=agent,
                 core=selection.core,
@@ -268,10 +292,13 @@ async def update_pipeline(
             )
             diagnostics[agent.agent_id] = selection.diagnostics
 
+        decision_order = {agent.agent_id: i for i, agent in enumerate(working_agents)}
+        decisions.sort(key=lambda decision: decision_order[decision.agent_id])
         aggregate = aggregate_state(working_agents)
         behavior = _legacy_behavior(decisions, commands, catalog)
         next_step = record.step + 1
         response = EVCUpdateResponseV2(
+            independent_reactions=record.reaction_scheduler is not None,
             request_id=request_id,
             session_id=record.session_id,
             step=next_step,
@@ -328,6 +355,9 @@ async def update_pipeline(
                 expires_at=expires_at,
             )
         record.report_segments.append(report_segment)
+        if record.reaction_scheduler is not None:
+            record.reaction_scheduler.publish(Evidence(next_step, delta.common.model_copy(),
+                context.model_copy(deep=True), speech_metrics.model_copy(), current_slide_text))
         _cache_response(record.request_cache, request_id, response)
         record_update(
             response,
@@ -365,6 +395,7 @@ def _empty_update_response(
         for agent in record.audiences
     ]
     return EVCUpdateResponseV2(
+        independent_reactions=record.reaction_scheduler is not None,
         request_id=request_id,
         session_id=record.session_id,
         step=record.step,
