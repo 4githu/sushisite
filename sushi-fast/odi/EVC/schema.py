@@ -293,6 +293,9 @@ class AudienceProfile(StrictModel):
     row: AudienceRow
     seat: AudienceSeat
     has_laptop: bool
+    # None preserves sessions saved before individual state traits were introduced.
+    topic_interest: float | None = Field(default=None, ge=0.0, le=1.0)
+    prior_knowledge: float | None = Field(default=None, ge=0.0, le=1.0)
     responsiveness: float = Field(ge=0.40, le=0.75)
     expressivity: float = Field(ge=0.30, le=0.70)
     critical_bias: float = Field(ge=0.25, le=0.75)
@@ -305,9 +308,9 @@ class AudienceProfile(StrictModel):
 
 
 class StateSensitivity(StrictModel):
-    E: float = Field(ge=0.8, le=1.2)
+    E: float = Field(ge=0.6, le=1.4)
     V: float = Field(ge=0.8, le=1.2)
-    C: float = Field(ge=0.8, le=1.2)
+    C: float = Field(ge=0.6, le=1.4)
 
     @field_validator("E", "V", "C")
     @classmethod
@@ -562,6 +565,7 @@ class StateDeltaBreakdown(StrictModel):
 
 
 class SmartStartOptions(StrictModel):
+    independent_reactions: bool = False
     presentation_title: str = Field(min_length=1, max_length=200)
     topic_interest: Literal[0.25, 0.5, 0.75] = 0.5
     prior_knowledge: Literal[0.25, 0.5, 0.75] = 0.5
@@ -584,6 +588,7 @@ class UpdateRequestMetadata(StrictModel):
 
 
 class SmartStartResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     session_id: UUID
     session_token: str = Field(min_length=32)
@@ -607,6 +612,7 @@ class SmartStartResponseV2(StrictModel):
 
 
 class SessionResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     session_id: UUID
     presentation_title: str
@@ -632,6 +638,7 @@ class SessionResponseV2(StrictModel):
 
 
 class EVCUpdateResponseV2(StrictModel):
+    independent_reactions: bool = False
     api_version: Literal["2.0"] = "2.0"
     request_id: UUID
     session_id: UUID

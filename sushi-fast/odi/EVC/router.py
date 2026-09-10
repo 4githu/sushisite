@@ -3,10 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile, Request
 from pydantic import ValidationError
+from fastapi.responses import Response
+from .answer_service import submit_answer, checked_question
+from .azure_speech import synthesize, VOICES, MAX_WAV_BYTES
 
 from .config import EVC_UPLOAD_DIR
+from .reaction_scheduler import ReactionRequest, ReactionResponse
 from .evaluation import EvaluationProviderError
 from .inputs import (
     InputValidationError,
@@ -76,10 +80,12 @@ async def smart_start(
     slide_file: UploadFile | None = File(None),
     seed: int | None = Form(None),
     pre_session_pin: str | None = Form(None),
+    independent_reactions: bool = Form(False),
 ):
     stored_slide: Path | None = None
     try:
         options = SmartStartOptions(
+            independent_reactions=independent_reactions,
             presentation_title=presentation_title,
             topic_interest=normalize_contract_setting(topic_interest),
             prior_knowledge=normalize_contract_setting(prior_knowledge),
@@ -138,6 +144,27 @@ async def read_session(
             session_id,
             _required_token(x_evc_session_token),
         )
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/sessions/{session_id}/reactions", response_model=ReactionResponse)
+async def poll_reactions(
+    session_id: UUID,
+    body: ReactionRequest,
+    x_evc_session_token: str | None = Header(None, alias="X-EVC-Session-Token"),
+):
+    try:
+        record = await session_store.get_authorized_session(session_id, _required_token(x_evc_session_token))
+        scheduler = record.reaction_scheduler
+        if scheduler is None:
+            raise HTTPException(409, detail={"code": "independent_reactions_not_enabled"})
+        if record.presentation_status != "running":
+            return ReactionResponse(session_id=session_id, request_id=body.request_id,
+                                    sequence=scheduler.sequence)
+        # No await/mutation of analysis state: a slow provider cannot freeze the
+        # reaction clock, and a retry gets the exact cached decision/command IDs.
+        return scheduler.tick(session_id, body)
     except Exception as exc:
         raise _http_error(exc) from exc
 
@@ -335,3 +362,39 @@ def _http_error(exc: Exception) -> HTTPException:
         500,
         detail={"code": "internal_pipeline_error", "message": "EVC pipeline failed"},
     )
+
+
+@router.post("/sessions/{session_id}/questions/{index}/speech")
+async def question_speech(session_id: UUID, index: int,
+                          x_evc_session_token: str = Header(default=""),
+                          x_speech_voice: str = Header(default=""), x_audience_id: str = Header(default="")):
+    try:
+        async with session_store.locked_session(session_id, _required_token(x_evc_session_token)) as record:
+            question = checked_question(record, index)
+            if x_speech_voice not in VOICES or not any(a.agent_id == x_audience_id for a in record.audiences):
+                raise HTTPException(422, "Valid audience and voice profile required")
+            if index != sum(bool(v.get("response")) for v in record.qa_answers.values()):
+                raise HTTPException(409, "Question is not the current turn")
+            text = question.question
+        audio = await synthesize(text, x_speech_voice)
+        return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/sessions/{session_id}/questions/{index}/answer")
+async def question_answer(session_id: UUID, index: int, request: Request,
+                          x_evc_session_token: str = Header(default=""),
+                          x_request_id: UUID = Header(...), x_next_audience_id: str = Header(default="")):
+    try:
+        token = _required_token(x_evc_session_token)
+        await session_store.get_authorized_session(session_id, token)
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_WAV_BYTES:
+                raise HTTPException(413, "Answer too large")
+            data.extend(chunk)
+        return await submit_answer(session_id=session_id, token=token, index=index,
+                                   request_id=x_request_id, audio=bytes(data), next_audience_id=x_next_audience_id)
+    except Exception as exc:
+        raise _http_error(exc) from exc

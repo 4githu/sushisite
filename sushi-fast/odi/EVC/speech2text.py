@@ -17,6 +17,29 @@ class SpeechToTextProvider(Protocol):
     def transcribe(self, file_path: str | Path, language: str) -> SpeechTextResult: ...
 
 
+class AzureSpeechToTextProvider:
+    def transcribe(self, file_path: str | Path, language: str) -> SpeechTextResult:
+        from .azure_continuous_stt import recognize
+        from .azure_speech import setting, validate_wav
+        try:
+            data = Path(file_path).read_bytes()
+            validate_wav(data)
+            result = recognize(data, setting("AZURE_SPEECH_KEY"), setting("AZURE_SPEECH_REGION"),
+                               detailed=True, language=language)
+            return SpeechTextResult.model_validate(result)
+        except Exception as exc:
+            raise STTProviderError("Azure transcription failed") from exc
+
+
+def configured_provider():
+    name = os.getenv("EVC_STT_PROVIDER", "deepgram").strip().lower()
+    if name == "azure":
+        return AzureSpeechToTextProvider()
+    if name == "deepgram":
+        return DeepgramSpeechToTextProvider()
+    raise STTProviderError("Unknown EVC_STT_PROVIDER")
+
+
 class DeepgramSpeechToTextProvider:
     def __init__(self, api_key: str | None = None, model: str = DEEPGRAM_PRIMARY_MODEL) -> None:
         self.api_key = api_key or os.getenv("DEEPGRAM_API_KEY")
@@ -79,7 +102,7 @@ async def transcribe_audio(
     timeout_s: int = EVC_STT_TIMEOUT_S,
     retries: int = EVC_PROVIDER_RETRIES,
 ) -> SpeechTextResult:
-    selected = provider or DeepgramSpeechToTextProvider()
+    selected = provider or configured_provider()
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
@@ -101,4 +124,4 @@ async def transcribe_audio(
 def speech_to_text_detail(file_path: str, language: str = "ko-KR") -> SpeechTextResult:
     """Compatibility entry point used by the legacy synchronous service."""
 
-    return DeepgramSpeechToTextProvider().transcribe(file_path, language)
+    return configured_provider().transcribe(file_path, language)

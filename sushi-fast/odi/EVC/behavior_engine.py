@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import random
 
@@ -519,7 +519,8 @@ def limit_synchronized_core_choice(
     selection: SelectionResult,
     candidates: CandidateSet,
     variation_counts: dict[str, int],
-    max_same_variation: int = 3,
+    max_same_variation: int = 2,
+    rng: random.Random | None = None,
 ) -> SelectionResult:
     """Keep one core animation from occupying most of the audience at a step.
 
@@ -528,7 +529,10 @@ def limit_synchronized_core_choice(
     safer than emitting a clip that failed the agent's hard scene gates.
     """
     choice = selection.core
-    if choice is None or variation_counts.get(choice.variation_id, 0) < max_same_variation:
+    unused_alternative = any(clip.variation_id != (choice.variation_id if choice else None)
+                             and variation_counts.get(clip.variation_id, 0) == 0 for clip in candidates.core)
+    if choice is None or (variation_counts.get(choice.variation_id, 0) < max_same_variation
+                          and (variation_counts.get(choice.variation_id, 0) == 0 or not unused_alternative)):
         if choice is not None:
             variation_counts[choice.variation_id] = (
                 variation_counts.get(choice.variation_id, 0) + 1
@@ -559,7 +563,16 @@ def limit_synchronized_core_choice(
             diagnostics=diagnostics,
         )
 
-    probability, clip = max(alternatives, key=lambda item: item[0])
+    # Prefer unused valid candidates before duplicating a peer, without leaving
+    # this actor's state/utterance/seat/cooldown candidate set.
+    least_used = min(variation_counts.get(clip.variation_id, 0) for _, clip in alternatives)
+    alternatives = [(p, clip) for p, clip in alternatives
+                    if variation_counts.get(clip.variation_id, 0) == least_used]
+    total = sum(p for p, _ in alternatives)
+    if rng is not None and total > 0:
+        probability, clip = alternatives[sample_categorical([p / total for p, _ in alternatives], rng)]
+    else:
+        probability, clip = max(alternatives, key=lambda item: item[0])
     replacement = BehaviorChoice(
         behavior_id=clip.behavior_id,
         variation_id=clip.variation_id,
@@ -577,6 +590,42 @@ def limit_synchronized_core_choice(
         no_op_reason=selection.no_op_reason,
         diagnostics=diagnostics,
     )
+
+
+def limit_synchronized_action_choice(
+    selection: SelectionResult,
+    candidates: CandidateSet,
+    variation_counts: dict[str, int],
+    rng: random.Random,
+) -> SelectionResult:
+    """Avoid a row of simultaneous phone checks, stretches or yawns.
+
+    Side conversation is intentionally a pair and retains both directional roles.
+    Only candidates already admitted by the actor's hard gates can replace a choice.
+    """
+    choice = selection.action
+    if choice is None:
+        return selection
+    limit = 2 if choice.behavior_id == "ACT_08" else 1
+    if variation_counts.get(choice.behavior_id, 0) < limit:
+        variation_counts[choice.behavior_id] = variation_counts.get(choice.behavior_id, 0) + 1
+        return selection
+    alternatives = [clip for clip in candidates.actions
+                    if variation_counts.get(clip.behavior_id, 0) == 0
+                    and clip.behavior_id != "ACT_08"]
+    diagnostics = dict(selection.diagnostics)
+    diagnostics["action_synchronization_limit"] = choice.variation_id
+    if not alternatives:
+        return replace(selection, action=None, diagnostics=diagnostics)
+    scores = [float(selection.diagnostics["actions"][clip.variation_id]["score"])
+              for clip in alternatives]
+    probabilities = softmax(scores)
+    index = sample_categorical(probabilities, rng)
+    clip = alternatives[index]
+    variation_counts[clip.behavior_id] = 1
+    return replace(selection, action=BehaviorChoice(
+        behavior_id=clip.behavior_id, variation_id=clip.variation_id,
+        probability=probabilities[index]), diagnostics=diagnostics)
 
 
 def commit_selection(
@@ -610,5 +659,3 @@ def update_engagement_counters(agent: AudienceRuntimeState) -> None:
         agent.consecutive_low_arousal += 1
     else:
         agent.consecutive_low_arousal = 0
-    BehaviorChoice,
-    BehaviorHistoryEntry,

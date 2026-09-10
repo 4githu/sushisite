@@ -7,6 +7,7 @@ from odi.EVC.behavior_engine import (
     build_candidate_set,
     commit_selection,
     limit_synchronized_core_choice,
+    limit_synchronized_action_choice,
     preference_score,
     sample_categorical,
     score_core_candidate,
@@ -180,3 +181,33 @@ def test_synchronization_limit_replaces_a_saturated_core_choice() -> None:
     assert diversified.core is not None
     assert diversified.core.variation_id != selection.core.variation_id
     assert "synchronization_limit" in diversified.diagnostics
+
+
+def test_unused_valid_core_is_preferred_before_copying_a_peer() -> None:
+    target = agent(AudienceState(E=.8, V=.2, C=.3))
+    candidates = candidate_set(target, SegmentContext(utterance_position="utterance_boundary", client_time_s=10))
+    selection = select_behaviors(target, candidates, random.Random(3))
+    assert selection.core is not None
+    choice = selection.core.variation_id
+    result = limit_synchronized_core_choice(selection, candidates, {choice: 1}, rng=random.Random(9))
+    assert result.core is not None and result.core.variation_id != choice
+    assert result.core.variation_id in {clip.variation_id for clip in candidates.core}
+
+
+def test_same_action_is_not_issued_to_all_six_actors() -> None:
+    target = agent(AudienceState(E=-.8, V=-.8, C=-.8))
+    target.consecutive_low_engagement = 3
+    target.consecutive_low_arousal = 3
+    candidates = candidate_set(target, SegmentContext(utterance_position="silence_or_pause", client_time_s=50))
+    # Repeated identical random draw simulates six agents choosing the same gesture.
+    seed = next(s for s in range(100) if select_behaviors(target, candidates, random.Random(s)).action is not None)
+    selection = select_behaviors(target, candidates, random.Random(seed))
+    counts = {}
+    choices = []
+    for i in range(6):
+        result = limit_synchronized_action_choice(selection, candidates, counts, random.Random(i))
+        if result.action:
+            choices.append(result.action.variation_id)
+            assert result.action.variation_id in {clip.variation_id for clip in candidates.actions}
+    assert len(choices) == len(set(choices))
+    assert all(count <= 1 for count in counts.values())
