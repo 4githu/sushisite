@@ -172,7 +172,7 @@ export function createDefaultPresentationTemplate(): PresentationTemplate {
 			language: "한국어",
 			place: "",
 			duration_minutes: 2,
-			question_count: 2
+			question_count: 0
 		},
 
 		files: createEmptyFiles(),

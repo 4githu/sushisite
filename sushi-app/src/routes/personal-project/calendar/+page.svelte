@@ -36,6 +36,12 @@
 		return `${y}-${m}-${d}`;
 	}
 
+	function syncMonthQuery() {
+		const url = new URL(window.location.href);
+		url.searchParams.set('month', `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
+		window.history.replaceState(window.history.state, '', url);
+	}
+
 	function localInput(date: Date) {
 		const hour = String(date.getHours()).padStart(2, '0');
 		const minute = String(date.getMinutes()).padStart(2, '0');
@@ -97,6 +103,7 @@
 
 	function moveMonth(amount: number) {
 		cursor = new Date(cursor.getFullYear(), cursor.getMonth() + amount, 1);
+		syncMonthQuery();
 		loadEvents();
 	}
 
@@ -202,6 +209,12 @@
 	}
 
 	onMount(async () => {
+		const monthParam = page.url.searchParams.get('month');
+		if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+			const [savedYear, savedMonth] = monthParam.split('-').map(Number);
+			if (savedMonth >= 1 && savedMonth <= 12) cursor = new Date(savedYear, savedMonth - 1, 1);
+		}
+		syncMonthQuery();
 		await loadEvents();
 		const eventId = Number(page.url.searchParams.get('event'));
 		if (!eventId) return;
@@ -230,6 +243,7 @@
 				class="today-button"
 				onclick={() => {
 					cursor = new Date();
+					syncMonthQuery();
 					loadEvents();
 				}}>오늘</button
 			>

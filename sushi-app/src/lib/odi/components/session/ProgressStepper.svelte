@@ -1,11 +1,11 @@
 <script lang="ts">
-	import StepIndicator from "./StepIndicator.svelte";
+	import StepIndicator from './StepIndicator.svelte';
 
 	type Step = {
 		label: string;
 	};
 
-	type StepStatus = "inactive" | "active" | "done";
+	type StepStatus = 'inactive' | 'active' | 'done';
 
 	let {
 		steps = [],
@@ -16,26 +16,19 @@
 	} = $props();
 
 	function getStatus(index: number): StepStatus {
-		if (index < currentStep) return "done";
-		if (index === currentStep) return "active";
-		return "inactive";
+		if (index < currentStep) return 'done';
+		if (index === currentStep) return 'active';
+		return 'inactive';
 	}
 </script>
 
 <div class="progress-stepper">
 	{#each steps as step, index}
 		<div class="step-wrapper">
-			<StepIndicator
-				step={index + 1}
-				label={step.label}
-				status={getStatus(index)}
-			/>
+			<StepIndicator step={index + 1} label={step.label} status={getStatus(index)} />
 
 			{#if index < steps.length - 1}
-				<div
-					class="connector"
-					class:completed={index <= currentStep}
-				></div>
+				<div class="connector" class:completed={index <= currentStep}></div>
 			{/if}
 		</div>
 	{/each}
@@ -48,7 +41,7 @@
 		display: flex;
 		align-items: flex-start;
 
-		padding: 31px 40px;
+		padding: clamp(20px, 2vw, 31px) clamp(18px, 2.6vw, 40px);
 
 		background: var(--surface);
 
@@ -59,12 +52,18 @@
 
 	@media (max-width: 640px) {
 		.progress-stepper {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 20px 12px;
 			padding: 20px 14px;
-			overflow-x: auto;
 		}
 
 		.step-wrapper {
-			min-width: 128px;
+			min-width: 0;
+		}
+
+		.connector {
+			display: none;
 		}
 	}
 
@@ -89,5 +88,4 @@
 	.connector.completed {
 		background: var(--primary);
 	}
-
 </style>

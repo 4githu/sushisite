@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
+	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
 
 	type Tip = {
 		title?: string;
@@ -77,7 +77,7 @@
 	.main-description {
 		width: 100%;
 
-		margin-top: 36px;
+		margin-top: clamp(20px, 2.2vw, 36px);
 
 		color: #4522c4;
 
@@ -87,9 +87,9 @@
 	.tip-list {
 		display: flex;
 		flex-direction: column;
-		gap: 36px;
+		gap: clamp(20px, 2.2vw, 36px);
 
-		margin-top: 92px;
+		margin-top: clamp(36px, 5vw, 72px);
 	}
 
 	.tip-item {

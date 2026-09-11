@@ -23,6 +23,16 @@
 		return result;
 	}
 
+	function localDateKey(date: Date) {
+		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	}
+
+	function syncWeekQuery() {
+		const url = new URL(window.location.href);
+		url.searchParams.set('week', localDateKey(startOfWeek(cursor)));
+		window.history.replaceState(window.history.state, '', url);
+	}
+
 	function weekDays(date: Date) {
 		const monday = startOfWeek(date);
 		return Array.from({ length: 7 }, (_, index) => {
@@ -74,6 +84,7 @@
 		const next = new Date(cursor);
 		next.setDate(next.getDate() + step * 7);
 		cursor = next;
+		syncWeekQuery();
 		load();
 	}
 
@@ -86,7 +97,15 @@
 		selected = event;
 	}
 
-	onMount(load);
+	onMount(() => {
+		const value = new URL(window.location.href).searchParams.get('week');
+		if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+			const restored = new Date(`${value}T00:00:00`);
+			if (!Number.isNaN(restored.getTime())) cursor = restored;
+		}
+		syncWeekQuery();
+		void load();
+	});
 </script>
 
 <div class="page-head">

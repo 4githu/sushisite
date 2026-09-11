@@ -25,7 +25,12 @@ from .schema import (
 )
 from .config import EVC_MAX_SESSIONS, EVC_SESSION_TTL_S
 from .state_engine import create_agent_rngs, initialize_audiences
-from .report_schema import ReportFeedback, ReportFinishResponse, ReportSegmentRecord
+from .report_schema import (
+    ReportFeedback,
+    ReportFinishResponse,
+    ReportReactionRecord,
+    ReportSegmentRecord,
+)
 
 
 class SessionStoreError(RuntimeError):
@@ -59,6 +64,7 @@ class SessionRecord:
     owner_user_id: str | None
     template_id: str | None
     pre_session_pin: str | None
+    stt_provider_name: Literal["deepgram", "azure"]
     created_at: datetime
     updated_at: datetime
     last_access_monotonic: float
@@ -86,6 +92,7 @@ class SessionRecord:
     qa_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
     qa_answers: dict[int, dict] = field(default_factory=dict)
     report_segments: list[ReportSegmentRecord] = field(default_factory=list)
+    report_reactions: list[ReportReactionRecord] = field(default_factory=list)
     report_generation_status: Literal[
         "not_started", "generating", "ready", "failed"
     ] = "not_started"
@@ -125,6 +132,7 @@ class SessionStore:
         owner_user_id: str | None = None,
         template_id: str | None = None,
         pre_session_pin: str | None = None,
+        stt_provider_name: Literal["deepgram", "azure"] = "deepgram",
     ) -> tuple[SessionRecord, str]:
         async with self._store_lock:
             self._cleanup_expired_locked()
@@ -150,6 +158,7 @@ class SessionStore:
                 owner_user_id=owner_user_id,
                 template_id=template_id,
                 pre_session_pin=pre_session_pin,
+                stt_provider_name=stt_provider_name,
                 created_at=now,
                 updated_at=now,
                 last_access_monotonic=self._clock(),

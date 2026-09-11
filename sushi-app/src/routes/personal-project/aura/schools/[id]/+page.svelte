@@ -2,29 +2,35 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { personalApi } from '$lib/personal-project/shared/api';
+	import { progressStageLabels, progressStages } from '$lib/personal-project/aura/stages';
 	import type { ClinicRound, School } from '$lib/personal-project/shared/types';
 
 	let school = $state<School | null>(null);
 	let error = $state('');
 	let addingRoundId = $state<number | null>(null);
 	let newStudentName = $state('');
-
 	function groupByRoundNumber(rounds: ClinicRound[]) {
 		const groups = new Map<string, ClinicRound[]>();
 		for (const round of rounds) {
-			const key = [...round.roundNumbers].sort((a, b) => a - b).join(',');
+			const numbers = [...round.roundNumbers].sort((a, b) => a - b).join(',');
+			const key = `${round.progressStage}:${numbers}`;
 			groups.set(key, [...(groups.get(key) ?? []), round]);
 		}
 		return [...groups.entries()]
 			.map(([key, items]) => ({
 				key,
-				label: `${key}회차`,
+				stage: items[0].progressStage,
+				label: `${key.split(':')[1]}회차`,
 				rounds: items,
 				targets: items.flatMap((round) =>
 					round.targets.map((target) => ({ ...target, clinicRound: round }))
 				)
 			}))
-			.sort((a, b) => Number(a.key.split(',')[0]) - Number(b.key.split(',')[0]));
+			.sort(
+				(a, b) =>
+					progressStages.indexOf(a.stage) - progressStages.indexOf(b.stage) ||
+					Number(a.label.replace('회차', '')) - Number(b.label.replace('회차', ''))
+			);
 	}
 
 	const roundGroups = $derived(groupByRoundNumber(school?.rounds ?? []));
@@ -79,7 +85,7 @@
 	<div>
 		<p class="eyebrow">School report</p>
 		<h1>{school?.name ?? '학교 불러오는 중'}</h1>
-		<p>회차별 기본 양식과 학생 리포트 상태를 확인합니다.</p>
+		<p>{school ? progressStageLabels[school.currentStage] : ''} · 단계별 회차와 학생 리포트 상태를 확인합니다.</p>
 	</div>
 	<a class="ghost-button back" href="/personal-project/aura/schools">← 학교 목록</a>
 </div>
@@ -92,7 +98,7 @@
 				<header>
 					<span class="round-badge">{group.label}</span>
 					<div>
-						<h2>{group.label} 클리닉</h2>
+						<h2>{progressStageLabels[group.stage]} · {group.label} 클리닉</h2>
 						<p>
 							일정 {group.rounds.length}건 · 학생 {group.targets.length}명
 						</p>

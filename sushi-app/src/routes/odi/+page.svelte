@@ -1,10 +1,10 @@
 <!-- src/routes/odi/+page.svelte -->
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-	import { odiuser } from "$lib/odi/stores";
-	import { session, type OdiSession } from "$lib/odi/stores/session";
-	import Button from "$lib/odi/components/common/Button.svelte";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { odiuser } from '$lib/odi/stores';
+	import { session, type OdiSession } from '$lib/odi/stores/session';
+	import Button from '$lib/odi/components/common/Button.svelte';
 
 	import {
 		blueright,
@@ -19,9 +19,8 @@
 		flag,
 		trending_up,
 		calendar_month,
-		sprout,
-
-	} from "$lib/odi/icons";
+		sprout
+	} from '$lib/odi/icons';
 
 	type Evc = {
 		E: number;
@@ -94,12 +93,12 @@
 	};
 
 	const fallbackConfig: HomeConfig = {
-		owner_id: "dev",
-		updated_at: "2026-07-15T10:32:18Z",
+		owner_id: 'dev',
+		updated_at: '2026-07-15T10:32:18Z',
 		profile: {
-			nickname: "리히어",
-			level: "새싹 보이스",
-			level_icon: "seed_voice",
+			nickname: '리히어',
+			level: '새싹 보이스',
+			level_icon: 'seed_voice',
 			current_exp: 244,
 			next_level_exp: 300,
 			profile_image: sprout
@@ -112,68 +111,83 @@
 		},
 		dashboard: {
 			average_score: 81,
-			best_skill: "시선 분배",
+			best_skill: '시선 분배',
 			best_skill_score: 91,
 			best_skill_percentile: 11
 		},
-		favorite_templates: ["template_7fd821", "template_a934af", "template_d392bc"],
+		favorite_templates: ['template_7fd821', 'template_a934af', 'template_d392bc'],
 		recent_sessions: [
 			{
-				session_id: "session_18",
-				template_id: "template_7fd821",
-				title: "제품 로드맵 발표 및 Q&A",
+				session_id: 'session_18',
+				template_id: 'template_7fd821',
+				title: '제품 로드맵 발표 및 Q&A',
 				score: 82,
 				duration_seconds: 2273,
 				audience_count: 6,
-				created_at: "2026-07-16T14:00:00Z",
+				created_at: '2026-07-16T14:00:00Z',
 				average_evc: { E: 0.82, V: 0.74, C: 0.79 }
 			},
 			{
-				session_id: "session_17",
-				template_id: "template_2ab482",
-				title: "분기 실적 리뷰 발표",
+				session_id: 'session_17',
+				template_id: 'template_2ab482',
+				title: '분기 실적 리뷰 발표',
 				score: 74,
 				duration_seconds: 1118,
 				audience_count: 10,
-				created_at: "2026-07-09T18:00:00Z",
+				created_at: '2026-07-09T18:00:00Z',
 				average_evc: { E: 0.63, V: 0.58, C: 0.69 }
 			},
 			{
-				session_id: "session_16",
-				template_id: "template_81fa19",
-				title: "마케팅 전략 기획안 발표",
+				session_id: 'session_16',
+				template_id: 'template_81fa19',
+				title: '마케팅 전략 기획안 발표',
 				score: 68,
 				duration_seconds: 1757,
 				audience_count: 6,
-				created_at: "2026-06-26T14:00:00Z",
+				created_at: '2026-06-26T14:00:00Z',
 				average_evc: { E: 0.57, V: 0.51, C: 0.61 }
 			}
 		],
 		evc_trend: [
-			{ date: "2026-06-08", E: 0.63, V: 0.58, C: 0.66 },
-			{ date: "2026-06-10", E: 0.71, V: 0.62, C: 0.69 },
-			{ date: "2026-06-12", E: 0.68, V: 0.71, C: 0.63 },
-			{ date: "2026-06-14", E: 0.76, V: 0.74, C: 0.72 },
-			{ date: "2026-06-16", E: 0.77, V: 0.73, C: 0.76 },
-			{ date: "2026-06-18", E: 0.84, V: 0.79, C: 0.83 },
-			{ date: "2026-06-20", E: 0.79, V: 0.76, C: 0.74 },
-			{ date: "2026-06-22", E: 0.73, V: 0.70, C: 0.69 },
-			{ date: "2026-06-24", E: 0.82, V: 0.81, C: 0.79 }
+			{ date: '2026-06-08', E: 0.63, V: 0.58, C: 0.66 },
+			{ date: '2026-06-10', E: 0.71, V: 0.62, C: 0.69 },
+			{ date: '2026-06-12', E: 0.68, V: 0.71, C: 0.63 },
+			{ date: '2026-06-14', E: 0.76, V: 0.74, C: 0.72 },
+			{ date: '2026-06-16', E: 0.77, V: 0.73, C: 0.76 },
+			{ date: '2026-06-18', E: 0.84, V: 0.79, C: 0.83 },
+			{ date: '2026-06-20', E: 0.79, V: 0.76, C: 0.74 },
+			{ date: '2026-06-22', E: 0.73, V: 0.7, C: 0.69 },
+			{ date: '2026-06-24', E: 0.82, V: 0.81, C: 0.79 }
 		],
 		today_insight: {
-			title: "설득은 말하는 사람의 신뢰에서 시작됩니다.",
-			description: "좋은 발표는 청중이 믿고 따라올 수 있는 흐름을 만드는 것입니다."
+			title: '설득은 말하는 사람의 신뢰에서 시작됩니다.',
+			description: '좋은 발표는 청중이 믿고 따라올 수 있는 흐름을 만드는 것입니다.'
 		},
 		current_goal: {
-			title: "연속 5회 평균 점수 85점 달성",
+			title: '연속 5회 평균 점수 85점 달성',
 			current_score: 86,
 			target_score: 85,
 			remaining_sessions: 4
 		},
 		recommended_trainings: [
-			{ template_id: "training_01", title: "습관어 줄이기", category: "명확도 훈련", difficulty: "쉬움" },
-			{ template_id: "training_02", title: "적정 말하기 속도 유지", category: "몰입도 훈련", difficulty: "보통" },
-			{ template_id: "training_03", title: "Q&A 답변 구조 강화", category: "신뢰도 훈련", difficulty: "보통" }
+			{
+				template_id: 'training_01',
+				title: '습관어 줄이기',
+				category: '명확도 훈련',
+				difficulty: '쉬움'
+			},
+			{
+				template_id: 'training_02',
+				title: '적정 말하기 속도 유지',
+				category: '몰입도 훈련',
+				difficulty: '보통'
+			},
+			{
+				template_id: 'training_03',
+				title: 'Q&A 답변 구조 강화',
+				category: '신뢰도 훈련',
+				difficulty: '보통'
+			}
 		]
 	};
 
@@ -191,20 +205,24 @@
 	const currentGoal = $derived(config.current_goal);
 	const trainings = $derived(config.recommended_trainings ?? []);
 
-	const expPercent = $derived(clampPercent((profile.current_exp / Math.max(profile.next_level_exp, 1)) * 100));
-	const goalPercent = $derived(clampPercent((currentGoal.current_score / Math.max(currentGoal.target_score, 1)) * 100));
+	const expPercent = $derived(
+		clampPercent((profile.current_exp / Math.max(profile.next_level_exp, 1)) * 100)
+	);
+	const goalPercent = $derived(
+		clampPercent((currentGoal.current_score / Math.max(currentGoal.target_score, 1)) * 100)
+	);
 
 	const chartWidth = 620;
 	const chartHeight = 170;
 	const chartPaddingX = 28;
 	const chartPaddingY = 14;
-	let greeting = $state("안녕하세요");
+	let greeting = $state('안녕하세요');
 	let selectedRangeDays = $state(14);
 	let showRangeMenu = $state(false);
 	const rangeOptions = [
-		{ days: 7, label: "지난 1주" },
-		{ days: 14, label: "지난 2주" },
-		{ days: 28, label: "지난 4주" }
+		{ days: 7, label: '지난 1주' },
+		{ days: 14, label: '지난 2주' },
+		{ days: 28, label: '지난 4주' }
 	];
 
 	const visibleEvcTrend = $derived.by(() => {
@@ -215,12 +233,16 @@
 		const cutoff = latestTime - (selectedRangeDays - 1) * 86_400_000;
 		return ordered.filter((point) => new Date(`${point.date}T00:00:00`).getTime() >= cutoff);
 	});
-	const selectedRangeLabel = $derived(rangeOptions.find((option) => option.days === selectedRangeDays)?.label ?? "분석 기간");
+	const selectedRangeLabel = $derived(
+		rangeOptions.find((option) => option.days === selectedRangeDays)?.label ?? '분석 기간'
+	);
 
-	const ePath = $derived(linePath(visibleEvcTrend, "E"));
-	const vPath = $derived(linePath(visibleEvcTrend, "V"));
-	const cPath = $derived(linePath(visibleEvcTrend, "C"));
-	const chartLabels = $derived(visibleEvcTrend.filter((_, index) => index % 2 === 0 || index === visibleEvcTrend.length - 1));
+	const ePath = $derived(linePath(visibleEvcTrend, 'E'));
+	const vPath = $derived(linePath(visibleEvcTrend, 'V'));
+	const cPath = $derived(linePath(visibleEvcTrend, 'C'));
+	const chartLabels = $derived(
+		visibleEvcTrend.filter((_, index) => index % 2 === 0 || index === visibleEvcTrend.length - 1)
+	);
 
 	function clampPercent(value: number) {
 		if (Number.isNaN(value)) return 0;
@@ -228,60 +250,67 @@
 	}
 
 	function linePath(points: EvcTrendPoint[], key: keyof Evc) {
-		if (points.length === 0) return "";
+		if (points.length === 0) return '';
 
 		return points
 			.map((point, index) => {
-				const x = chartPaddingX + (index / Math.max(points.length - 1, 1)) * (chartWidth - chartPaddingX * 2);
+				const x =
+					chartPaddingX +
+					(index / Math.max(points.length - 1, 1)) * (chartWidth - chartPaddingX * 2);
 				const y = chartHeight - chartPaddingY - point[key] * (chartHeight - chartPaddingY * 2);
-				return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+				return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
 			})
-			.join(" ");
+			.join(' ');
 	}
 
 	function formatDateTime(value: string) {
 		const date = value.slice(0, 10);
 		const time = value.slice(11, 16);
-		const [year, month, day] = date.split("-").map(Number);
-		const weekday = ["일", "월", "화", "수", "목", "금", "토"][new Date(year, month - 1, day).getDay()];
+		const [year, month, day] = date.split('-').map(Number);
+		const weekday = ['일', '월', '화', '수', '목', '금', '토'][
+			new Date(year, month - 1, day).getDay()
+		];
 		return `${year}.${month}.${day} (${weekday}) ${time}`;
 	}
 
 	function formatChartDate(value: string) {
-		const [, month, day] = value.split("-");
+		const [, month, day] = value.split('-');
 		return `${Number(month)}/${Number(day)}`;
 	}
 
 	function formatDuration(seconds: number) {
 		const min = Math.floor(seconds / 60);
 		const sec = seconds % 60;
-		return `${min}:${String(sec).padStart(2, "0")}`;
+		return `${min}:${String(sec).padStart(2, '0')}`;
 	}
 
 	function scoreGrade(score: number) {
-		if (score >= 80) return "우수";
-		if (score >= 70) return "보통";
-		return "개선";
+		if (score >= 80) return '우수';
+		if (score >= 70) return '보통';
+		return '개선';
 	}
 
 	function scoreGradeClass(score: number) {
-		if (score >= 80) return "excellent";
-		if (score >= 70) return "normal";
-		return "weak";
+		if (score >= 80) return 'excellent';
+		if (score >= 70) return 'normal';
+		return 'weak';
 	}
 
 	function trainingDescription(training: Training) {
-		if (training.title.includes("습관어")) return "자주 사용하는 추임새와 불필요한 반복 표현을 줄여 메시지를 더 명확하게 전달해요.";
-		if (training.title.includes("속도")) return "말하기 속도를 안정적으로 유지하여 전달력을 높이도록 연습해요.";
-		if (training.title.includes("Q&A")) return "두괄식으로 핵심을 먼저 말하고, 근거를 덧붙이는 답변 구조를 학습해요.";
-		return "최근 세션 분석을 바탕으로 필요한 역량을 집중적으로 훈련해요.";
+		if (training.title.includes('습관어'))
+			return '자주 사용하는 추임새와 불필요한 반복 표현을 줄여 메시지를 더 명확하게 전달해요.';
+		if (training.title.includes('속도'))
+			return '말하기 속도를 안정적으로 유지하여 전달력을 높이도록 연습해요.';
+		if (training.title.includes('Q&A'))
+			return '두괄식으로 핵심을 먼저 말하고, 근거를 덧붙이는 답변 구조를 학습해요.';
+		return '최근 세션 분석을 바탕으로 필요한 역량을 집중적으로 훈련해요.';
 	}
 
 	function categoryClass(category: string) {
-		if (category.includes("명확")) return "clarity";
-		if (category.includes("몰입")) return "engagement";
-		if (category.includes("신뢰")) return "confidence";
-		return "clarity";
+		if (category.includes('명확')) return 'clarity';
+		if (category.includes('몰입')) return 'engagement';
+		if (category.includes('신뢰')) return 'confidence';
+		return 'clarity';
 	}
 
 	function openSession(sessionId: string) {
@@ -298,10 +327,13 @@
 
 		return {
 			session_id: item.session_id,
-			template_id: item.template_id ?? "",
-			title: environment.title ?? template.title ?? "제목 없는 세션",
+			template_id: item.template_id ?? '',
+			title: environment.title ?? template.title ?? '제목 없는 세션',
 			score: Number(score.overall_score ?? 0),
-			duration_seconds: Number(duration.actual_seconds ?? (environment.duration_minutes ? environment.duration_minutes * 60 : 0)),
+			duration_seconds: Number(
+				duration.actual_seconds ??
+					(environment.duration_minutes ? environment.duration_minutes * 60 : 0)
+			),
 			audience_count: Number(audience.audience_count ?? 0),
 			created_at: item.started_at ?? item.created_at,
 			average_evc: { E: 0, V: 0, C: 0 }
@@ -312,7 +344,7 @@
 		try {
 			const sessions = await session.listMySessions(20);
 			loadedRecentSessions = sessions
-				.filter((item) => item.state === "completed")
+				.filter((item) => item.state === 'completed')
 				.map(toRecentSession);
 		} catch {
 			// API를 불러오지 못하면 저장된 대시보드 값을 사용합니다.
@@ -322,7 +354,14 @@
 
 	onMount(() => {
 		const hour = new Date().getHours();
-		greeting = hour < 6 ? "늦은 밤이에요" : hour < 12 ? "좋은 아침이에요" : hour < 18 ? "좋은 오후예요" : "좋은 저녁이에요";
+		greeting =
+			hour < 6
+				? '늦은 밤이에요'
+				: hour < 12
+					? '좋은 아침이에요'
+					: hour < 18
+						? '좋은 오후예요'
+						: '좋은 저녁이에요';
 		return odiuser.subscribe((user) => {
 			if (user === null || user.user_id === loadedUserId) return;
 
@@ -340,7 +379,9 @@
 	<header class="home-header">
 		<div>
 			<h1 class="text-title-main">{greeting}, {profile.nickname}님 ✋</h1>
-			<p class="text-caption-main header-subtitle">꾸준한 연습이 자신감을 만듭니다. 오늘도 한 걸음 더 성장해요!</p>
+			<p class="text-caption-main header-subtitle">
+				꾸준한 연습이 자신감을 만듭니다. 오늘도 한 걸음 더 성장해요!
+			</p>
 		</div>
 
 		<div class="header-actions">
@@ -403,8 +444,8 @@
 		<article class="panel recent-panel">
 			<div class="panel-header">
 				<h2 class="text-title-small">최근 세션</h2>
-				<button type="button" class="link-button clickable" onclick={() => goto("/odi/report")}>
-					<span class = "inline-flex items-center gap-1 items-center">
+				<button type="button" class="link-button clickable" onclick={() => goto('/odi/report')}>
+					<span class="inline-flex items-center gap-1">
 						전체 보기
 						<img src={blueright} alt="" />
 					</span>
@@ -425,16 +466,20 @@
 							<strong>{session.title}</strong>
 
 							<div class="recent-meta">
-								<span class = "inline-flex items-center gap-1"> 
+								<span class="inline-flex items-center gap-1">
 									<img src={calendar_month} alt="" />
-									{formatDateTime(session.created_at)}</span>
-								<span class = "inline-flex items-center gap-1">
+									{formatDateTime(session.created_at)}</span
+								>
+								<span class="inline-flex items-center gap-1">
 									<img src={audiance} alt="" />
-									{session.audience_count}인</span>
+									{session.audience_count}인</span
+								>
 							</div>
 
 							<div class="recent-meta">
-								<span class = "inline-flex items-center gap-1"><img src={schedule} alt="" /> {formatDuration(session.duration_seconds)}</span>
+								<span class="inline-flex items-center gap-1"
+									><img src={schedule} alt="" /> {formatDuration(session.duration_seconds)}</span
+								>
 							</div>
 						</div>
 
@@ -452,13 +497,28 @@
 				<h2 class="text-title-small">E/V/C 요소 분석</h2>
 
 				<div class="range-menu">
-					<button type="button" class="range-button clickable" aria-expanded={showRangeMenu} onclick={() => showRangeMenu = !showRangeMenu}>
-						<span class="inline-flex items-center gap-1">{selectedRangeLabel}<img src={down} alt="" /></span>
+					<button
+						type="button"
+						class="range-button clickable"
+						aria-expanded={showRangeMenu}
+						onclick={() => (showRangeMenu = !showRangeMenu)}
+					>
+						<span class="inline-flex items-center gap-1"
+							>{selectedRangeLabel}<img src={down} alt="" /></span
+						>
 					</button>
 					{#if showRangeMenu}
 						<div class="range-options" role="menu">
 							{#each rangeOptions as option}
-								<button type="button" role="menuitem" class:active={selectedRangeDays === option.days} onclick={() => { selectedRangeDays = option.days; showRangeMenu = false; }}>{option.label}</button>
+								<button
+									type="button"
+									role="menuitem"
+									class:active={selectedRangeDays === option.days}
+									onclick={() => {
+										selectedRangeDays = option.days;
+										showRangeMenu = false;
+									}}>{option.label}</button
+								>
 							{/each}
 						</div>
 					{/if}
@@ -483,8 +543,14 @@
 					<text x="8" y="89" class="axis-label">50</text>
 					<text x="16" y="154" class="axis-label">0</text>
 
-					<path class="evc-area confidence-area" d={`${vPath} L ${chartWidth - chartPaddingX} ${chartHeight - chartPaddingY} L ${chartPaddingX} ${chartHeight - chartPaddingY} Z`} />
-					<path class="evc-area engagement-area" d={`${ePath} L ${chartWidth - chartPaddingX} ${chartHeight - chartPaddingY} L ${chartPaddingX} ${chartHeight - chartPaddingY} Z`} />
+					<path
+						class="evc-area confidence-area"
+						d={`${vPath} L ${chartWidth - chartPaddingX} ${chartHeight - chartPaddingY} L ${chartPaddingX} ${chartHeight - chartPaddingY} Z`}
+					/>
+					<path
+						class="evc-area engagement-area"
+						d={`${ePath} L ${chartWidth - chartPaddingX} ${chartHeight - chartPaddingY} L ${chartPaddingX} ${chartHeight - chartPaddingY} Z`}
+					/>
 
 					<path class="evc-line engagement-line" d={ePath} />
 					<path class="evc-line confidence-line" d={vPath} />
@@ -505,7 +571,11 @@
 
 				<div>
 					<strong>전반적인 전달력이 꾸준히 향상하고 있어요!</strong>
-					<p>몰입도와 신뢰도가 최근 눈에 띄게 개선되었어요. 시선 처리와 메시지 구조가 더 명확해진 영향이에요. 다음 단계로는 표현의 생동감을 올려 명확도를 성장한다면 설득력이 한층 강화될 거예요.</p>
+					<p>
+						몰입도와 신뢰도가 최근 눈에 띄게 개선되었어요. 시선 처리와 메시지 구조가 더 명확해진
+						영향이에요. 다음 단계로는 표현의 생동감을 올려 명확도를 성장한다면 설득력이 한층 강화될
+						거예요.
+					</p>
 				</div>
 			</div>
 		</article>
@@ -524,7 +594,7 @@
 
 				<div class="goal-card">
 					<span class="goal-title">
-						<span class = "inline-flex items-center gap-1">
+						<span class="inline-flex items-center gap-1">
 							<img src={goal} alt="" />
 							{currentGoal.title}
 						</span>
@@ -534,7 +604,9 @@
 						<span style={`width:${goalPercent}%`}></span>
 					</div>
 
-					<p class="goal-meta">현재 {currentGoal.current_score}점 · 남은 세션 {currentGoal.remaining_sessions}회</p>
+					<p class="goal-meta">
+						현재 {currentGoal.current_score}점 · 남은 세션 {currentGoal.remaining_sessions}회
+					</p>
 				</div>
 			</div>
 		</aside>
@@ -547,13 +619,14 @@
 				<p class="text-body-medium">최근 세션 분석을 바탕으로 맞춤 추천해드려요.</p>
 			</div>
 
-			<button type="button" class="link-button clickable" onclick={() => goto("/odi/practice")}>훈련하러 가기 ›</button>
+			<button type="button" class="link-button clickable" onclick={() => goto('/odi/practice')}
+				>훈련하러 가기 ›</button
+			>
 		</div>
 
 		<div class="training-grid">
 			{#each trainings.slice(0, 3) as training}
 				<article class="training-card">
-
 					<div class="training-left">
 						<div class="flag-icon">
 							<img src={flag} alt="" />
@@ -584,7 +657,6 @@
 					>
 						훈련 시작
 					</Button>
-
 				</article>
 			{/each}
 		</div>
@@ -595,7 +667,9 @@
 	.home-page {
 		width: 100%;
 		min-height: 100vh;
-		padding: 36px 48px 44px;
+		container-type: inline-size;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-5);
@@ -721,7 +795,8 @@
 	}
 
 	.mini-progress {
-		width: 235px;
+		width: 100%;
+		max-width: 235px;
 		height: 21px;
 		overflow: hidden;
 		border-radius: var(--radius-sm);
@@ -737,9 +812,20 @@
 
 	.dashboard-grid {
 		display: grid;
-		grid-template-columns: 538px minmax(0, 1fr) 297px;
+		grid-template-areas: 'recent evc insight';
+		grid-template-columns: minmax(360px, 0.95fr) minmax(380px, 1.25fr) minmax(260px, 0.65fr);
 		gap: var(--space-5);
 		align-items: stretch;
+	}
+
+	.recent-panel {
+		grid-area: recent;
+	}
+	.evc-panel {
+		grid-area: evc;
+	}
+	.insight-panel {
+		grid-area: insight;
 	}
 
 	.panel {
@@ -839,6 +925,7 @@
 		color: var(--text-secondary);
 		font-size: 16px;
 		font-weight: var(--font-medium);
+		flex-wrap: wrap;
 	}
 
 	.score-box {
@@ -903,10 +990,36 @@
 		font-size: 16px;
 	}
 
-	.range-menu { position: relative; z-index: 3; }
-	.range-options { position: absolute; top: calc(100% + 6px); right: 0; min-width: 132px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--cool-grey-light-active); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
-	.range-options button { height: 34px; padding: 0 10px; border-radius: 6px; color: var(--text-secondary); text-align: left; font: inherit; }
-	.range-options button:hover, .range-options button.active { background: var(--blue-light); color: var(--primary); }
+	.range-menu {
+		position: relative;
+		z-index: 3;
+	}
+	.range-options {
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		min-width: 132px;
+		padding: 6px;
+		display: grid;
+		gap: 2px;
+		border: 1px solid var(--cool-grey-light-active);
+		border-radius: 8px;
+		background: var(--surface);
+		box-shadow: var(--shadow-sm);
+	}
+	.range-options button {
+		height: 34px;
+		padding: 0 10px;
+		border-radius: 6px;
+		color: var(--text-secondary);
+		text-align: left;
+		font: inherit;
+	}
+	.range-options button:hover,
+	.range-options button.active {
+		background: var(--blue-light);
+		color: var(--primary);
+	}
 
 	.legend {
 		margin-top: 18px;
@@ -1228,21 +1341,72 @@
 		color: #ffd736;
 	}
 
-	@media (max-width: 1500px) {
-		.home-page {
-			padding: 32px;
-		}
-
+	@container (max-width: 1180px) {
 		.summary-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
 		.dashboard-grid {
-			grid-template-columns: 1fr;
+			grid-template-areas:
+				'recent insight'
+				'evc evc';
+			grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
 		}
 
 		.training-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@container (max-width: 820px) {
+		.home-header {
+			flex-direction: column;
+		}
+
+		.header-actions {
+			width: 100%;
+		}
+
+		.top-button {
+			width: auto;
+			flex: 1;
+		}
+
+		.dashboard-grid {
+			grid-template-areas: 'recent' 'evc' 'insight';
 			grid-template-columns: 1fr;
+		}
+	}
+
+	@container (max-width: 560px) {
+		.summary-grid,
+		.training-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.home-header h1 {
+			font-size: 30px;
+		}
+
+		.header-actions,
+		.recent-item,
+		.training-card {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.score-box {
+			width: 100%;
+			height: auto;
+			min-height: 56px;
+			flex-direction: row;
+		}
+
+		.recent-panel,
+		.evc-panel,
+		.insight-panel,
+		.training-panel {
+			padding: 18px;
 		}
 	}
 </style>

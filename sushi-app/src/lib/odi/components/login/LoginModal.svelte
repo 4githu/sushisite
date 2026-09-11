@@ -57,7 +57,7 @@
 			const data = await fetchJson(res);
 
 			if (!data.success) {
-				throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
+				throw new Error(data.message ?? "이메일 또는 비밀번호가 올바르지 않습니다.");
 			}
 
 			const access = await odiuser.checkAccess();
@@ -78,6 +78,11 @@
 	function goRegister() {
 		onClose?.();
 		goto("/register");
+	}
+
+	function goPasswordReset() {
+		onClose?.();
+		goto("/login/reset");
 	}
 </script>
 
@@ -119,6 +124,10 @@
 			<Button variant="primary" width="100%" disabled={!canLogin} onclick={login}>
 				로그인
 			</Button>
+
+			<button class="reset-link text-caption-medium" type="button" onclick={goPasswordReset}>
+				비밀번호를 잊으셨나요?
+			</button>
 
 			<Button variant="secondary" width="100%" onclick={goRegister}>
 				회원가입
@@ -172,5 +181,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+	}
+
+	.reset-link {
+		align-self: center;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--primary);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		cursor: pointer;
 	}
 </style>

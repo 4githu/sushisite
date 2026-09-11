@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 JsonDict = dict[str, Any]
@@ -21,6 +21,14 @@ class LoginRequest(BaseModel):
 
 class ConfigUpdateRequest(BaseModel):
     config: JsonDict
+
+    @field_validator("config")
+    @classmethod
+    def validate_stt_preference(cls, value: JsonDict) -> JsonDict:
+        provider = value.get("preferences", {}).get("stt_provider")
+        if provider is not None and provider not in ("deepgram", "azure"):
+            raise ValueError("preferences.stt_provider must be deepgram or azure")
+        return value
 
 
 class RecentTemplateUpdateRequest(BaseModel):
@@ -61,3 +69,9 @@ class SessionCreateRequest(BaseModel):
 
 class SessionFinishRequest(BaseModel):
     feedback: JsonDict
+
+
+class SessionMediaUpdateRequest(BaseModel):
+    video_url: str = Field(min_length=1, max_length=2048)
+    title: str | None = Field(default=None, max_length=200)
+    source: Literal["demo", "recording", "upload", "external"] = "external"

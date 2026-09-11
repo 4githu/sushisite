@@ -11,6 +11,7 @@ from uuid import uuid4
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = (BASE_DIR / "odi.db").resolve()
 _REPORT_SCHEMA_READY: set[Path] = set()
+SESSION_MEDIA_VERSION = "session-media-v1"
 
 
 def utc_now() -> str:
@@ -35,6 +36,25 @@ def json_loads_or_none(value: str | None) -> Any:
     if value is None:
         return None
     return json.loads(value)
+
+
+def bind_feedback_media(
+    feedback: dict[str, Any],
+    session_id: str,
+) -> dict[str, Any]:
+    """Return a copy with media explicitly bound to its owning ODI session.
+
+    Legacy reports without ``media`` stay byte-shape compatible. Existing and
+    unknown media keys are preserved so this can be rolled out incrementally.
+    """
+    bound = json.loads(json.dumps(feedback))
+    media = bound.get("media")
+    if not isinstance(media, dict):
+        return bound
+
+    media["version"] = SESSION_MEDIA_VERSION
+    media["session_id"] = session_id
+    return bound
 
 
 def get_conn(db_path: Path = DB_PATH) -> sqlite3.Connection:
@@ -104,11 +124,18 @@ def get_user(user_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | None:
     if row is None:
         return None
 
+    config = json.loads(row["config"])
+    comparison = get_user_report_comparison(str(row["user_id"]), db_path=db_path)
+    account_average = comparison.get("account_average")
+    if account_average:
+        config.setdefault("dashboard", {})["average_score"] = account_average["overall_score"]
+        config.setdefault("statistics", {})["session_count"] = account_average["session_count"]
+
     return {
         "user_id": row["user_id"],
         "auth_id": row["auth_id"],
         "recent_template": json_loads_or_none(row["recent_template"]),
-        "config": json.loads(row["config"]),
+        "config": config,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -128,11 +155,18 @@ def get_user_by_auth_id(auth_id: str, db_path: Path = DB_PATH) -> dict[str, Any]
     if row is None:
         return None
 
+    config = json.loads(row["config"])
+    comparison = get_user_report_comparison(str(row["user_id"]), db_path=db_path)
+    account_average = comparison.get("account_average")
+    if account_average:
+        config.setdefault("dashboard", {})["average_score"] = account_average["overall_score"]
+        config.setdefault("statistics", {})["session_count"] = account_average["session_count"]
+
     return {
         "user_id": row["user_id"],
         "auth_id": row["auth_id"],
         "recent_template": json_loads_or_none(row["recent_template"]),
-        "config": json.loads(row["config"]),
+        "config": config,
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -469,6 +503,7 @@ def finish_linked_pre_session(
 ) -> str:
     ensure_report_schema(db_path)
     session_id = make_id("session")
+    feedback = bind_feedback_media(feedback, session_id)
     now = utc_now()
     with get_conn(db_path) as conn:
         pre_session = conn.execute(
@@ -515,6 +550,7 @@ def finish_linked_pre_session(
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(evc_session_id) DO UPDATE SET
                     odi_session_id = excluded.odi_session_id,
+                    version = excluded.version,
                     feedback_json = excluded.feedback_json,
                     generator = excluded.generator,
                     generated_at = excluded.generated_at
@@ -572,6 +608,50 @@ def list_presentation_segments(evc_session_id: str, db_path: Path = DB_PATH) -> 
             (evc_session_id,),
         ).fetchall()
     return [json.loads(row["segment_json"]) for row in rows]
+
+
+def upsert_presentation_reaction(
+    *,
+    evc_session_id: str,
+    sequence: int,
+    reaction: dict[str, Any],
+    owner_user_id: str | None = None,
+    pre_session_pin: str | None = None,
+    expires_at: str | None = None,
+    db_path: Path = DB_PATH,
+) -> None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO presentation_reactions (
+                evc_session_id, sequence, owner_user_id, pre_session_pin, reaction_json, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(evc_session_id, sequence) DO UPDATE SET
+                reaction_json = excluded.reaction_json,
+                expires_at = excluded.expires_at
+            """,
+            (
+                evc_session_id,
+                sequence,
+                owner_user_id,
+                pre_session_pin,
+                json_dumps(reaction),
+                expires_at,
+            ),
+        )
+
+
+def list_presentation_reactions(
+    evc_session_id: str, db_path: Path = DB_PATH
+) -> list[dict[str, Any]]:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT reaction_json FROM presentation_reactions WHERE evc_session_id = ? ORDER BY sequence",
+            (evc_session_id,),
+        ).fetchall()
+    return [json.loads(row["reaction_json"]) for row in rows]
 
 
 def get_evc_session_id_by_pre_session_pin(
@@ -694,10 +774,13 @@ def delete_presentation_source_data(
         if report is None:
             return 0
         evc_session_id = str(report["evc_session_id"])
-        deleted = conn.execute(
+        deleted_segments = conn.execute(
             "DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,)
         ).rowcount
-    return deleted
+        deleted_reactions = conn.execute(
+            "DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,)
+        ).rowcount
+    return deleted_segments + deleted_reactions
 
 
 def get_report_job_by_pre_session_pin(
@@ -740,10 +823,13 @@ def delete_expired_presentation_data(db_path: Path = DB_PATH) -> dict[str, int]:
         segment_count = conn.execute(
             "DELETE FROM presentation_segments WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
         ).rowcount
+        reaction_count = conn.execute(
+            "DELETE FROM presentation_reactions WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
+        ).rowcount
         report_count = conn.execute(
             "DELETE FROM presentation_reports WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
         ).rowcount
-    return {"segments": segment_count, "reports": report_count}
+    return {"segments": segment_count, "reactions": reaction_count, "reports": report_count}
 
 
 def attach_session_to_pre_session(
@@ -835,6 +921,8 @@ def create_session_with_snapshot(
 ) -> str:
     session_id = make_id("session")
     now = utc_now()
+    if feedback is not None:
+        feedback = bind_feedback_media(feedback, session_id)
 
     with get_conn(db_path) as conn:
         conn.execute(
@@ -871,6 +959,7 @@ def finish_session(
     feedback: dict[str, Any],
     db_path: Path = DB_PATH,
 ) -> None:
+    feedback = bind_feedback_media(feedback, session_id)
     with get_conn(db_path) as conn:
         cur = conn.execute(
             """
@@ -885,6 +974,38 @@ def finish_session(
 
         if cur.rowcount == 0:
             raise ValueError(f"존재하지 않는 session_id입니다: {session_id}")
+
+
+def update_session_media(
+    session_id: str,
+    user_id: str,
+    media: dict[str, Any],
+    db_path: Path = DB_PATH,
+) -> None:
+    """Attach playback media to one completed/running session without replacing its report."""
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT user_id, feedback FROM sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None or str(row["user_id"]) != str(user_id):
+            raise ValueError("영상 연결 대상 세션이 없거나 접근 권한이 없습니다.")
+
+        feedback = json_loads_or_none(row["feedback"])
+        if not isinstance(feedback, dict):
+            feedback = {}
+
+        existing_media = feedback.get("media")
+        merged_media = dict(existing_media) if isinstance(existing_media, dict) else {}
+        # session_id/version은 클라이언트 입력을 신뢰하지 않고 서버가 확정합니다.
+        merged_media.update(media)
+        feedback["media"] = merged_media
+        feedback = bind_feedback_media(feedback, session_id)
+
+        conn.execute(
+            "UPDATE sessions SET feedback = ? WHERE session_id = ?",
+            (json_dumps(feedback), session_id),
+        )
 
 
 def get_session(session_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | None:
@@ -912,6 +1033,73 @@ def get_session(session_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | No
         "ended_at": row["ended_at"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+    }
+
+
+def get_user_report_comparison(
+    user_id: str,
+    current_session_id: str | None = None,
+    db_path: Path = DB_PATH,
+) -> dict[str, Any]:
+    """Build mutable account comparison data without copying it into feedback JSON."""
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT session_id, feedback, created_at
+            FROM sessions
+            WHERE user_id = ? AND state = 'completed' AND feedback IS NOT NULL
+            ORDER BY created_at DESC, session_id DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+    scored: list[dict[str, Any]] = []
+    for row in rows:
+        feedback = json_loads_or_none(row["feedback"])
+        if not isinstance(feedback, dict):
+            continue
+        score = feedback.get("score") or {}
+        scores = (feedback.get("score_card") or {}).get("scores") or {}
+        try:
+            scored.append({
+                "session_id": str(row["session_id"]),
+                "overall_score": int(score["overall_score"]),
+                "engagement": int(scores["engagement"]),
+                "clarity": int(scores["clarity"]),
+                "credibility": int(scores["credibility"]),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    account_average = None
+    if scored:
+        count = len(scored)
+        account_average = {
+            "overall_score": round(sum(item["overall_score"] for item in scored) / count),
+            "engagement": round(sum(item["engagement"] for item in scored) / count),
+            "clarity": round(sum(item["clarity"] for item in scored) / count),
+            "credibility": round(sum(item["credibility"] for item in scored) / count),
+            "session_count": count,
+        }
+
+    previous_session = None
+    if current_session_id:
+        current_index = next(
+            (index for index, item in enumerate(scored) if item["session_id"] == current_session_id),
+            None,
+        )
+        if current_index is not None and current_index + 1 < len(scored):
+            current = scored[current_index]
+            previous = scored[current_index + 1]
+            previous_session = {
+                "session_id": previous["session_id"],
+                "overall_score": previous["overall_score"],
+                "score_delta": current["overall_score"] - previous["overall_score"],
+            }
+
+    return {
+        "account_average": account_average,
+        "previous_session": previous_session,
     }
 
 
@@ -1000,6 +1188,7 @@ def delete_session(session_id: str, user_id: str | None = None, db_path: Path = 
         for row in evc_rows:
             evc_session_id = row["evc_session_id"]
             conn.execute("DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,))
+            conn.execute("DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,))
             conn.execute("DELETE FROM presentation_report_jobs WHERE evc_session_id = ?", (evc_session_id,))
             conn.execute("DELETE FROM presentation_reports WHERE evc_session_id = ?", (evc_session_id,))
         conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))

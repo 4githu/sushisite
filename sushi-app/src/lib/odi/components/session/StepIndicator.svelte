@@ -1,10 +1,10 @@
 <script lang="ts">
-	type Status = "inactive" | "active" | "done";
+	type Status = 'inactive' | 'active' | 'done';
 
 	let {
 		step = 1,
-		label = "text",
-		status = "inactive"
+		label = 'text',
+		status = 'inactive'
 	}: {
 		step?: number;
 		label?: string;
@@ -13,19 +13,9 @@
 </script>
 
 <div class="step-indicator">
-	<div
-		class="circle"
-		class:active={status === "active"}
-		class:done={status === "done"}
-	>
-		{#if status === "done"}
-			<svg
-				width="24"
-				height="24"
-				viewBox="0 0 24 24"
-				fill="none"
-				aria-hidden="true"
-			>
+	<div class="circle" class:active={status === 'active'} class:done={status === 'done'}>
+		{#if status === 'done'}
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
 				<path
 					d="M20.2948 6.29468C20.6843 6.68413 20.6843 7.31556 20.2948 7.70501L10.4142 17.5856C9.63316 18.3667 8.36684 18.3667 7.58579 17.5856L4.20543 14.2053C3.81583 13.8157 3.81583 13.184 4.20543 12.7944C4.59469 12.4052 5.22569 12.4048 5.61543 12.7935L8.29323 15.4648C8.68376 15.8544 9.316 15.8541 9.70624 15.4643L18.8848 6.29434C19.2743 5.90521 19.9055 5.90535 20.2948 6.29468Z"
 					fill="white"
@@ -37,9 +27,9 @@
 	</div>
 
 	<span
-		class={status === "active"
-			? "text-body-active label active"
-			: "text-body-medium label inactive"}
+		class={status === 'active'
+			? 'text-body-active label active'
+			: 'text-body-medium label inactive'}
 	>
 		{label}
 	</span>
@@ -47,7 +37,8 @@
 
 <style>
 	.step-indicator {
-		min-width: 120px;
+		min-width: min(120px, 100%);
+		width: 100%;
 
 		display: flex;
 		flex-direction: column;
@@ -93,6 +84,9 @@
 	}
 
 	.label {
+		max-width: 100%;
+		line-height: 1.35;
+		word-break: keep-all;
 		text-align: center;
 		transition: color var(--transition-fast);
 	}

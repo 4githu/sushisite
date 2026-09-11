@@ -1,40 +1,39 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-	import Button from "$lib/odi/components/common/Button.svelte";
-	import { template, type InterviewTemplate } from "$lib/odi/stores";
-	import ProgressStepper from "$lib/odi/components/session/ProgressStepper.svelte";
-    const steps = [
-		{ label: "면접 기본 정보" },
-		{ label: "자료 업로드" },
-		{ label: "AI 면접관 설정" },
-		{ label: "세션 확인" }
+	import Button from '$lib/odi/components/common/Button.svelte';
+	import { template, type InterviewTemplate } from '$lib/odi/stores';
+	import ProgressStepper from '$lib/odi/components/session/ProgressStepper.svelte';
+	const steps = [
+		{ label: '면접 기본 정보' },
+		{ label: '자료 업로드' },
+		{ label: 'AI 면접관 설정' },
+		{ label: '세션 확인' }
 	];
-	import SessionBasicInfoCard from "$lib/odi/components/session/InterviewSessionBasicInfoCard.svelte";
+	import SessionBasicInfoCard from '$lib/odi/components/session/InterviewSessionBasicInfoCard.svelte';
 
 	let basicInfo = $state({
-		company: "",
-		department: "",
-		position: "",
-		jobDetail: "",
+		company: '',
+		department: '',
+		position: '',
+		jobDetail: '',
 
 		interviewTime: 0,
-		interviewSituation: "",
-		language: "",
-		interviewerCount: "0",
-		answerOrder: ""
+		interviewSituation: '',
+		language: '',
+		interviewerCount: '0',
+		answerOrder: ''
 	});
-
 
 	function ensureInterviewDraft(): InterviewTemplate {
 		const current = template.get();
 
-		if (current?.type === "interview") {
+		if (current?.type === 'interview') {
 			return current;
 		}
 
-		return template.loadOrCreate("interview") as InterviewTemplate;
+		return template.loadOrCreate('interview') as InterviewTemplate;
 	}
 
 	let ready = $state(false);
@@ -56,7 +55,7 @@
 	});
 
 	$effect(() => {
-		if (!ready) return; 
+		if (!ready) return;
 		template.patchEnvironment({
 			company_name: basicInfo.company,
 			department: basicInfo.department,
@@ -71,36 +70,31 @@
 	});
 
 	function goPrev() {
-		goto("/odi");
+		goto('/odi');
 	}
 
 	function goNext() {
-
-		goto("/odi/session/interview/upload");
+		goto('/odi/session/interview/upload');
 	}
 
 	const canNext = $derived(
 		basicInfo.company.trim().length > 0 &&
-		basicInfo.department.trim().length > 0 &&
-		basicInfo.position.trim().length > 0 &&
-		basicInfo.interviewTime > 0 &&
-		basicInfo.interviewSituation.length > 0 &&
-		basicInfo.language.length > 0 &&
-		Number(basicInfo.interviewerCount) > 0 &&
-		basicInfo.answerOrder.length > 0
+			basicInfo.department.trim().length > 0 &&
+			basicInfo.position.trim().length > 0 &&
+			basicInfo.interviewTime > 0 &&
+			basicInfo.interviewSituation.length > 0 &&
+			basicInfo.language.length > 0 &&
+			Number(basicInfo.interviewerCount) > 0 &&
+			basicInfo.answerOrder.length > 0
 	);
 </script>
 
 <section class="session-page">
 	<header class="page-header">
-		<p class="text-caption-main eyebrow">
-			Session Setup
-		</p>
+		<p class="text-caption-main eyebrow">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">
-				면접 기본 정보
-			</h1>
+			<h1 class="text-title-main">면접 기본 정보</h1>
 
 			<p class="text-caption-main description">
 				실전과 같은 환경을 설정하고, AI 면접관과 함께 연습을 시작해요.
@@ -108,10 +102,7 @@
 		</div>
 	</header>
 
-	<ProgressStepper
-			steps={steps}
-			currentStep={0}
-		/>
+	<ProgressStepper {steps} currentStep={0} />
 
 	<SessionBasicInfoCard
 		bind:company={basicInfo.company}
@@ -126,67 +117,64 @@
 	/>
 
 	<div class="actions">
-		<Button
-			variant="secondary"
-			width="212px"
-			disabled
-		>
-			이전 단계
-		</Button>
+		<Button variant="secondary" width="212px" disabled>이전 단계</Button>
 
-		<Button
-			width="212px"
-			disabled={!canNext}
-			onclick={goNext}
-		>
-			다음 단계
-		</Button>
+		<Button width="212px" disabled={!canNext} onclick={goNext}>다음 단계</Button>
 	</div>
 </section>
 
 <style>
-.session-page {
-	width: 100%;
-	min-height: 100vh;
-	padding: 36px 48px 40px;
+	.session-page {
+		width: 100%;
+		min-height: 100vh;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 
-	display: flex;
-	flex-direction: column;
+		display: flex;
+		flex-direction: column;
 
-	gap: var(--space-6);
-}
+		gap: var(--space-6);
+		background: var(--surface);
+	}
 
-@media (max-width: 640px) {
-	.session-page { padding: 24px 16px 32px; }
-	.actions { align-items: stretch; flex-direction: column-reverse; }
-	.actions :global(.button) { width: 100% !important; }
-}
+	@media (max-width: 640px) {
+		.session-page {
+			padding: 24px 16px 32px;
+		}
+		.actions {
+			align-items: stretch;
+			flex-direction: column-reverse;
+		}
+		.actions :global(.button) {
+			width: 100% !important;
+		}
+	}
 
-.page-header {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-6);
-}
+	.page-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+	}
 
-.eyebrow {
-	color: var(--primary);
-}
+	.eyebrow {
+		color: var(--primary);
+	}
 
-.title-group {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-}
+	.title-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
 
-.description {
-	color: var(--text-secondary);
-}
+	.description {
+		color: var(--text-secondary);
+	}
 
-.actions {
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
+	.actions {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
 
-	gap: var(--space-4);
-}
+		gap: var(--space-4);
+	}
 </style>

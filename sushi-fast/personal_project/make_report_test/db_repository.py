@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS clinic_report_score_formats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     school_id INTEGER NOT NULL REFERENCES aura_schools(id) ON DELETE CASCADE,
+    progress_stage TEXT NOT NULL DEFAULT 'accepted',
     round_key TEXT NOT NULL DEFAULT '',
     name TEXT NOT NULL,
     items_json TEXT NOT NULL,
@@ -113,9 +114,17 @@ def migrate() -> None:
                 "ALTER TABLE clinic_report_score_formats "
                 "ADD COLUMN round_key TEXT NOT NULL DEFAULT ''"
             )
+        if "progress_stage" not in score_columns:
+            conn.execute(
+                "ALTER TABLE clinic_report_score_formats "
+                "ADD COLUMN progress_stage TEXT NOT NULL DEFAULT 'accepted'"
+            )
+        conn.execute("DROP INDEX IF EXISTS idx_clinic_score_formats_round")
         conn.execute(
-            """CREATE INDEX IF NOT EXISTS idx_clinic_score_formats_round
-               ON clinic_report_score_formats(school_id, round_key, is_active, updated_at DESC)"""
+            """CREATE INDEX idx_clinic_score_formats_round
+               ON clinic_report_score_formats(
+                   school_id, progress_stage, round_key, is_active, updated_at DESC
+               )"""
         )
         conn.commit()
 
@@ -176,7 +185,7 @@ def build_report_input(target_id: int, *, include_question_checks: bool = False)
         row = conn.execute(
             """SELECT t.student_name, r.user_id, s.id AS school_id,
                       s.name AS school_name,
-                      r.round_numbers_json, e.start_time, e.end_time,
+                      r.progress_stage, r.round_numbers_json, e.start_time, e.end_time,
                       rp.content_json
                FROM aura_round_targets t
                JOIN aura_clinic_rounds r ON r.id = t.round_id
@@ -201,6 +210,7 @@ def build_report_input(target_id: int, *, include_question_checks: bool = False)
             "userId": row["user_id"],
             "schoolId": row["school_id"],
             "schoolName": row["school_name"],
+            "progressStage": row["progress_stage"],
             "roundNumbers": rounds,
             "studentName": row["student_name"],
             "startTime": row["start_time"],
@@ -242,6 +252,7 @@ def normalize_report_input(value: dict[str, Any]) -> dict[str, Any]:
                 "targetId": value.get("targetId"),
                 "schoolId": value.get("schoolId"),
                 "schoolName": value.get("schoolName"),
+                "progressStage": value.get("progressStage"),
                 "roundNumbers": value.get("roundNumbers") or [],
                 "studentName": value.get("studentName"),
                 "startTime": value.get("startTime"),
@@ -315,13 +326,15 @@ def get_active_score_format(report_input: dict[str, Any]) -> dict[str, Any] | No
     if not isinstance(school_id, int):
         return None
     round_key = _round_key(report_input)
+    progress_stage = (report_input.get("target") or {}).get("progressStage", "accepted")
     with connect() as conn:
         row = conn.execute(
             """SELECT id, name, items_json, source
                FROM clinic_report_score_formats
-               WHERE school_id = ? AND round_key = ? AND is_active = 1
+               WHERE school_id = ? AND progress_stage = ?
+                 AND round_key = ? AND is_active = 1
                ORDER BY updated_at DESC, id DESC LIMIT 1""",
-            (school_id, round_key),
+            (school_id, progress_stage, round_key),
         ).fetchone()
     if not row:
         return None
@@ -343,18 +356,19 @@ def save_generated_score_format(
         return None
     now = datetime.now(timezone.utc).isoformat()
     round_key = _round_key(report_input)
+    progress_stage = str(target.get("progressStage") or "accepted")
     with connect() as conn:
         conn.execute(
             """UPDATE clinic_report_score_formats SET is_active = 0
-               WHERE school_id = ? AND round_key = ?""",
-            (school_id, round_key),
+               WHERE school_id = ? AND progress_stage = ? AND round_key = ?""",
+            (school_id, progress_stage, round_key),
         )
         cursor = conn.execute(
             """INSERT INTO clinic_report_score_formats
-               (user_id, school_id, round_key, name, items_json, source,
+               (user_id, school_id, progress_stage, round_key, name, items_json, source,
                 created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, 'generated', ?, ?)""",
-            (user_id, school_id, round_key, name.strip() or "기본 평가 양식",
+               VALUES (?, ?, ?, ?, ?, ?, 'generated', ?, ?)""",
+            (user_id, school_id, progress_stage, round_key, name.strip() or "기본 평가 양식",
              json.dumps(clean_items, ensure_ascii=False), now, now),
         )
         conn.commit()

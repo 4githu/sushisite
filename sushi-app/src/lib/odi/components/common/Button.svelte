@@ -1,22 +1,14 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import type { Snippet } from "svelte";
+	import { goto } from '$app/navigation';
+	import type { Snippet } from 'svelte';
 
-	type Variant =
-		| "primary"
-		| "secondary"
-		| "soft"
-		| "outline"
-		| "ghost";
+	type Variant = 'primary' | 'secondary' | 'soft' | 'outline' | 'ghost';
 
-	type Size =
-		| "sm"
-		| "md"
-		| "lg";
+	type Size = 'sm' | 'md' | 'lg';
 
 	let {
-		variant = "primary",
-		size = "md",
+		variant = 'primary',
+		size = 'md',
 
 		width,
 		block = false,
@@ -68,15 +60,9 @@
 
 <button
 	type="button"
-	class={[
-		"button",
-		"clickable",
-		variant,
-		size,
-		block && "block"
-	]}
+	class={['button', 'clickable', variant, size, block && 'block']}
 	style:width
-	disabled={disabled}
+	{disabled}
 	onclick={handleClick}
 >
 	{#if leadingIcon}
@@ -88,13 +74,7 @@
 		/>
 	{/if}
 
-	<span
-		class={[
-			size === "lg"
-				? "text-button-start"
-				: "text-button"
-		]}
-	>
+	<span class={[size === 'lg' ? 'text-button-start' : 'text-button']}>
 		{@render children?.()}
 	</span>
 
@@ -109,121 +89,109 @@
 </button>
 
 <style>
+	.button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 
-.button{
+		width: fit-content;
+		max-width: 100%;
+		min-width: 0;
 
-	display:inline-flex;
-	align-items:center;
-	justify-content:center;
+		flex-shrink: 0;
 
-	width:fit-content;
+		gap: var(--space-2);
 
-	flex-shrink:0;
+		padding-inline: var(--space-4);
 
-	gap:var(--space-2);
+		border-radius: var(--radius-sm);
 
-	padding-inline:var(--space-4);
+		white-space: normal;
+		text-align: center;
+	}
 
-	border-radius:var(--radius-sm);
+	.block {
+		width: 100%;
+	}
 
-	white-space:nowrap;
-}
+	.sm {
+		min-height: 42px;
+		padding-block: 8px;
+	}
 
-.block{
+	.md {
+		min-height: 50px;
+		padding-block: 10px;
+	}
 
-	width:100%;
-}
+	.lg {
+		min-height: 63px;
+		padding-block: 12px;
 
-.sm{
+		padding-inline: var(--space-5);
+	}
 
-	height:42px;
-}
+	.primary {
+		background: var(--primary);
 
-.md{
+		color: var(--text-on-primary);
+	}
 
-	height:50px;
-}
+	.primary:hover:not(:disabled) {
+		background: var(--primary-hover);
+	}
 
-.lg{
+	.secondary {
+		background: var(--surface);
 
-	height:63px;
+		color: var(--primary);
 
-	padding-inline:var(--space-5);
-}
+		border: 1px solid var(--cool-grey-light-active);
+	}
 
-.primary{
+	.secondary:hover:not(:disabled) {
+		border-color: var(--primary);
+	}
 
-	background:var(--primary);
+	.soft {
+		background: rgb(from var(--primary) r g b / 10%);
 
-	color:var(--text-on-primary);
-}
+		color: var(--primary);
+	}
 
-.primary:hover:not(:disabled){
+	.soft:hover:not(:disabled) {
+		background: rgb(from var(--primary) r g b / 15%);
+	}
 
-	background:var(--primary-hover);
-}
+	.outline {
+		background: transparent;
 
-.secondary{
+		color: var(--primary);
 
-	background:var(--surface);
+		border: 1px solid var(--primary);
+	}
 
-	color:var(--primary);
+	.outline:hover:not(:disabled) {
+		background: var(--blue-light);
+	}
 
-	border:1px solid var(--cool-grey-light-active);
-}
+	.ghost {
+		background: transparent;
 
-.secondary:hover:not(:disabled){
+		color: var(--text-primary);
+	}
 
-	border-color:var(--primary);
-}
+	.button:disabled {
+		background: var(--cool-grey-light-active);
 
-.soft{
+		color: var(--text-disabled);
 
-	background:rgb(from var(--primary) r g b / 10%);
+		border: none;
+	}
 
-	color:var(--primary);
-}
+	.icon {
+		display: block;
 
-.soft:hover:not(:disabled){
-
-	background:rgb(from var(--primary) r g b / 15%);
-}
-
-.outline{
-
-	background:transparent;
-
-	color:var(--primary);
-
-	border:1px solid var(--primary);
-}
-
-.outline:hover:not(:disabled){
-
-	background:var(--blue-light);
-}
-
-.ghost{
-
-	background:transparent;
-
-	color:var(--text-primary);
-}
-
-.button:disabled{
-
-	background:var(--cool-grey-light-active);
-
-	color:var(--text-disabled);
-
-	border:none;
-}
-
-.icon{
-
-	display:block;
-
-	flex-shrink:0;
-}
-
+		flex-shrink: 0;
+	}
 </style>

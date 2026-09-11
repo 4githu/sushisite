@@ -9,7 +9,8 @@ from httpx import ASGITransport, AsyncClient
 
 from odi.db import odidb
 from odi.EVC.report_generation import build_report_insight_payload, generate_report_insight
-from odi.EVC.report_schema import AIInsight
+from odi.EVC.report_schema import AIInsight, DetailMetricNarrative, ReportNarrativeOutput
+from odi.EVC.report_metric_catalog import DETAIL_METRIC_SPECS
 from odi.EVC.router import router
 from odi.EVC.session_store import session_store
 from odi.EVC.tests.test_report_generation import segment
@@ -67,6 +68,7 @@ def test_claim_and_atomic_finish_use_server_bound_owner(tmp_path: Path) -> None:
 
 def test_smart_start_binds_pre_session_on_server(monkeypatch) -> None:
     claimed = []
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "test-only")
     monkeypatch.setattr(
         odidb,
         "get_pre_session_by_pin",
@@ -81,6 +83,11 @@ def test_smart_start_binds_pre_session_on_server(monkeypatch) -> None:
         odidb,
         "get_template",
         lambda template_id: {"template_id": template_id, "owner_id": "owner-1", "template": {}},
+    )
+    monkeypatch.setattr(
+        odidb,
+        "get_user",
+        lambda user_id: {"user_id": user_id, "config": {"preferences": {"stt_provider": "deepgram"}}},
     )
     monkeypatch.setattr(odidb, "claim_pre_session", lambda pin: claimed.append(pin))
     monkeypatch.setattr(odidb, "release_pre_session_claim", lambda pin: None)
@@ -101,6 +108,8 @@ def test_smart_start_binds_pre_session_on_server(monkeypatch) -> None:
             assert record.owner_user_id == "owner-1"
             assert record.template_id == "template-1"
             assert record.pre_session_pin == "1234"
+            assert record.stt_provider_name == "deepgram"
+            assert payload["stt_provider"] == "deepgram"
             assert claimed == ["1234"]
             await session_store.delete_session(record.session_id, payload["session_token"])
 
@@ -131,6 +140,15 @@ def test_report_job_segment_upsert_recovery_and_retention(tmp_path: Path) -> Non
     assert odidb.list_presentation_segments("evc-1", db_path=db_path) == [
         {"step": 1, "transcript": "updated"}
     ]
+    odidb.upsert_presentation_reaction(
+        evc_session_id="evc-1",
+        sequence=3,
+        reaction={"sequence": 3, "source_steps": [1], "commands": [{"action_id": "body.nod"}]},
+        pre_session_pin="1234",
+        expires_at=expired,
+        db_path=db_path,
+    )
+    assert odidb.list_presentation_reactions("evc-1", db_path=db_path)[0]["source_steps"] == [1]
 
     first = odidb.start_report_job(evc_session_id="evc-1", request_id="request-1", db_path=db_path)
     repeated = odidb.start_report_job(evc_session_id="evc-1", request_id="request-1", db_path=db_path)
@@ -143,7 +161,9 @@ def test_report_job_segment_upsert_recovery_and_retention(tmp_path: Path) -> Non
         )
     assert odidb.recover_stale_report_jobs(stale_minutes=10, db_path=db_path) == 1
     assert odidb.get_report_job("request-1", db_path=db_path)["status"] == "queued"
-    assert odidb.delete_expired_presentation_data(db_path=db_path)["segments"] == 1
+    deleted = odidb.delete_expired_presentation_data(db_path=db_path)
+    assert deleted["segments"] == 1
+    assert deleted["reactions"] == 1
 
 
 def test_deleting_report_session_cascades_source_data(tmp_path: Path) -> None:
@@ -155,6 +175,13 @@ def test_deleting_report_session_cascades_source_data(tmp_path: Path) -> None:
         evc_session_id="evc-delete",
         step=1,
         segment={"step": 1},
+        pre_session_pin=pin,
+        db_path=db_path,
+    )
+    odidb.upsert_presentation_reaction(
+        evc_session_id="evc-delete",
+        sequence=1,
+        reaction={"sequence": 1, "source_steps": [1]},
         pre_session_pin=pin,
         db_path=db_path,
     )
@@ -176,8 +203,56 @@ def test_deleting_report_session_cascades_source_data(tmp_path: Path) -> None:
     )
     odidb.delete_session(session_id, user_id="owner", db_path=db_path)
     assert odidb.list_presentation_segments("evc-delete", db_path=db_path) == []
+    assert odidb.list_presentation_reactions("evc-delete", db_path=db_path) == []
     assert odidb.get_presentation_report("evc-delete", db_path=db_path) is None
     assert odidb.get_report_job("delete-request", db_path=db_path) is None
+
+
+def test_account_comparison_is_calculated_from_current_sessions(tmp_path: Path) -> None:
+    db_path = tmp_path / "odi.db"
+    init_test_db(db_path)
+    odidb.create_user("owner", config={"dashboard": {"average_score": 1}}, db_path=db_path)
+
+    def feedback(overall: int, engagement: int, clarity: int, credibility: int) -> dict:
+        return {
+            "score": {"overall_score": overall},
+            "score_card": {
+                "scores": {
+                    "engagement": engagement,
+                    "clarity": clarity,
+                    "credibility": credibility,
+                }
+            },
+        }
+
+    first = odidb.create_session_with_snapshot(
+        "owner", {}, feedback(60, 50, 60, 70), db_path=db_path
+    )
+    second = odidb.create_session_with_snapshot(
+        "owner", {}, feedback(80, 70, 80, 90), db_path=db_path
+    )
+    with odidb.get_conn(db_path) as conn:
+        conn.execute("UPDATE sessions SET created_at = '2026-01-01' WHERE session_id = ?", (first,))
+        conn.execute("UPDATE sessions SET created_at = '2026-01-02' WHERE session_id = ?", (second,))
+
+    comparison = odidb.get_user_report_comparison("owner", second, db_path=db_path)
+    assert comparison["account_average"] == {
+        "overall_score": 70,
+        "engagement": 60,
+        "clarity": 70,
+        "credibility": 80,
+        "session_count": 2,
+    }
+    assert comparison["previous_session"] == {
+        "session_id": first,
+        "overall_score": 60,
+        "score_delta": 20,
+    }
+
+    odidb.delete_session(first, user_id="owner", db_path=db_path)
+    refreshed = odidb.get_user_report_comparison("owner", second, db_path=db_path)
+    assert refreshed["account_average"]["overall_score"] == 80
+    assert refreshed["account_average"]["session_count"] == 1
 
 
 def test_owner_can_download_and_delete_only_source_data(tmp_path: Path) -> None:
@@ -232,7 +307,18 @@ def test_report_insight_cache_avoids_duplicate_provider_calls() -> None:
 
         def generate(self, payload):
             self.calls += 1
-            return AIInsight(title="cached", description="cached description")
+            return ReportNarrativeOutput(
+                ai_insight=AIInsight(title="cached", description="cached description"),
+                metric_narratives=[
+                    DetailMetricNarrative(
+                        id=item.id,
+                        reason=f"{item.label} 평가 이유",
+                        coaching=item.coaching or None,
+                        evidence_ids=[],
+                    )
+                    for item in DETAIL_METRIC_SPECS
+                ],
+            )
 
     async def scenario() -> None:
         provider = Provider()

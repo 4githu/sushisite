@@ -1,13 +1,14 @@
 from datetime import datetime
 from io import BytesIO
 import os
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 
 from auth import JMT
 
-from . import ai_report, kakao, repository
+from . import ai_report, kakao, native_kakao, repository
 from .schemas import (
     ClinicRoundCreate,
     ClinicRoundSeriesCreate,
@@ -40,6 +41,46 @@ router = APIRouter(prefix="/api/personal", tags=["personal-project"])
 def current_user_id(request: Request) -> int:
     payload = JMT.check_jwt(request, "mainauth")
     return int(payload["data"]["id"])
+
+
+def native_kakao_user_id(request: Request) -> int:
+    payload = JMT.check_jwt(request, "mainauth")
+    data = payload.get("data") or {}
+    email = str(data.get("email") or "").strip().lower()
+    if email != native_kakao.OWNER_EMAIL:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "native_kakao_owner_only",
+                "message": "이 기능은 지정된 관리자 계정에서만 사용할 수 있습니다.",
+            },
+        )
+    return int(data["id"])
+
+
+def require_native_kakao_origin(request: Request) -> None:
+    origin = request.headers.get("origin", "").rstrip("/").lower()
+    allowed = {
+        "http://localhost:5173",
+        "http://localhost:9000",
+        "https://chobab.app",
+        "https://aura.chobab.app",
+    }
+    if origin not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "native_kakao_origin_rejected",
+                "message": "허용된 sushisite 화면에서만 카카오 전송을 실행할 수 있습니다.",
+            },
+        )
+
+
+def raise_native_kakao(error: native_kakao.NativeKakaoError):
+    raise HTTPException(
+        status_code=error.status_code,
+        detail={"code": error.code, "message": error.message},
+    ) from error
 
 
 @router.get("/kakao/status")
@@ -192,18 +233,41 @@ def submit_report(report_id: int, user_id: int = Depends(current_user_id)):
 
 
 @router.get("/aura/settlements")
-def settlements(year: int, month: int, user_id: int = Depends(current_user_id)):
+def settlements(
+    year: int,
+    month: int,
+    response: Response,
+    user_id: int = Depends(current_user_id),
+):
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     return repository.school_settlements(user_id, year, month)
 
 
+@router.post("/aura/settlements/generate")
+def generate_settlements(year: int, month: int, user_id: int = Depends(current_user_id)):
+    return repository.generate_school_settlements(user_id, year, month)
+
+
 @router.get("/aura/settlements/export.xlsx")
-def export_settlements(year: int, month: int, user_id: int = Depends(current_user_id)):
+def export_settlements(
+    year: int,
+    month: int,
+    assistant_name: str = Query(default="김지후"),
+    user_id: int = Depends(current_user_id),
+):
     data = repository.school_settlements(user_id, year, month)
-    filename = f"aura-settlement-{year:04d}-{month:02d}.xlsx"
+    name = assistant_name.strip() or "김지후"
+    assistant_label = name if name.endswith("조교") else f"{name}조교"
+    filename = f"{assistant_label} {month}월 클리닉 정산.xlsx"
     return StreamingResponse(
-        BytesIO(settlement_workbook(data)),
+        BytesIO(settlement_workbook(data, assistant_name=assistant_name)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+            "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
     )
 
 
@@ -215,6 +279,11 @@ def schools(user_id: int = Depends(current_user_id)):
 @router.post("/aura/schools", status_code=201)
 def create_school(data: SchoolCreate, user_id: int = Depends(current_user_id)):
     return repository.create_school(user_id, data)
+
+
+@router.post("/aura/schools/advance-stage")
+def advance_school_stages(user_id: int = Depends(current_user_id)):
+    return repository.advance_school_stages(user_id)
 
 
 @router.get("/aura/schools/{school_id}")
@@ -348,6 +417,83 @@ def report_attachment_file(attachment_id: int, user_id: int = Depends(current_us
 def delete_report_attachment(attachment_id: int, user_id: int = Depends(current_user_id)):
     repository.delete_target_report_attachment(user_id, attachment_id)
     return Response(status_code=204)
+
+
+@router.get("/aura/kakao-self/status")
+def native_kakao_status(user_id: int = Depends(native_kakao_user_id)):
+    return native_kakao.status()
+
+
+@router.post("/aura/targets/{target_id}/kakao-self/jobs", status_code=201)
+def create_native_kakao_job(
+    target_id: int,
+    request: Request,
+    user_id: int = Depends(native_kakao_user_id),
+):
+    require_native_kakao_origin(request)
+    repository.get_or_create_target_report(user_id, target_id)
+    try:
+        native_kakao.preflight()
+        return native_kakao.create_job(user_id, target_id)
+    except native_kakao.NativeKakaoError as error:
+        raise_native_kakao(error)
+
+
+@router.put("/aura/targets/{target_id}/kakao-self/jobs/{job_id}/pages/{page_number}")
+async def upload_native_kakao_page(
+    target_id: int,
+    job_id: str,
+    page_number: int,
+    request: Request,
+    user_id: int = Depends(native_kakao_user_id),
+):
+    require_native_kakao_origin(request)
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > native_kakao.MAX_PAGE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail={
+                        "code": "page_too_large",
+                        "message": "리포트 이미지 한 장은 8MB 이하여야 합니다.",
+                    },
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Content-Length가 올바르지 않습니다.") from exc
+    payload = bytearray()
+    async for chunk in request.stream():
+        payload.extend(chunk)
+        if len(payload) > native_kakao.MAX_PAGE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail={"code": "page_too_large", "message": "리포트 이미지 한 장은 8MB 이하여야 합니다."},
+            )
+    try:
+        return native_kakao.store_page(
+            job_id,
+            user_id,
+            target_id,
+            page_number,
+            request.headers.get("content-type", ""),
+            bytes(payload),
+        )
+    except native_kakao.NativeKakaoError as error:
+        raise_native_kakao(error)
+
+
+@router.post("/aura/targets/{target_id}/kakao-self/jobs/{job_id}/send")
+def send_native_kakao_job(
+    target_id: int,
+    job_id: str,
+    request: Request,
+    user_id: int = Depends(native_kakao_user_id),
+):
+    require_native_kakao_origin(request)
+    try:
+        return native_kakao.send_job(job_id, user_id, target_id)
+    except native_kakao.NativeKakaoError as error:
+        raise_native_kakao(error)
 
 
 @router.get("/aura/ai/models")

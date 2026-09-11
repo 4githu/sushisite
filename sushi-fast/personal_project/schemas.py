@@ -7,6 +7,12 @@ from pydantic import BaseModel, Field, model_validator
 EventStatus = Literal["passive", "todo", "done"]
 AttendanceStatus = Literal["scheduled", "completed", "cancelled", "absent"]
 ReportStatus = Literal["draft", "ready", "submitted"]
+ProgressStage = Literal[
+    "accepted",
+    "grade1_winter", "grade1_semester1", "grade1_summer", "grade1_semester2",
+    "grade2_winter", "grade2_semester1", "grade2_summer", "grade2_semester2",
+    "grade3_winter", "grade3_semester1", "deep",
+]
 
 
 class EventCreate(BaseModel):
@@ -119,28 +125,30 @@ class SessionSeriesCreate(BaseModel):
 
 
 class SchoolCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    default_hourly_rate: int = Field(default=30000, ge=0)
+    admission_year: int = Field(ge=0, le=9999)
+    school_name: str = Field(min_length=1, max_length=100)
     memo: str = ""
     priority: int = Field(default=0, ge=0, le=999)
+    current_stage: ProgressStage | None = None
+    free_for_three_plus: bool = False
 
 
 class SchoolUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=120)
-    default_hourly_rate: int | None = Field(default=None, ge=0)
     memo: str | None = None
     is_active: bool | None = None
     priority: int | None = Field(default=None, ge=0, le=999)
     term_status: Literal["active", "ended"] | None = None
+    current_stage: ProgressStage | None = None
+    free_for_three_plus: bool | None = None
 
 
 class ClinicRoundCreate(BaseModel):
     school_id: int
+    progress_stage: ProgressStage | None = None
     round_number: int = Field(ge=1)
     student_names: list[str] = Field(min_length=1, max_length=100)
     start_time: datetime
     end_time: datetime
-    hourly_rate: int | None = Field(default=None, ge=0)
     report_required: bool = True
     description: str = ""
     allow_overlap: bool = False
@@ -192,6 +200,7 @@ class ClinicRoundSeriesCreate(ClinicRoundCreate):
 
 class ClinicRoundUpdate(BaseModel):
     school_id: int | None = None
+    progress_stage: ProgressStage | None = None
     round_number: int | None = Field(default=None, ge=1)
     round_numbers: list[int] | None = Field(default=None, min_length=1, max_length=52)
     student_names: list[str] | None = Field(default=None, min_length=1, max_length=100)
@@ -199,7 +208,6 @@ class ClinicRoundUpdate(BaseModel):
     end_time: datetime | None = None
     description: str | None = None
     attendance_status: Literal["scheduled", "completed", "cancelled"] | None = None
-    hourly_rate: int | None = Field(default=None, ge=0)
     payment_status: Literal["pending", "paid"] | None = None
     allow_overlap: bool = False
     scope: Literal["this", "following"] = "this"
@@ -224,6 +232,7 @@ class RoundTargetCreate(BaseModel):
 
 class TemplateSave(BaseModel):
     content_json: dict[str, Any]
+    progress_stage: ProgressStage
 
 
 class TargetReportUpdate(BaseModel):

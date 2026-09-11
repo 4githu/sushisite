@@ -2,10 +2,15 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse
 # odi/db/router.py 상단 import 근처에 추가
 
-from odi.files.service import commit_template_files
+from odi.files.service import (
+    commit_template_files,
+    save_session_video_upload,
+    session_media_path_from_storage_path,
+)
 
 from auth import JMT
 from odi.db import odidb
@@ -18,6 +23,7 @@ from odi.db.schema import (
     RecentTemplateUpdateRequest,
     SessionCreateRequest,
     SessionFinishRequest,
+    SessionMediaUpdateRequest,
     TemplateCreateRequest,
     TemplateUpdateRequest,
     UserCreateRequest,
@@ -34,6 +40,20 @@ router = APIRouter(
 
 JWT_COOKIE_KEY = "odi_token"
 DEMO_REPORT_TEMPLATE_ID = "template_demo_algorithm_choice"
+
+
+def validate_presentation_template_for_start(template: dict[str, Any]) -> None:
+    """Reject incomplete presentation drafts before a PIN/pre-session can be created."""
+    if template.get("type") != "presentation":
+        return
+
+    files = template.get("files") or {}
+    slide = files.get("slide") or {}
+    slide_path = slide.get("storage_path") if isinstance(slide, dict) else None
+    # Keep old recent-template records usable while requiring an actual PDF path.
+    slide_path = slide_path or files.get("slide_path")
+    if not isinstance(slide_path, str) or not slide_path.strip():
+        raise ValueError("발표 자료 PDF를 업로드한 뒤 세션을 시작해주세요.")
 
 
 def raise_404(message: str) -> None:
@@ -379,6 +399,8 @@ def start_pre_session_from_recent(
         if recent_template is None:
             raise ValueError("recent_template이 없습니다.")
 
+        validate_presentation_template_for_start(recent_template)
+
         committed_template, bundle_info = commit_template_files(
             user_id=user_id,
             template=recent_template,
@@ -607,7 +629,88 @@ def get_session(session_id: str, request: Request) -> dict[str, Any]:
 
     return {
         "session": session,
+        "comparison": odidb.get_user_report_comparison(
+            str(session["user_id"]),
+            current_session_id=session_id,
+        ),
     }
+
+
+@router.put("/sessions/{session_id}/media")
+def update_session_media(
+    session_id: str,
+    payload: SessionMediaUpdateRequest,
+    request: Request,
+) -> dict[str, Any]:
+    try:
+        odidb.update_session_media(
+            session_id=session_id,
+            user_id=get_user_id_from_jwt(request),
+            media=payload.model_dump(exclude_none=True),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    return {
+        "message": "session_media_updated",
+        "session": odidb.get_session(session_id),
+    }
+
+
+@router.post("/sessions/{session_id}/media/upload")
+async def upload_session_media(
+    session_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    user_id = get_user_id_from_jwt(request)
+    session = odidb.get_session(session_id)
+    if session is None or str(session["user_id"]) != str(user_id):
+        raise HTTPException(status_code=403, detail="영상 연결 대상 세션이 없거나 접근 권한이 없습니다.")
+
+    file_ref = await save_session_video_upload(user_id, session_id, file)
+    odidb.update_session_media(
+        session_id=session_id,
+        user_id=user_id,
+        media={
+            "video_url": f"/odi/db/sessions/{session_id}/media/file",
+            "title": file_ref["original_name"],
+            "source": "upload",
+            "storage_path": file_ref["storage_path"],
+            "mime_type": file_ref["mime_type"],
+            "size_bytes": file_ref["size_bytes"],
+        },
+    )
+
+    return {
+        "message": "session_media_uploaded",
+        "session": odidb.get_session(session_id),
+    }
+
+
+@router.get("/sessions/{session_id}/media/file")
+def read_session_media(session_id: str, request: Request) -> FileResponse:
+    user_id = get_user_id_from_jwt(request)
+    session = odidb.get_session(session_id)
+    if session is None or str(session["user_id"]) != str(user_id):
+        raise HTTPException(status_code=403, detail="영상에 접근할 권한이 없습니다.")
+
+    feedback = session.get("feedback")
+    media = feedback.get("media") if isinstance(feedback, dict) else None
+    storage_path = media.get("storage_path") if isinstance(media, dict) else None
+    if not isinstance(storage_path, str) or not storage_path:
+        raise HTTPException(status_code=404, detail="이 세션에 업로드된 영상이 없습니다.")
+
+    file_path = session_media_path_from_storage_path(user_id, session_id, storage_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="영상 파일을 찾을 수 없습니다.")
+
+    return FileResponse(
+        file_path,
+        media_type=media.get("mime_type") or "application/octet-stream",
+        filename=media.get("title") or file_path.name,
+        content_disposition_type="inline",
+    )
 
 
 @router.get("/demo-report")

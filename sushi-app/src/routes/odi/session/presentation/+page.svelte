@@ -1,41 +1,40 @@
 <!-- src/routes/odi/session/presentation/+page.svelte -->
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-	import { template, type PresentationTemplate } from "$lib/odi/stores";
-	import ProgressStepper from "$lib/odi/components/session/ProgressStepper.svelte";
-	import Button from "$lib/odi/components/common/Button.svelte";
-	import PresentationSessionBasicInfoCard from "$lib/odi/components/session/PresentationSessionBasicInfoCard.svelte";
+	import { template, type PresentationTemplate } from '$lib/odi/stores';
+	import ProgressStepper from '$lib/odi/components/session/ProgressStepper.svelte';
+	import Button from '$lib/odi/components/common/Button.svelte';
+	import PresentationSessionBasicInfoCard from '$lib/odi/components/session/PresentationSessionBasicInfoCard.svelte';
 
-	import {whiteright} from '$lib/odi/icons'
+	import { whiteright } from '$lib/odi/icons';
 	const steps = [
-		{ label: "발표 기본 정보" },
-		{ label: "자료 업로드" },
-		{ label: "AI 청중 설정" },
-		{ label: "세션 확인" }
+		{ label: '발표 기본 정보' },
+		{ label: '자료 업로드' },
+		{ label: 'AI 청중 설정' },
+		{ label: '세션 확인' }
 	];
-
 
 	let ready = $state(false);
 
-	let title = $state("");
-	let purpose = $state("");
-	let language = $state("");
-	let place = $state("");
+	let title = $state('');
+	let purpose = $state('');
+	let language = $state('');
+	let place = $state('');
 	let durationMinutes = $state(0);
 	let questionCount = $state(0);
 
 	function ensurePresentationDraft(): PresentationTemplate {
 		const current = template.get();
 
-		if (current?.type === "presentation") {
+		if (current?.type === 'presentation') {
 			return current;
 		}
 
 		// 새 세션 진입 중 store가 비어도 이전 recent_template를 되살리지 않습니다.
 		// 새 발표는 항상 기본값에서 시작해야 다른 사용자의 draft가 보이지 않습니다.
-		template.setDefault("presentation");
+		template.setDefault('presentation');
 		return template.get() as PresentationTemplate;
 	}
 
@@ -43,11 +42,11 @@
 		const draft = ensurePresentationDraft();
 
 		title = draft.environment.title;
-		purpose = draft.environment.purpose || "프로젝트 목적";
-		language = draft.environment.language || "한국어";
+		purpose = draft.environment.purpose || '프로젝트 목적';
+		language = draft.environment.language || '한국어';
 		place = draft.environment.place;
 		durationMinutes = 2;
-		questionCount = draft.environment.question_count ?? 2;
+		questionCount = draft.environment.question_count ?? 0;
 
 		ready = true;
 	});
@@ -67,11 +66,11 @@
 
 	const canNext = $derived(
 		title.trim().length > 0 &&
-		purpose.trim().length > 0 &&
-		language.trim().length > 0 &&
-		place.trim().length > 0 &&
-		durationMinutes > 0 &&
-		questionCount >= 0
+			purpose.trim().length > 0 &&
+			language.trim().length > 0 &&
+			place.trim().length > 0 &&
+			durationMinutes > 0 &&
+			questionCount >= 0
 	);
 </script>
 
@@ -81,7 +80,9 @@
 
 		<div class="title-group">
 			<h1 class="text-title-main">발표 기본 정보</h1>
-			<p class="subtitle text-caption-main">실전과 같은 환경을 설정하고, AI 청중과 함께 연습을 시작해요.</p>
+			<p class="subtitle text-caption-main">
+				실전과 같은 환경을 설정하고, AI 청중과 함께 연습을 시작해요.
+			</p>
 		</div>
 	</header>
 
@@ -97,14 +98,14 @@
 	/>
 
 	<footer class="page-actions">
-		<Button variant="secondary" width="212px" onclick={() => goto("/odi")} >홈으로</Button>
+		<Button variant="secondary" width="212px" onclick={() => goto('/odi')}>홈으로</Button>
 
 		<Button
 			variant="primary"
 			width="212px"
 			disabled={!canNext}
 			trailingIcon={whiteright}
-			onclick={() => goto("/odi/session/presentation/upload")}
+			onclick={() => goto('/odi/session/presentation/upload')}
 		>
 			다음 단계
 		</Button>
@@ -115,7 +116,8 @@
 	.session-page {
 		width: 100%;
 		min-height: 100vh;
-		padding: 36px 48px 40px;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-6);
@@ -149,8 +151,15 @@
 	}
 
 	@media (max-width: 640px) {
-		.session-page { padding: 24px 16px 32px; }
-		.page-actions { align-items: stretch; flex-direction: column-reverse; }
-		.page-actions :global(.button) { width: 100% !important; }
+		.session-page {
+			padding: 24px 16px 32px;
+		}
+		.page-actions {
+			align-items: stretch;
+			flex-direction: column-reverse;
+		}
+		.page-actions :global(.button) {
+			width: 100% !important;
+		}
 	}
 </style>

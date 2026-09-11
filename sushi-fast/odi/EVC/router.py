@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID
 
@@ -9,8 +10,10 @@ from fastapi.responses import Response
 from .answer_service import submit_answer, checked_question
 from .azure_speech import synthesize, VOICES, MAX_WAV_BYTES
 
-from .config import EVC_UPLOAD_DIR
+from .config import EVC_TRANSCRIPT_RETENTION_DAYS, EVC_UPLOAD_DIR
 from .reaction_scheduler import ReactionRequest, ReactionResponse
+from .report_schema import ReportReactionRecord
+from odi.db import odidb
 from .evaluation import EvaluationProviderError
 from .inputs import (
     InputValidationError,
@@ -46,7 +49,12 @@ from .session_store import (
     SessionNotFoundError,
     session_store,
 )
-from .speech2text import STTProviderError
+from .speech2text import (
+    STTProviderConfigurationError,
+    STTProviderError,
+    normalize_provider_name,
+    validate_provider_configuration,
+)
 from .question_generation import QuestionGenerationProviderError
 from .question_service import (
     QuestionGenerationInProgressError,
@@ -97,6 +105,7 @@ async def smart_start(
             slides = extract_slides(stored_slide)
         owner_user_id = None
         template_id = None
+        selected_stt_provider = normalize_provider_name(None)
         normalized_pin = pre_session_pin.strip() if pre_session_pin else None
         if normalized_pin:
             if len(normalized_pin) != 4 or not normalized_pin.isdigit():
@@ -111,6 +120,11 @@ async def smart_start(
                 raise HTTPException(404, detail={"code": "template_not_found", "message": "pre-session template does not exist"})
             owner_user_id = str(template_record["owner_id"])
             template_id = str(pre_session["template_id"])
+            owner = odidb.get_user(owner_user_id)
+            preferences = (owner or {}).get("config", {}).get("preferences", {})
+            selected_stt_provider = normalize_provider_name(preferences.get("stt_provider"))
+        validate_provider_configuration(selected_stt_provider)
+        if normalized_pin:
             try:
                 odidb.claim_pre_session(normalized_pin)
             except ValueError as exc:
@@ -123,6 +137,7 @@ async def smart_start(
                 owner_user_id=owner_user_id,
                 template_id=template_id,
                 pre_session_pin=normalized_pin,
+                stt_provider_name=selected_stt_provider,
             )
         except Exception:
             if normalized_pin:
@@ -164,7 +179,30 @@ async def poll_reactions(
                                     sequence=scheduler.sequence)
         # No await/mutation of analysis state: a slow provider cannot freeze the
         # reaction clock, and a retry gets the exact cached decision/command IDs.
-        return scheduler.tick(session_id, body)
+        response = scheduler.tick(session_id, body)
+        if response.audiences or response.commands:
+            reaction = ReportReactionRecord(
+                sequence=response.sequence,
+                client_time_s=body.client_time_s,
+                source_steps=response.source_steps,
+                audiences=response.audiences,
+                commands=response.commands,
+            )
+            if not any(item.sequence == reaction.sequence for item in record.report_reactions):
+                record.report_reactions.append(reaction)
+                if record.pre_session_pin:
+                    expires_at = (
+                        datetime.now(timezone.utc) + timedelta(days=EVC_TRANSCRIPT_RETENTION_DAYS)
+                    ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                    odidb.upsert_presentation_reaction(
+                        evc_session_id=str(record.session_id),
+                        sequence=reaction.sequence,
+                        reaction=reaction.model_dump(mode="json"),
+                        owner_user_id=record.owner_user_id,
+                        pre_session_pin=record.pre_session_pin,
+                        expires_at=expires_at,
+                    )
+        return response
     except Exception as exc:
         raise _http_error(exc) from exc
 
@@ -329,6 +367,14 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(415, detail={"code": "unsupported_media_type", "message": str(exc)})
     if isinstance(exc, SessionCapacityError):
         return HTTPException(429, detail={"code": "session_capacity_exceeded", "message": str(exc)})
+    if isinstance(exc, STTProviderConfigurationError):
+        return HTTPException(
+            503,
+            detail={
+                "code": "stt_provider_unavailable",
+                "message": str(exc),
+            },
+        )
     if isinstance(exc, STTProviderError):
         return HTTPException(
             502,

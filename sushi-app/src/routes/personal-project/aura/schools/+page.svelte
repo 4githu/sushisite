@@ -1,15 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { personalApi } from '$lib/personal-project/shared/api';
+	import { progressStageLabels, progressStages } from '$lib/personal-project/aura/stages';
 	import type { School } from '$lib/personal-project/shared/types';
 
 	let schools = $state<School[]>([]);
 	let showModal = $state(false);
 	let saving = $state(false);
+	let advancing = $state(false);
 	let error = $state('');
-	let name = $state('');
-	let defaultHourlyRate = $state(30000);
+	let admissionYear = $state(new Date().getFullYear());
+	let schoolName = $state('');
 	let memo = $state('');
+	let freeForThreePlus = $state(false);
 
 	async function load() {
 		try {
@@ -24,18 +27,33 @@
 		saving = true;
 		try {
 			await personalApi.createSchool({
-				name: name.trim(),
-				default_hourly_rate: defaultHourlyRate,
-				memo
+				admission_year: admissionYear,
+				school_name: schoolName.trim(),
+				memo,
+				free_for_three_plus: freeForThreePlus
 			});
 			showModal = false;
-			name = '';
+			schoolName = '';
 			memo = '';
+			freeForThreePlus = false;
 			await load();
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : '학교를 등록하지 못했습니다.';
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function advanceStages() {
+		if (!confirm('진행 중인 모든 학교를 다음 학기·시즌으로 한 단계 이동할까요?')) return;
+		advancing = true;
+		error = '';
+		try {
+			schools = await personalApi.advanceSchoolStages();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : '학기를 변경하지 못했습니다.';
+		} finally {
+			advancing = false;
 		}
 	}
 
@@ -82,7 +100,12 @@
 		<h1>학교별 리포트</h1>
 		<p>학생을 별도로 관리하지 않고 학교와 회차 아래에 이름만 정리합니다.</p>
 	</div>
-	<button class="primary-button" onclick={() => (showModal = true)}>＋ 학교 등록</button>
+	<div class="page-actions">
+		<button class="ghost-button" onclick={advanceStages} disabled={advancing}
+			>{advancing ? '변경 중…' : '전체 학기 한 단계 변경'}</button
+		>
+		<button class="primary-button" onclick={() => (showModal = true)}>＋ 학교 등록</button>
+	</div>
 </div>
 {#if error}<div class="error-banner">{error}</div>{/if}
 
@@ -93,13 +116,37 @@
 				<span class="school-mark">{school.name.slice(0, 1)}</span>
 				<span
 					><strong>{school.name}</strong><small
-						>{school.termStatus === 'ended' ? '종료된 학교' : `우선순위 ${school.priority}`} · 회차
+					><b class="term-pill">{progressStageLabels[school.currentStage]}</b> · {school.termStatus === 'ended'
+							? '종료된 학교'
+							: `우선순위 ${school.priority}`} · 회차
 						{school.roundCount}개</small
+					>{#if school.freeForThreePlus}<small class="free-rule">3:1 이상 학부모 무료 · 조교 정산 유지</small>{/if}
 					>{#if school.memo}<p>{school.memo}</p>{/if}</span
 				>
 				<i>›</i>
 			</a>
 			<div class="school-actions">
+				<select
+					aria-label={`${school.name} 현재 진행 단계`}
+					value={school.currentStage}
+					onchange={(event) => updateSchool(school, { current_stage: event.currentTarget.value })}
+				>
+					{#each progressStages as value}
+						<option {value}>{progressStageLabels[value]}</option>
+					{/each}
+				</select>
+				{#if school.currentStage !== school.recommendedStage}
+					<span class="stage-hint">현재 날짜 기준: {progressStageLabels[school.recommendedStage]}</span>
+				{/if}
+				<label class="free-toggle">
+					<input
+						type="checkbox"
+						checked={school.freeForThreePlus}
+						onchange={(event) =>
+							updateSchool(school, { free_for_three_plus: event.currentTarget.checked })}
+					/>
+					3:1 이상 학부모 무료
+				</label>
 				<button onclick={() => moveSchool(school, 'up')}>위로</button>
 				<button onclick={() => moveSchool(school, 'down')}>아래로</button>
 				<button
@@ -131,20 +178,30 @@
 			<h2>새 학교 등록</h2>
 			<div class="form-grid">
 				<div class="field full">
-					<label for="school-name">학교 이름</label><input
-						id="school-name"
-						bind:value={name}
-						required
-					/>
-				</div>
-				<div class="field full">
-					<label for="school-rate">기본 시급</label><input
-						id="school-rate"
+					<label for="school-year">입학연도</label><input
+						id="school-year"
 						type="number"
 						min="0"
-						step="1000"
-						bind:value={defaultHourlyRate}
+						max="9999"
+						bind:value={admissionYear}
+						required
 					/>
+					<small>2026 또는 26처럼 입력할 수 있습니다.</small>
+				</div>
+				<div class="field full">
+					<label for="school-name">학교 이름</label><input
+						id="school-name"
+						bind:value={schoolName}
+						placeholder="예: 서울"
+						required
+					/>
+					<small>목록에는 {String(admissionYear).slice(-2).padStart(2, '0')}{schoolName || '서울'}처럼 표시됩니다.</small>
+				</div>
+				<div class="field full free-option">
+					<label>
+						<input type="checkbox" bind:checked={freeForThreePlus} />
+						<span><strong>3:1 이상이면 학부모 무료</strong><small>학부모 청구만 0원이며 조교 정산은 그대로 기록됩니다.</small></span>
+					</label>
 				</div>
 				<div class="field full">
 					<label for="school-memo">메모</label><textarea id="school-memo" bind:value={memo}
@@ -160,6 +217,14 @@
 {/if}
 
 <style>
+	.page-actions {
+		display: flex;
+		gap: 8px;
+	}
+	.stage-hint {
+		color: var(--pp-muted);
+		font-size: 8px;
+	}
 	.school-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -198,6 +263,11 @@
 	.school-card small {
 		display: block;
 	}
+	.term-pill {
+		color: var(--pp-sage-dark);
+		font-weight: 700;
+	}
+	.school-card .free-rule { color: #a56545; }
 	.school-card strong {
 		font-size: 14px;
 	}
@@ -227,7 +297,9 @@
 		background: #faf9f5;
 	}
 	.school-actions button,
-	.school-actions a {
+	.school-actions a,
+	.school-actions select,
+	.free-toggle {
 		padding: 6px 9px;
 		border: 1px solid var(--pp-line);
 		border-radius: 6px;
@@ -237,6 +309,32 @@
 		font-weight: 700;
 		text-decoration: none;
 		cursor: pointer;
+	}
+	.free-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.free-toggle input { margin: 0; }
+	.free-option {
+		padding: 11px;
+		border: 1px solid var(--pp-line);
+		border-radius: 8px;
+		background: #fffaf5;
+	}
+	.free-option > label {
+		display: flex;
+		align-items: flex-start;
+		gap: 9px;
+		cursor: pointer;
+	}
+	.free-option span,
+	.free-option strong,
+	.free-option small { display: block; }
+	.free-option small {
+		margin-top: 3px;
+		color: var(--pp-muted);
+		font-size: 9px;
 	}
 	.school-actions .delete-school {
 		margin-left: auto;

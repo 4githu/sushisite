@@ -1,8 +1,8 @@
 <!-- src/lib/odi/components/report/ReportHeader.svelte -->
 
 <script lang="ts">
-	import type { ReportFeedback, ReportSession, ReportTemplate } from "./reportTypes";
-	import { formatDateTime, formatKoreanDuration } from "./reportUtils";
+	import type { ReportFeedback, ReportSession, ReportTemplate } from './reportTypes';
+	import { formatDateTime, formatKoreanDuration } from './reportUtils';
 
 	let {
 		session,
@@ -20,17 +20,23 @@
 	const environment = $derived(template.environment ?? {});
 	const files = $derived(template.files ?? {});
 
-	const title = $derived(environment.title ?? environment.company_name ?? "세션 리포트");
-	const audienceCount = $derived(template.audience?.audience_count ?? environment.interviewer_count ?? "-");
-	const plannedSeconds = $derived(feedback.duration?.planned_seconds ?? Number(environment.duration_minutes ?? 0) * 60);
+	const title = $derived(environment.title ?? environment.company_name ?? '세션 리포트');
+	const audienceCount = $derived(
+		template.audience?.audience_count ?? environment.interviewer_count ?? '-'
+	);
+	const plannedSeconds = $derived(
+		feedback.duration?.planned_seconds ?? Number(environment.duration_minutes ?? 0) * 60
+	);
 	const qaSeconds = $derived(feedback.duration?.qa_seconds ?? 0);
 	const totalSeconds = $derived((feedback.duration?.actual_seconds ?? plannedSeconds) + qaSeconds);
 
-	const fileNames = $derived([
-		files.slide?.original_name,
-		files.script?.original_name ?? (files.script_content ? "발표 스크립트.txt" : null),
-		files.paper?.original_name
-	].filter(Boolean) as string[]);
+	const fileNames = $derived(
+		[
+			files.slide?.original_name,
+			files.script?.original_name ?? (files.script_content ? '발표 스크립트.txt' : null),
+			files.paper?.original_name
+		].filter(Boolean) as string[]
+	);
 </script>
 
 <header class="report-header">
@@ -42,7 +48,11 @@
 		<div class="meta-row">
 			<span>{formatDateTime(session.started_at ?? session.created_at)}</span>
 			<span>{audienceCount}인</span>
-			<span>발표 {formatKoreanDuration(plannedSeconds)} · Q&A {formatKoreanDuration(qaSeconds)} · 총 {formatKoreanDuration(totalSeconds)}</span>
+			<span
+				>발표 {formatKoreanDuration(plannedSeconds)} · Q&A {formatKoreanDuration(qaSeconds)} · 총 {formatKoreanDuration(
+					totalSeconds
+				)}</span
+			>
 		</div>
 
 		{#if fileNames.length > 0}
@@ -97,9 +107,10 @@
 
 	h1 {
 		color: var(--brand-black);
-		font-size: 42px;
+		font-size: var(--title-main-size);
 		font-weight: var(--font-bold);
 		line-height: 130%;
+		overflow-wrap: anywhere;
 	}
 
 	.meta-row,
@@ -110,7 +121,7 @@
 		flex-wrap: wrap;
 		gap: var(--space-4);
 		color: var(--text-secondary);
-		font-size: 20px;
+		font-size: var(--caption-main-size);
 		font-weight: var(--font-medium);
 	}
 
@@ -170,7 +181,32 @@
 		}
 
 		.header-actions {
+			width: 100%;
 			padding-top: 0;
+		}
+
+		.action-button {
+			width: auto;
+			flex: 1;
+		}
+	}
+
+	@media (max-width: 520px) {
+		.header-actions {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.action-button {
+			width: 100%;
+		}
+
+		.meta-row,
+		.file-row,
+		.file-list {
+			align-items: flex-start;
+			flex-direction: column;
+			gap: var(--space-2);
 		}
 	}
 </style>

@@ -6,7 +6,10 @@ import { get, writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import { odiuser, type JsonObject } from './odiuser';
 import { template } from './template';
-import { publishPresentationData } from '$lib/odi/firebase/session-materials';
+import {
+	deletePresentationData,
+	publishPresentationData
+} from '$lib/odi/firebase/session-materials';
 import {
 	createFixedDemoPresentationTemplate,
 	fixedDemoFeedback
@@ -21,7 +24,7 @@ export type OdiPreSession = {
 	state: PreSessionState;
 	expires_at: string;
 	created_at: string;
-	report_status?: "not_started" | "queued" | "generating" | "ready" | "failed";
+	report_status?: 'not_started' | 'queued' | 'generating' | 'ready' | 'failed';
 	report_error?: string | null;
 };
 
@@ -38,6 +41,7 @@ export type OdiSession = {
 	ended_at: string | null;
 	created_at: string;
 	updated_at: string;
+	comparison?: JsonObject;
 };
 
 export type OdiFileBundle = {
@@ -51,6 +55,12 @@ export type EvcReportFinishPayload = {
 	request_id: string;
 	planned_seconds?: number;
 	qa_seconds?: number;
+};
+
+export type SessionMediaInput = {
+	video_url: string;
+	title?: string;
+	source?: 'demo' | 'recording' | 'upload' | 'external';
 };
 
 type SessionStoreState = {
@@ -155,16 +165,6 @@ export const session = {
 		const data = await fetchJson(res);
 		const preSession = data.pre_session as OdiPreSession;
 
-		// PIN은 백엔드가 만든 즉시 store에 반영합니다. Firebase 자료 전송이 오래 걸리거나
-		// 실패해도 생성 여부와 실패 원인을 화면에서 정확히 구분할 수 있습니다.
-		store.update((state) => ({
-			...state,
-			pin_code: data.pin_code,
-			pre_session: preSession,
-			current_session: null,
-			file_bundle: data.file_bundle ?? null
-		}));
-
 		if (data.template?.template) {
 			template.set(data.template.template);
 		}
@@ -178,6 +178,16 @@ export const session = {
 				throw error;
 			}
 		}
+
+		// Firebase 행까지 준비된 뒤에만 PIN을 노출합니다. XR이 PIN으로 조회할 때
+		// 아직 데이터가 없는 경쟁 상태를 만들지 않습니다.
+		store.update((state) => ({
+			...state,
+			pin_code: data.pin_code,
+			pre_session: preSession,
+			current_session: null,
+			file_bundle: data.file_bundle ?? null
+		}));
 
 		return preSession;
 	},
@@ -275,8 +285,12 @@ export const session = {
 				const preSession = await this.refreshPreSession(pinCode);
 
 				if (preSession.state === 'finished' && preSession.session_id) {
-					const report = await this.getReport(preSession.session_id);
-					return report;
+					await deletePresentationData(preSession.pin_code).catch((error) => {
+						console.warn('완료된 Firebase 발표 데이터를 삭제하지 못했습니다.', error);
+					});
+					// 리포트 본문은 상세 라우트가 자신의 session_id로 한 번만 조회합니다.
+					// 대기 화면에서는 완료 여부만 갱신해 같은 데이터를 연속 호출하지 않습니다.
+					return preSession;
 				}
 
 				if (preSession.state === 'expired' || preSession.state === 'cancelled') {
@@ -325,6 +339,9 @@ export const session = {
 		});
 
 		const data = await fetchJson(res);
+		await deletePresentationData(pinCode).catch((error) => {
+			console.warn('완료된 Firebase 발표 데이터를 삭제하지 못했습니다.', error);
+		});
 
 		store.update((state) => ({
 			...state,
@@ -336,12 +353,16 @@ export const session = {
 		return data.session as OdiSession;
 	},
 
-	async finishEvcPresentation(evcSessionId: string, evcToken: string, payload: EvcReportFinishPayload) {
+	async finishEvcPresentation(
+		evcSessionId: string,
+		evcToken: string,
+		payload: EvcReportFinishPayload
+	) {
 		const res = await fetch(`${API}/odi/xreal_rehear/evc/sessions/${evcSessionId}/finish`, {
-			method: "POST",
+			method: 'POST',
 			headers: {
-				"Content-Type": "application/json",
-				"X-EVC-Session-Token": evcToken
+				'Content-Type': 'application/json',
+				'X-EVC-Session-Token': evcToken
 			},
 			body: JSON.stringify(payload)
 		});
@@ -350,16 +371,16 @@ export const session = {
 
 	async getEvcReportStatus(evcSessionId: string, evcToken: string) {
 		const res = await fetch(`${API}/odi/xreal_rehear/evc/sessions/${evcSessionId}/report`, {
-			headers: { "X-EVC-Session-Token": evcToken }
+			headers: { 'X-EVC-Session-Token': evcToken }
 		});
 		return fetchJson(res);
 	},
 
 	async retryReport(pinCode: string, plannedSeconds = 0, qaSeconds = 0) {
 		const res = await fetch(`${API}/odi/db/pre-sessions/${pinCode}/report/retry`, {
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				request_id: crypto.randomUUID(),
 				planned_seconds: plannedSeconds,
@@ -370,12 +391,17 @@ export const session = {
 	},
 
 	async getReport(sessionId: string) {
+		await odiuser.requireUser();
+
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
 			credentials: 'include'
 		});
 
 		const data = await fetchJson(res);
-		const currentSession = data.session as OdiSession;
+		const currentSession = {
+			...(data.session as OdiSession),
+			comparison: data.comparison ?? undefined
+		} as OdiSession;
 
 		store.update((state) => ({
 			...state,
@@ -385,27 +411,69 @@ export const session = {
 		return currentSession;
 	},
 
+	async updateSessionMedia(sessionId: string, media: SessionMediaInput) {
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/media`, {
+			method: 'PUT',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(media)
+		});
+
+		const data = await fetchJson(res);
+		const updatedSession = data.session as OdiSession;
+		store.update((state) => ({
+			...state,
+			current_session:
+				state.current_session?.session_id === sessionId ? updatedSession : state.current_session,
+			sessions: state.sessions.map((item) =>
+				item.session_id === sessionId ? updatedSession : item
+			)
+		}));
+
+		return updatedSession;
+	},
+
+	async uploadSessionVideo(sessionId: string, file: File) {
+		const formData = new FormData();
+		formData.append('file', file);
+
+		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/media/upload`, {
+			method: 'POST',
+			credentials: 'include',
+			body: formData
+		});
+
+		const data = await fetchJson(res);
+		const updatedSession = data.session as OdiSession;
+		store.update((state) => ({
+			...state,
+			current_session:
+				state.current_session?.session_id === sessionId ? updatedSession : state.current_session,
+			sessions: state.sessions.map((item) =>
+				item.session_id === sessionId ? updatedSession : item
+			)
+		}));
+
+		return updatedSession;
+	},
+
 	async getTranscript(sessionId: string) {
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/transcript`, {
-			credentials: "include"
+			credentials: 'include'
 		});
 		return fetchJson(res);
 	},
 
 	async deleteSourceData(sessionId: string) {
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}/source-data`, {
-			method: "DELETE",
-			credentials: "include"
+			method: 'DELETE',
+			credentials: 'include'
 		});
 		return fetchJson(res);
 	},
 
 	async listMySessions(limit = 20) {
-		const user = odiuser.get();
-
-		if (user === null) {
-			throw new Error('ODI 유저가 없습니다.');
-		}
+		const user = await odiuser.requireUser();
 
 		const res = await fetch(`${API}/odi/db/users/${user.user_id}/sessions?limit=${limit}`, {
 			credentials: 'include'
@@ -428,8 +496,7 @@ export const session = {
 	},
 
 	async deleteSession(sessionId: string) {
-		const user = odiuser.get();
-		if (user === null) throw new Error('ODI 유저가 없습니다.');
+		await odiuser.requireUser();
 
 		const res = await fetch(`${API}/odi/db/sessions/${sessionId}`, {
 			method: 'DELETE',

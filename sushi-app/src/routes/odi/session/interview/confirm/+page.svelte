@@ -1,35 +1,35 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
+	import { goto } from '$app/navigation';
 
-	import Button from "$lib/odi/components/common/Button.svelte";
-	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
-	import SessionConfirmCard from "$lib/odi/components/session/SessionConfirmCard.svelte";
+	import Button from '$lib/odi/components/common/Button.svelte';
+	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
+	import SessionConfirmCard from '$lib/odi/components/session/SessionConfirmCard.svelte';
 
 	// 실제 이미지 파일 생기면 주석 해제
 	// import InterviewPreview from "$lib/odi/assets/interview-preview.png";
 
 	const applicationInfo = {
-		company: "주식회사 Re:hear",
-		department: "Product Design 부서",
-		position: "UX Designer"
+		company: '주식회사 Re:hear',
+		department: 'Product Design 부서',
+		position: 'UX Designer'
 	};
 
 	const sessionSummary = [
 		{
-			label: "면접 시간",
-			value: "30분"
+			label: '면접 시간',
+			value: '30분'
 		},
 		{
-			label: "면접 형식",
-			value: "일대다, 3명"
+			label: '면접 형식',
+			value: '일대다, 3명'
 		},
 		{
-			label: "면접관 페르소나",
-			value: "인사담당자 + 실무자"
+			label: '면접관 페르소나',
+			value: '인사담당자 + 실무자'
 		},
 		{
-			label: "면접 스타일",
-			value: "일반적"
+			label: '면접 스타일',
+			value: '일반적'
 		}
 	];
 
@@ -41,20 +41,16 @@
 
 		console.log(sessionConfig);
 
-		goto("/odi/practice");
+		goto('/odi/practice');
 	}
 </script>
 
 <section class="session-page">
 	<header class="page-header">
-		<p class="text-caption-main eyebrow">
-			Session Setup
-		</p>
+		<p class="text-caption-main eyebrow">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">
-				Ready for Re:hear 🌟
-			</h1>
+			<h1 class="text-title-main">Ready for Re:hear 🌟</h1>
 
 			<p class="text-caption-main description">
 				모든 설정이 완료되었어요. 대기 중인 AI 면접관과 함께 실전 같은 면접 연습을 시작해보세요!
@@ -64,9 +60,7 @@
 
 	<SurfaceCard padding="11px" minHeight="111px">
 		<div class="application-card">
-			<p class="text-body-medium label">
-				지원 정보
-			</p>
+			<p class="text-body-medium label">지원 정보</p>
 
 			<div class="application-values">
 				<p>{applicationInfo.company}</p>
@@ -78,17 +72,10 @@
 		</div>
 	</SurfaceCard>
 
-	<SessionConfirmCard
-		items={sessionSummary}
-	/>
+	<SessionConfirmCard items={sessionSummary} />
 
 	<div class="start-area">
-		<Button
-			width="462px"
-			onclick={startSession}
-		>
-			시작하기
-		</Button>
+		<Button width="462px" onclick={startSession}>시작하기</Button>
 
 		<p class="text-body-medium start-helper">
 			클릭하면 가상 면접 환경으로 이동하여 세션을 시작합니다.
@@ -99,11 +86,15 @@
 <style>
 	.session-page {
 		width: 100%;
+		min-height: 100vh;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 
 		display: flex;
 		flex-direction: column;
 
 		gap: var(--space-5);
+		background: var(--surface);
 	}
 
 	.page-header {
@@ -159,6 +150,8 @@
 		line-height: 140%;
 
 		text-align: center;
+		flex-wrap: wrap;
+		word-break: keep-all;
 	}
 
 	.start-area {
@@ -171,7 +164,31 @@
 		margin-top: var(--space-5);
 	}
 
+	.start-area :global(.button) {
+		max-width: 100%;
+	}
+
 	.start-helper {
 		color: var(--text-secondary);
+		text-align: center;
+		line-height: 1.45;
+	}
+
+	@media (max-width: 640px) {
+		.session-page {
+			padding: 24px 16px 32px;
+		}
+
+		.application-card {
+			align-items: flex-start;
+			padding: 16px;
+		}
+
+		.application-values {
+			align-items: flex-start;
+			justify-content: flex-start;
+			font-size: 18px;
+			text-align: left;
+		}
 	}
 </style>

@@ -1,7 +1,8 @@
 <!-- src/lib/odi/components/report/AIInsightCard.svelte -->
 
 <script lang="ts">
-	import type { ReportFeedback } from "./reportTypes";
+	import type { ReportFeedback } from './reportTypes';
+	import { figmaArrowForward } from '$lib/odi/icons';
 
 	let {
 		feedback,
@@ -11,13 +12,13 @@
 		onStartTraining?: () => void;
 	} = $props();
 
-	const title = $derived(feedback.ai_insight?.title ?? "AI 인사이트가 아직 생성되지 않았습니다.");
-	const description = $derived(feedback.ai_insight?.description ?? "");
+	const title = $derived(feedback.ai_insight?.title ?? 'AI 인사이트가 아직 생성되지 않았습니다.');
+	const description = $derived(feedback.ai_insight?.description ?? '');
 </script>
 
 <section class="ai-card">
 	<div class="text-area">
-		<h2>AI 인사이트</h2>
+		<h2>AI 핵심 결과</h2>
 		<strong>{title}</strong>
 
 		{#if description}
@@ -27,12 +28,13 @@
 
 	<button type="button" class="training-button clickable" onclick={onStartTraining}>
 		<span>맞춤 훈련 시작</span>
-		<span>›</span>
+		<span class="arrow-icon" aria-hidden="true"><img src={figmaArrowForward} alt="" /></span>
 	</button>
 </section>
 
 <style>
 	.ai-card {
+		width: 100%;
 		min-width: 0;
 		padding: 8px 0;
 		display: flex;
@@ -79,10 +81,23 @@
 		color: var(--text-on-primary);
 		font-size: 18px;
 		font-weight: var(--font-medium);
+		margin-top: auto;
 	}
 
 	.training-button:hover {
 		background: var(--primary-hover);
 	}
 
+	.arrow-icon {
+		display: grid;
+		width: 24px;
+		height: 24px;
+		place-items: center;
+	}
+	.arrow-icon img {
+		display: block;
+		width: 24px;
+		height: 24px;
+		object-fit: contain;
+	}
 </style>

@@ -1,5 +1,5 @@
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { onValue, ref as databaseRef, set, update } from 'firebase/database';
+import { onValue, ref as databaseRef, remove, set, update } from 'firebase/database';
 import { firebaseDatabase, firebaseStorage } from '$lib/firebase/client';
 import type { PresentationTemplate, OdiFileRef } from '$lib/odi/stores/template';
 import { API_BASE as API } from '$lib/config/api';
@@ -144,6 +144,10 @@ export async function publishPresentationData(pinCode: string, template: Present
 
 export async function updatePresentationStatus(pinCode: string, status: string) {
 	await update(databaseRef(firebaseDatabase(), presentationPath(pinCode)), { status });
+}
+
+export async function deletePresentationData(pinCode: string) {
+	await remove(databaseRef(firebaseDatabase(), presentationPath(pinCode)));
 }
 
 export function subscribeToPresentation(pinCode: string, callback: (data: PresentationFirebaseData | null) => void) {

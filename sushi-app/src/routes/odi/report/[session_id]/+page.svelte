@@ -3,8 +3,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { session } from '$lib/odi/stores';
+	import { odiuser, session } from '$lib/odi/stores';
 	import ReportPageView from '$lib/odi/components/report/ReportPageView.svelte';
+	import ReportPageViewV1 from '$lib/odi/components/report/ReportPageViewV1.svelte';
+	import ReportPageViewV3 from '$lib/odi/components/report/ReportPageViewV3.svelte';
+	import {
+		resolveReportViewVersion,
+		resolveTimelineVideoPreference
+	} from '$lib/odi/components/report/reportPreferences';
 
 	import type { ReportSession } from '$lib/odi/components/report/reportTypes';
 
@@ -13,7 +19,14 @@
 	let errorMessage = $state('');
 
 	const sessionId = $derived(page.params.session_id ?? '');
+	const reportViewVersion = $derived(
+		resolveReportViewVersion($odiuser?.config?.preferences?.report_view_version)
+	);
+	const showTimelineVideo = $derived(
+		resolveTimelineVideoPreference($odiuser?.config?.preferences?.show_timeline_video)
+	);
 	let requestVersion = 0;
+	const sessionIdPattern = /^[A-Za-z0-9_-]{1,128}$/;
 
 	async function loadReport(targetSessionId = sessionId) {
 		const version = ++requestVersion;
@@ -23,6 +36,9 @@
 
 		try {
 			if (!targetSessionId) throw new Error('세션 ID가 없습니다.');
+			if (!sessionIdPattern.test(targetSessionId)) {
+				throw new Error('올바르지 않은 세션 주소입니다. 이전 리포트 목록에서 다시 선택해 주세요.');
+			}
 			const result = await session.getReport(targetSessionId);
 			if (version !== requestVersion) return;
 			reportSession = result as unknown as ReportSession;
@@ -75,12 +91,31 @@
 			</div>
 		</div>
 	{:else if reportSession}
-		<ReportPageView
-			session={reportSession}
-			onOpenPrevious={openPreviousReports}
-			onDownload={downloadReport}
-			onStartTraining={startTraining}
-		/>
+		{#if reportViewVersion === 'v1'}
+			<ReportPageViewV1
+				session={reportSession}
+				{showTimelineVideo}
+				onOpenPrevious={openPreviousReports}
+				onDownload={downloadReport}
+				onStartTraining={startTraining}
+			/>
+		{:else if reportViewVersion === 'v2'}
+			<ReportPageView
+				session={reportSession}
+				{showTimelineVideo}
+				onOpenPrevious={openPreviousReports}
+				onDownload={downloadReport}
+				onStartTraining={startTraining}
+			/>
+		{:else}
+			<ReportPageViewV3
+				session={reportSession}
+				{showTimelineVideo}
+				onOpenPrevious={openPreviousReports}
+				onDownload={downloadReport}
+				onStartTraining={startTraining}
+			/>
+		{/if}
 	{/if}
 </main>
 
@@ -89,7 +124,8 @@
 		width: 100%;
 		min-width: 0;
 		min-height: 100vh;
-		padding: 36px 48px 40px;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 		background: var(--surface);
 	}
 

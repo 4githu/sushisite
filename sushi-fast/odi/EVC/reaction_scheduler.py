@@ -34,6 +34,8 @@ class ReactionResponse(StrictModel):
     sequence: int
     audiences: list[AudienceDecision] = Field(default_factory=list)
     commands: list[UnityCommand] = Field(default_factory=list)
+    # Exact analytical steps consumed by the listener that reacted in this tick.
+    source_steps: list[int] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -98,7 +100,7 @@ class AudienceReactionScheduler:
             return self.cache[request.request_id]
         now = max(self.last_time, request.client_time_s)
         self.last_time = now
-        decisions, commands = [], []
+        decisions, commands, source_steps = [], [], []
         due = sorted((l for l in self.listeners.values() if l.next_at <= now),
                      key=lambda l: l.next_at)
         if now - self.last_dispatch >= self.MIN_SEPARATION:
@@ -117,6 +119,7 @@ class AudienceReactionScheduler:
                     snapshot.choice_rng = copy.deepcopy(source.choice_rng)
                     backup[key] = snapshot
                 try:
+                    consumed_now = [item.step for item in listener.pending]
                     listener.next_at = now + listener.interval + listener.timing_rng.uniform(-.55, .55)
                     decision, emitted = self._evaluate(listener, now)
                 except Exception:
@@ -124,11 +127,13 @@ class AudienceReactionScheduler:
                     raise
                 decisions.append(decision)
                 commands.extend(emitted)
+                source_steps.extend(consumed_now)
                 self.last_dispatch = now
                 break
         self.sequence += 1
         response = ReactionResponse(session_id=session_id, request_id=request.request_id,
-            sequence=self.sequence, audiences=decisions, commands=commands)
+            sequence=self.sequence, audiences=decisions, commands=commands,
+            source_steps=list(dict.fromkeys(source_steps)))
         self.cache[request.request_id] = response
         while len(self.cache) > 32:
             self.cache.popitem(last=False)

@@ -1,26 +1,31 @@
 <!-- src/lib/odi/components/report/AudienceReactionCard.svelte -->
 
 <script lang="ts">
-	import type { AudienceGraphPoint, ReportFeedback } from "./reportTypes";
-	import { Exclude, sentiment_satisfied, sms } from "$lib/odi/icons";
+	import type { AudienceGraphPoint, ReportFeedback } from './reportTypes';
+	import { Exclude, sentiment_satisfied, sms } from '$lib/odi/icons';
 
 	let {
-		feedback
+		feedback,
+		variant = 'default',
+		visibleSeries = ['E', 'V', 'C']
 	}: {
 		feedback: ReportFeedback;
+		variant?: 'default' | 'timeline';
+		visibleSeries?: ('E' | 'V' | 'C')[];
 	} = $props();
 
 	const graph = $derived(feedback.audience_analysis?.graph ?? []);
+	const events = $derived(feedback.audience_analysis?.events ?? []);
 	const maxTime = $derived(Math.max(...graph.map((point) => point.time_sec), 1));
 	const xTicks = $derived([0, maxTime / 3, (maxTime * 2) / 3, maxTime]);
 
 	function formatTime(seconds: number) {
 		const rounded = Math.max(0, Math.round(seconds));
-		return `${String(Math.floor(rounded / 60)).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`;
+		return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
 	}
 
-	function pathFor(points: AudienceGraphPoint[], key: "E" | "V" | "C") {
-		if (points.length === 0) return "";
+	function pathFor(points: AudienceGraphPoint[], key: 'E' | 'V' | 'C') {
+		if (points.length === 0) return '';
 
 		const width = 430;
 		const height = 150;
@@ -29,88 +34,83 @@
 			.map((point, index) => {
 				const x = (point.time_sec / maxTime) * width;
 				const y = height - point[key] * height;
-				const command = index === 0 ? "M" : "L";
+				const command = index === 0 ? 'M' : 'L';
 
 				return `${command} ${x.toFixed(2)} ${y.toFixed(2)}`;
 			})
-			.join(" ");
+			.join(' ');
 	}
 
-	const summaryCards = $derived([
-		{
-			type: "eye",
-			icon: Exclude,
-			title: "시선이 집중되는 발표였어요",
-			description: "핵심 구간에서 정면 응시가 길게 유지되었어요"
-		},
-		{
-			type: "question",
-			icon: sms,
-			title: "질문이 생기는 흥미로운 흐름이었어요",
-			description: "결론에서 질문 의도가 가장 많이 나타났어요"
-		},
-		{
-			type: "positive",
-			icon: sentiment_satisfied,
-			title: "공감으로 고개가 절로 끄덕여져요",
-			description: "연구와 사례가 연결될 때 긍정이 증가했어요"
-		}
-	]);
+	const summaryCards = $derived(
+		events.slice(0, 3).map((event, index) => ({
+			type: event.type === 'positive' ? 'positive' : index === 0 ? 'eye' : 'question',
+			icon: event.type === 'positive' ? sentiment_satisfied : index === 0 ? Exclude : sms,
+			title: event.label,
+			description: `${formatTime(event.time_sec)} 구간에서 청중 반응 변화가 감지되었어요.`
+		}))
+	);
 </script>
 
-<div class="audience-shell">
-	<div class="audience-card">
-		<section class="chart-area">
-			<div class="chart-header">
-				<h2>청중 반응 분석</h2>
+<div class:timeline={variant === 'timeline'} class="audience-shell">
+	{#if graph.length === 0 && summaryCards.length === 0}
+		<div class="audience-empty">
+			<strong>청중 반응 분석</strong>
+			<p>청중 반응 데이터가 아직 생성되지 않았습니다.</p>
+		</div>
+	{:else}
+		<div class="audience-card">
+			<section class="chart-area">
+				<div class="chart-header">
+					<h2>청중 반응 분석</h2>
 
-				<div class="legend">
-					<span><i class="dot e"></i>시선 응시</span>
-					<span><i class="dot v"></i>질문 생성</span>
-					<span><i class="dot c"></i>긍정 반응</span>
+					<div class="legend">
+						<span><i class="dot e"></i>시선 응시</span>
+						<span><i class="dot v"></i>질문 생성</span>
+						<span><i class="dot c"></i>긍정 반응</span>
+					</div>
 				</div>
-			</div>
 
-			<div class="chart-wrap">
-				<div class="y-labels">
-					<span>100</span>
-					<span>50</span>
-					<span>0</span>
-				</div>
-
-				<svg viewBox="0 0 430 170" class="line-chart" aria-label="청중 반응 그래프">
-					<line class="grid" x1="0" y1="10" x2="430" y2="10" />
-					<line class="grid" x1="0" y1="85" x2="430" y2="85" />
-					<line class="grid" x1="0" y1="160" x2="430" y2="160" />
-
-					<path class="line e" d={pathFor(graph, "E")} />
-					<path class="line v" d={pathFor(graph, "V")} />
-					<path class="line c" d={pathFor(graph, "C")} />
-				</svg>
-
-				<div class="x-labels">
-					{#each xTicks as tick}
-						<span>{formatTime(tick)}</span>
-					{/each}
-				</div>
-			</div>
-		</section>
-
-		<section class="summary-list">
-			{#each summaryCards as card}
-				<article class="summary-card">
-					<div class={`summary-icon ${card.type}`}>
-						<img src={card.icon} alt="" aria-hidden="true" />
+				<div class="chart-wrap">
+					<div class="y-labels">
+						<span>100</span>
+						<span>50</span>
+						<span>0</span>
 					</div>
 
-					<div>
-						<strong>{card.title}</strong>
-						<p>{card.description}</p>
+					<svg viewBox="0 0 430 170" class="line-chart" aria-label="청중 반응 그래프">
+						<line class="grid" x1="0" y1="10" x2="430" y2="10" />
+						<line class="grid" x1="0" y1="85" x2="430" y2="85" />
+						<line class="grid" x1="0" y1="160" x2="430" y2="160" />
+
+						{#if visibleSeries.includes('E')}<path class="line e" d={pathFor(graph, 'E')} />{/if}
+						{#if visibleSeries.includes('V')}<path class="line v" d={pathFor(graph, 'V')} />{/if}
+						{#if visibleSeries.includes('C')}<path class="line c" d={pathFor(graph, 'C')} />{/if}
+					</svg>
+
+					<div class="x-labels">
+						{#each xTicks as tick}
+							<span>{formatTime(tick)}</span>
+						{/each}
 					</div>
-				</article>
-			{/each}
-		</section>
-	</div>
+				</div>
+			</section>
+
+			<section class="summary-list">
+				{#each summaryCards as card}
+					<article class="summary-card">
+						<div class={`summary-icon ${card.type}`}>
+							<img src={card.icon} alt="" aria-hidden="true" />
+						</div>
+
+						<div>
+							<strong>{card.title}</strong>
+							<p>{card.description}</p>
+						</div>
+					</article>
+				{/each}
+			</section>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -124,6 +124,37 @@
 		grid-template-columns: minmax(320px, 1.25fr) minmax(220px, 0.75fr);
 		gap: var(--space-6);
 		align-items: center;
+	}
+
+	.audience-shell.timeline .audience-card {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.audience-shell.timeline .summary-list {
+		display: none;
+	}
+
+	.audience-shell.timeline .line-chart,
+	.audience-shell.timeline .y-labels {
+		height: 230px;
+	}
+
+	.audience-empty {
+		min-height: 340px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		border: 1px dashed var(--cool-grey-light-active);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
+		text-align: center;
+	}
+
+	.audience-empty strong {
+		color: var(--brand-black);
+		font-size: 18px;
 	}
 
 	.chart-area {

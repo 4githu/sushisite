@@ -6,9 +6,51 @@ import time
 
 def login_with_password(email, password):
     user = userdb.get_user(email)
-    if user and sushihash.check_hash(password, user['password_hash']):
-        return True, user
-    return False, "없는 유저입니다"
+    if not user:
+        return False, "이메일 또는 비밀번호가 올바르지 않습니다."
+
+    try:
+        if sushihash.check_hash(password, user['password_hash']):
+            return True, user
+    except sushihash.PasswordTooLongError:
+        return False, "비밀번호가 너무 깁니다. 비밀번호를 재설정해주세요."
+
+    return False, "이메일 또는 비밀번호가 올바르지 않습니다."
+
+
+def request_password_reset(email):
+    """Send a one-hour code only when an account exists; do not reveal account existence."""
+    user = userdb.get_user(email)
+    if not user:
+        return True
+
+    code = email_verified.send_verification_email(email, user["name"])
+    userdb.save_password_reset_code(email, str(code), int(time.time()))
+    return True
+
+
+def reset_password(email, code, new_password):
+    reset = userdb.get_password_reset_code(email)
+    if not reset or str(reset["code"]) != str(code):
+        return False, "유효하지 않은 인증 코드입니다."
+
+    if int(time.time()) - reset["created_at"] > 3600:
+        userdb.delete_password_reset_code(email)
+        return False, "인증 코드가 만료되었습니다. 다시 요청해주세요."
+
+    user = userdb.get_user(email)
+    if not user:
+        userdb.delete_password_reset_code(email)
+        return False, "비밀번호를 재설정할 계정을 찾을 수 없습니다."
+
+    try:
+        password_hash = sushihash.make_hash(new_password)
+    except sushihash.PasswordTooLongError as error:
+        return False, str(error)
+
+    userdb.update_password(user["id"], password_hash)
+    userdb.delete_password_reset_code(email)
+    return True, None
 
 def send_verification_email(email, password = None, name = None):
     if userdb.get_imsi_user(email):
@@ -62,10 +104,16 @@ def edit_user(id=None, password=None, email=None, new_password=None, name=None):
     if new_password is None or new_password.strip() == "":
         password_hash = user["password_hash"]
     else:
-        if password is None or not sushihash.check_hash(password, user["password_hash"]):
+        try:
+            password_matches = password is not None and sushihash.check_hash(password, user["password_hash"])
+        except sushihash.PasswordTooLongError:
+            password_matches = False
+        if not password_matches:
             return False, "현재 비밀번호가 올바르지 않습니다."
-
-        password_hash = sushihash.make_hash(new_password)
+        try:
+            password_hash = sushihash.make_hash(new_password)
+        except sushihash.PasswordTooLongError as error:
+            return False, str(error)
 
     userdb.edit_user(id, email, password_hash, name)
 

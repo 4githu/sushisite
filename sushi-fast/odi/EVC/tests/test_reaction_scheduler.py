@@ -58,6 +58,7 @@ def test_retry_silence_and_provider_stall_do_not_reapply_evidence_or_burst():
     request = ReactionRequest(request_id=uuid4(), client_time_s=100)
     response = s.tick(session, request)
     assert len(response.audiences) == 1
+    assert response.source_steps == [1]
     assert s.tick(session, request) == response
     assert tick(s, 100).audiences == []
     for i in range(1, 120):

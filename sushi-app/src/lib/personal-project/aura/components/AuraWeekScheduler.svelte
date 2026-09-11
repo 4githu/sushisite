@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { ClinicRound } from '$lib/personal-project/shared/types';
 
 	let {
 		sessions,
 		onselect,
-		onedit
+		onedit,
+		ondate
 	}: {
 		sessions: ClinicRound[];
 		onselect: (start: Date, end: Date) => void;
 		onedit: (session: ClinicRound) => void;
+		ondate: (date: Date) => void;
 	} = $props();
 
 	let weekCursor = $state(new Date());
@@ -39,6 +42,16 @@
 		return result;
 	}
 
+	function localDateKey(date: Date) {
+		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	}
+
+	function syncWeekQuery() {
+		const url = new URL(window.location.href);
+		url.searchParams.set('week', localDateKey(startOfWeek(weekCursor)));
+		window.history.replaceState(window.history.state, '', url);
+	}
+
 	function weekDays(date: Date) {
 		const monday = startOfWeek(date);
 		return Array.from({ length: 7 }, (_, index) => {
@@ -52,6 +65,7 @@
 		const next = new Date(weekCursor);
 		next.setDate(next.getDate() + step * 7);
 		weekCursor = next;
+		syncWeekQuery();
 	}
 
 	function slotDate(dayIndex: number, slot: number) {
@@ -114,6 +128,15 @@
 		const minutes = 8 * 60 + slot * 30;
 		return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 	}
+
+	onMount(() => {
+		const value = new URL(window.location.href).searchParams.get('week');
+		if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+			const restored = new Date(`${value}T00:00:00`);
+			if (!Number.isNaN(restored.getTime())) weekCursor = restored;
+		}
+		syncWeekQuery();
+	});
 </script>
 
 <section
@@ -155,8 +178,10 @@
 			<div class="corner"></div>
 			{#each days as day}
 				<div class:today={day.toDateString() === new Date().toDateString()} class="day-head">
-					<span>{new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(day)}</span>
-					<strong>{day.getDate()}</strong>
+					<button onclick={() => ondate(new Date(day))} aria-label={`${day.toLocaleDateString('ko-KR')} 강의실 배정 요청문 만들기`}>
+						<span>{new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(day)}</span>
+						<strong>{day.getDate()}</strong>
+					</button>
 				</div>
 			{/each}
 
@@ -276,12 +301,23 @@
 
 	.day-head {
 		height: 52px;
+		padding: 0;
+		border-left: 1px solid var(--pp-line);
+	}
+
+	.day-head button {
+		width: 100%;
+		height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		border-left: 1px solid var(--pp-line);
+		border: 0;
+		background: transparent;
+		cursor: pointer;
 	}
+
+	.day-head button:hover { background: #edf2ed; }
 
 	.day-head span {
 		color: var(--pp-muted);

@@ -214,6 +214,8 @@ def test_provider_failure_does_not_commit_state(tmp_path: Path) -> None:
 
 
 def test_fastapi_start_read_and_update_contract(monkeypatch) -> None:
+    monkeypatch.setenv("DEEPGRAM_API_KEY", "test-deepgram-key")
+
     async def fake_transcribe(*args, **kwargs):
         return STTProvider().transcribe("unused", "ko-KR")
 

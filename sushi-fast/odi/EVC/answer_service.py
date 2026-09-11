@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import io
+import wave
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -18,11 +20,14 @@ def checked_question(record, index):
 
 async def submit_answer(*, session_id, token, index, request_id: UUID, audio: bytes,
                         next_audience_id="", provider=None, transcriber=None, store=session_store):
-    from .azure_speech import transcribe, validate_wav
+    from .azure_speech import validate_wav
+    from .speech2text import transcribe_wav_bytes
     # Authenticate before accepting work; serialize only this session's Q&A requests.
     record = await store.get_authorized_session(session_id, token)
     digest = hashlib.sha256(audio).hexdigest()
     validate_wav(audio)
+    with wave.open(io.BytesIO(audio), "rb") as stream:
+        answer_duration_s = round(stream.getnframes() / stream.getframerate(), 3)
     async with record.qa_lock:
         async with store.locked_session(session_id, token) as record:
             question = checked_question(record, index)
@@ -44,11 +49,20 @@ async def submit_answer(*, session_id, token, index, request_id: UUID, audio: by
             if entry is None:
                 entry = {"request_id": str(request_id), "audio_hash": digest,
                          "question_index": index, "question": question.question,
-                         "next_audience_id": next_audience_id, "transcript": ""}
+                         "intent": question.intent,
+                         "next_audience_id": next_audience_id, "transcript": "",
+                         "answer_duration_s": answer_duration_s}
                 record.qa_answers[index] = entry
 
         if not entry["transcript"]:
-            transcript = (await (transcriber or transcribe)(audio)).strip()
+            if transcriber is not None:
+                transcript = (await transcriber(audio)).strip()
+            else:
+                result = await transcribe_wav_bytes(
+                    audio,
+                    provider_name=record.stt_provider_name,
+                )
+                transcript = result.transcript.strip()
             if not transcript:
                 async with store.locked_session(session_id, token) as record:
                     del record.qa_answers[index]
