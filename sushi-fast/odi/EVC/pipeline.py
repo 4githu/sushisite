@@ -43,7 +43,7 @@ from .session_store import SessionStore, session_store
 from .report_schema import ReportSegmentRecord
 from .config import EVC_TRANSCRIPT_RETENTION_DAYS
 from odi.db import odidb
-from .speech2text import SpeechToTextProvider, transcribe_audio
+from .speech2text import SpeechToTextProvider, provider_for_name, transcribe_audio
 from .state_engine import aggregate_state, compute_state_delta, update_audience_state
 from .reaction_scheduler import AudienceReactionScheduler, Evidence
 
@@ -67,6 +67,7 @@ async def create_pipeline_session(
     owner_user_id: str | None = None,
     template_id: str | None = None,
     pre_session_pin: str | None = None,
+    stt_provider_name: str = "deepgram",
     store: SessionStore = session_store,
 ) -> SmartStartResponseV2:
     record, raw_token = await store.create_session(
@@ -76,6 +77,7 @@ async def create_pipeline_session(
         owner_user_id=owner_user_id,
         template_id=template_id,
         pre_session_pin=pre_session_pin,
+        stt_provider_name=stt_provider_name,
     )
     snapshots = [
         AudienceSnapshot(
@@ -101,6 +103,7 @@ async def create_pipeline_session(
         expires_in_s=store.expires_in_s(record),
         slide_count=len(record.slides),
         slides=record.slides,
+        stt_provider=record.stt_provider_name,
     )
 
 
@@ -137,6 +140,7 @@ async def read_pipeline_session(
         presentation_status=record.presentation_status,
         question_generation_status=record.question_generation_status,
         report_generation_status=record.report_generation_status,
+        stt_provider=record.stt_provider_name,
     )
 
 
@@ -168,10 +172,11 @@ async def update_pipeline(
             raise ClientTimeRegressionError("client_time_s regressed by more than 0.25 seconds")
         accepted_time = max(context.client_time_s, record.accepted_client_time_s)
 
+        selected_stt_provider = stt_provider or provider_for_name(record.stt_provider_name)
         stt_result = await transcribe_audio(
             audio_path,
             context.language,
-            provider=stt_provider,
+            provider=selected_stt_provider,
         )
         evaluation, speech_metrics, warnings = await evaluate_presentation_segment(
             presentation_title=record.presentation_title,
@@ -195,7 +200,7 @@ async def update_pipeline(
             record_update(
                 response,
                 latency_ms=(time.perf_counter() - pipeline_started) * 1000,
-                stt_provider=type(stt_provider).__name__ if stt_provider else "Deepgram",
+                stt_provider=type(selected_stt_provider).__name__,
                 evaluation_provider="skipped_empty_transcript",
             )
             return response
@@ -340,6 +345,10 @@ async def update_pipeline(
                 evaluation=evaluation,
                 speech_metrics=speech_metrics,
                 evc_state=aggregate,
+                context=context,
+                delta=delta,
+                audiences=decisions,
+                commands=commands,
                 warnings=warnings,
             )
         if record.pre_session_pin:
@@ -362,7 +371,7 @@ async def update_pipeline(
         record_update(
             response,
             latency_ms=(time.perf_counter() - pipeline_started) * 1000,
-            stt_provider=type(stt_provider).__name__ if stt_provider else "Deepgram",
+            stt_provider=type(selected_stt_provider).__name__,
             evaluation_provider=(
                 type(evaluation_provider).__name__ if evaluation_provider else "OpenAI"
             ),

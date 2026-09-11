@@ -602,6 +602,7 @@ class SmartStartResponseV2(StrictModel):
     expires_in_s: int = Field(gt=0)
     slide_count: int = Field(ge=0)
     slides: list[SlideInfo]
+    stt_provider: Literal["deepgram", "azure"] = "deepgram"
 
     @model_validator(mode="after")
     def audience_ids_are_unique(self) -> "SmartStartResponseV2":
@@ -635,6 +636,7 @@ class SessionResponseV2(StrictModel):
     report_generation_status: Literal[
         "not_started", "generating", "ready", "failed"
     ] = "not_started"
+    stt_provider: Literal["deepgram", "azure"] = "deepgram"
 
 
 class EVCUpdateResponseV2(StrictModel):

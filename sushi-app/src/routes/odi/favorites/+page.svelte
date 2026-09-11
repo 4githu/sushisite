@@ -1,10 +1,24 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-
-	import { API_BASE as API } from "$lib/config/api";
-	import { odiuser, session, template, type OdiSession, type OdiTemplate } from "$lib/odi/stores";
-	import { chair_alt, podium, school, voice_selection } from "$lib/odi/icons";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { API_BASE as API } from '$lib/config/api';
+	import { odiuser, session, template, type OdiSession, type OdiTemplate } from '$lib/odi/stores';
+	import {
+		figmaChevronDown,
+		figmaClose,
+		figmaDescription,
+		figmaGroup,
+		figmaModalClose,
+		figmaPdf,
+		figmaPlus,
+		figmaSafetyGoggles,
+		figmaSchedule,
+		figmaSearch,
+		figmaStylus,
+		figmaTemplateInterview,
+		figmaTemplatePresentation,
+		figmaTemplateSeminar
+	} from '$lib/odi/icons';
 
 	type StoredTemplate = {
 		template_id: string;
@@ -12,10 +26,9 @@
 		created_at: string;
 		updated_at: string;
 	};
-
 	type TemplateCard = StoredTemplate & {
 		title: string;
-		typeLabel: "발표" | "면접";
+		typeLabel: '발표' | '면접';
 		placeLabel: string;
 		durationLabel: string;
 		audienceLabel: string;
@@ -23,244 +36,898 @@
 		usedCount: number;
 		lastUsedAt: string | null;
 	};
-
-	let templates = $state<StoredTemplate[]>([]);
-	let sessions = $state<OdiSession[]>([]);
-	let loading = $state(true);
-	let errorMessage = $state("");
-	let query = $state("");
-	let categoryFilter = $state<"favorite" | "used" | "temporary" | "all">("favorite");
-	let typeFilter = $state<"all" | "presentation" | "interview">("all");
-	let sortOrder = $state<"recent" | "used">("recent");
-	let selected = $state<TemplateCard | null>(null);
-	let starting = $state(false);
-	let savingFavorite = $state<string | null>(null);
+	const PAGE_SIZE = 5;
+	let templates = $state<StoredTemplate[]>([]),
+		sessions = $state<OdiSession[]>([]);
+	let loading = $state(true),
+		errorMessage = $state(''),
+		query = $state('');
+	let typeFilter = $state<'all' | 'presentation' | 'interview'>('all'),
+		sortOrder = $state<'recent' | 'used'>('recent'),
+		currentPage = $state(1);
+	let selected = $state<TemplateCard | null>(null),
+		starting = $state(false),
+		savingFavorite = $state<string | null>(null);
 
 	const favoriteIds = $derived<string[]>(
 		Array.isArray($odiuser?.config?.favorite_template_ids)
-			? $odiuser.config.favorite_template_ids.filter((value: unknown): value is string => typeof value === "string")
+			? $odiuser.config.favorite_template_ids.filter(
+					(value: unknown): value is string => typeof value === 'string'
+				)
 			: Array.isArray($odiuser?.config?.favorite_templates)
-				? $odiuser.config.favorite_templates.filter((value: unknown): value is string => typeof value === "string")
+				? $odiuser.config.favorite_templates.filter(
+						(value: unknown): value is string => typeof value === 'string'
+					)
 				: []
 	);
 
 	function dateText(value: string | null) {
-		if (!value) return "사용 기록 없음";
+		if (!value) return '사용 기록 없음';
 		const parsed = new Date(value);
 		return Number.isNaN(parsed.getTime())
-			? "사용 기록 없음"
+			? '사용 기록 없음'
 			: `마지막 사용 ${parsed.getFullYear()}.${parsed.getMonth() + 1}.${parsed.getDate()}`;
 	}
-
 	function makeCard(row: StoredTemplate): TemplateCard {
 		const value = row.template;
-		const relatedSessions = sessions.filter((item) => item.template_id === row.template_id && item.state === "completed" && item.feedback);
-		const lastUsedAt = relatedSessions[0]?.ended_at ?? relatedSessions[0]?.created_at ?? null;
-
-		if (value.type === "presentation") {
-			const environment = value.environment;
-			const audience = value.audience;
-			const tags = [environment.place, environment.purpose]
-				.filter((tag): tag is string => Boolean(tag?.trim()))
-				.slice(0, 3);
+		const related = sessions.filter(
+			(item) => item.template_id === row.template_id && item.state === 'completed' && item.feedback
+		);
+		const lastUsedAt = related[0]?.ended_at ?? related[0]?.created_at ?? null;
+		if (value.type === 'presentation') {
+			const env = value.environment,
+				audience = value.audience;
 			return {
 				...row,
-				title: environment.title || "제목 없는 발표 템플릿",
-				typeLabel: "발표",
-				placeLabel: environment.place || "발표 환경 미설정",
-				durationLabel: `발표 ${environment.duration_minutes || 0}분 · Q&A ${environment.question_count || 0}개`,
+				title: env.title || '제목 없는 발표 템플릿',
+				typeLabel: '발표',
+				placeLabel: env.place || '발표 환경 미설정',
+				durationLabel: `발표 ${env.duration_minutes || 0}분 · Q&A ${env.question_count || 0}개`,
 				audienceLabel: `청중 ${audience.audience_count || 0}인`,
-				tags,
-				usedCount: relatedSessions.length,
+				tags: [env.place, env.purpose]
+					.filter((tag): tag is string => Boolean(tag?.trim()))
+					.slice(0, 3),
+				usedCount: related.length,
 				lastUsedAt
 			};
 		}
-
-		const environment = value.environment;
-		const tags = [environment.company_name, environment.position, environment.interview_context]
-			.filter((tag): tag is string => Boolean(tag?.trim()))
-			.slice(0, 3);
+		const env = value.environment;
 		return {
 			...row,
-			title: environment.position || environment.company_name || "제목 없는 면접 템플릿",
-			typeLabel: "면접",
-			placeLabel: environment.interview_context || "면접 환경 미설정",
-			durationLabel: `소요 시간 ${environment.duration_minutes || 0}분`,
-			audienceLabel: `면접관 ${environment.interviewer_count || 0}인`,
-			tags,
-			usedCount: relatedSessions.length,
+			title: env.position || env.company_name || '제목 없는 면접 템플릿',
+			typeLabel: '면접',
+			placeLabel: env.interview_context || '면접 환경 미설정',
+			durationLabel: `소요 시간 ${env.duration_minutes || 0}분`,
+			audienceLabel: `면접관 ${env.interviewer_count || 0}인`,
+			tags: [env.company_name, env.position, env.interview_context]
+				.filter((tag): tag is string => Boolean(tag?.trim()))
+				.slice(0, 3),
+			usedCount: related.length,
 			lastUsedAt
 		};
 	}
-
 	const allCards = $derived(templates.map(makeCard));
 	const visibleCards = $derived.by(() => {
-		const normalized = query.trim().toLowerCase();
+		const q = query.trim().toLowerCase();
 		return [...allCards]
-			.filter((item) => categoryFilter === "all"
-				|| (categoryFilter === "favorite" && favoriteIds.includes(item.template_id))
-				|| (categoryFilter === "used" && item.usedCount > 0)
-				|| (categoryFilter === "temporary" && item.usedCount === 0))
-			.filter((item) => typeFilter === "all" || item.template.type === typeFilter)
-			.filter((item) => !normalized || [item.title, ...item.tags].join(" ").toLowerCase().includes(normalized))
-			.sort((left, right) => sortOrder === "used"
-				? right.usedCount - left.usedCount || right.updated_at.localeCompare(left.updated_at)
-				: (right.lastUsedAt ?? right.updated_at).localeCompare(left.lastUsedAt ?? left.updated_at));
+			.filter((item) => favoriteIds.includes(item.template_id))
+			.filter((item) => typeFilter === 'all' || item.template.type === typeFilter)
+			.filter((item) => !q || [item.title, ...item.tags].join(' ').toLowerCase().includes(q))
+			.sort((a, b) =>
+				sortOrder === 'used'
+					? b.usedCount - a.usedCount || b.updated_at.localeCompare(a.updated_at)
+					: (b.lastUsedAt ?? b.updated_at).localeCompare(a.lastUsedAt ?? a.updated_at)
+			);
 	});
-
+	const pageCount = $derived(Math.max(1, Math.ceil(visibleCards.length / PAGE_SIZE)));
+	const pagedCards = $derived(
+		visibleCards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+	);
+	$effect(() => {
+		typeFilter;
+		query;
+		sortOrder;
+		currentPage = 1;
+	});
 	function iconFor(card: TemplateCard) {
-		if (card.template.type === "interview") return voice_selection;
-		if (card.placeLabel.includes("학회")) return school;
-		if (card.placeLabel.includes("강의")) return chair_alt;
-		return podium;
+		if (card.template.type === 'interview') return figmaTemplateInterview;
+		if (card.placeLabel.includes('세미나') || card.placeLabel.includes('강의'))
+			return figmaTemplateSeminar;
+		return figmaTemplatePresentation;
 	}
-
 	async function load() {
-		const user = odiuser.get();
-		if (!user) {
-			loading = false;
-			errorMessage = "로그인 정보를 불러오지 못했습니다.";
-			return;
-		}
-
 		try {
-			const [templateResponse, savedSessions] = await Promise.all([
-				fetch(`${API}/odi/db/users/${user.user_id}/templates`, { credentials: "include" }),
+			const user = await odiuser.requireUser();
+			const [res, saved] = await Promise.all([
+				fetch(`${API}/odi/db/users/${user.user_id}/templates`, { credentials: 'include' }),
 				session.listMySessions(200)
 			]);
-			if (!templateResponse.ok) throw new Error("저장한 템플릿을 불러오지 못했습니다.");
-			const data = await templateResponse.json();
+			if (!res.ok) throw new Error('저장한 템플릿을 불러오지 못했습니다.');
+			const data = await res.json();
 			templates = Array.isArray(data.templates) ? data.templates : [];
-			sessions = savedSessions;
+			sessions = saved;
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "즐겨찾기를 불러오지 못했습니다.";
+			errorMessage = error instanceof Error ? error.message : '즐겨찾기를 불러오지 못했습니다.';
 		} finally {
 			loading = false;
 		}
 	}
-
-	async function toggleFavorite(card: TemplateCard) {
+	async function removeFavorite(card: TemplateCard) {
 		const user = odiuser.get();
 		if (!user || savingFavorite) return;
 		savingFavorite = card.template_id;
 		try {
-			const next = favoriteIds.includes(card.template_id)
-				? favoriteIds.filter((id) => id !== card.template_id)
-				: [...favoriteIds, card.template_id];
-			await odiuser.updateConfig({ ...user.config, favorite_template_ids: next });
+			await odiuser.updateConfig({
+				...user.config,
+				favorite_template_ids: favoriteIds.filter((id) => id !== card.template_id)
+			});
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "즐겨찾기 저장에 실패했습니다.";
+			errorMessage = error instanceof Error ? error.message : '즐겨찾기 저장에 실패했습니다.';
 		} finally {
 			savingFavorite = null;
 		}
 	}
-
 	async function useSelected(edit = false) {
 		if (!selected || starting) return;
 		starting = true;
 		try {
 			template.set(selected.template);
 			await template.saveToRecent();
-			await goto(`/odi/session/${selected.template.type}${edit ? "" : "/confirm"}`);
+			await goto(`/odi/session/${selected.template.type}${edit ? '' : '/confirm'}`);
 		} catch (error) {
-			errorMessage = error instanceof Error ? error.message : "템플릿을 불러오지 못했습니다.";
+			errorMessage = error instanceof Error ? error.message : '템플릿을 불러오지 못했습니다.';
 		} finally {
 			starting = false;
 		}
 	}
-
-	async function addRecentTemplate() {
-		const recent = odiuser.get()?.recent_template as OdiTemplate | null;
-		if (!recent) return;
-		template.set(recent);
-		await goto(`/odi/session/${recent.type}`);
-	}
-
 	onMount(load);
 </script>
 
 <main class="favorites-page">
 	<header class="page-header">
-		<p class="eyebrow">Templates</p>
 		<div>
-			<h1>나의 템플릿</h1>
-			<p>사용 완료, 즐겨찾기, 발표 전 임시 템플릿을 나누어 관리하세요.</p>
+			<p class="eyebrow">Favorites</p>
+			<h1>즐겨찾는 템플릿</h1>
+			<p class="subtitle">
+				자주 사용하는 발표·면접 템플릿을 저장하고, 빠르게 불러와 연습을 시작해보세요.
+			</p>
 		</div>
-		<button class="new-template" type="button" onclick={() => goto("/odi")}>＋ 새 템플릿 만들기</button>
+		<button class="new-template" type="button" onclick={() => goto('/odi')}
+			><span class="icon-26"><img src={figmaPlus} alt="" /></span><span>새 템플릿 만들기</span
+			></button
+		>
 	</header>
-
-	<div class="toolbar">
-		<div class="filter-tabs category-tabs" aria-label="템플릿 상태">
-			{#each [["favorite", "즐겨찾기"], ["used", "사용 완료"], ["temporary", "임시"], ["all", "전체"]] as [value, label]}
-				<button type="button" class:active={categoryFilter === value} onclick={() => categoryFilter = value as typeof categoryFilter}>{label}</button>
-			{/each}
+	<div class="list-toolbar">
+		<div class="type-tabs" role="tablist" aria-label="템플릿 종류">
+			{#each [['all', '전체'], ['presentation', '발표'], ['interview', '면접']] as [value, label]}<button
+					role="tab"
+					aria-selected={typeFilter === value}
+					class:active={typeFilter === value}
+					type="button"
+					onclick={() => (typeFilter = value as typeof typeFilter)}>{label}</button
+				>{/each}
 		</div>
-		<div class="filter-tabs" aria-label="템플릿 종류">
-			{#each [["all", "전체"], ["presentation", "발표"], ["interview", "면접"]] as [value, label]}
-				<button type="button" class:active={typeFilter === value} onclick={() => typeFilter = value as typeof typeFilter}>{label}</button>
-			{/each}
+		<div class="tools">
+			<label class="sort-box"
+				><span class="sr-only">정렬</span><select bind:value={sortOrder}
+					><option value="recent">최신순</option><option value="used">사용 많은 순</option></select
+				><span class="icon-24"><img src={figmaChevronDown} alt="" /></span></label
+			><label class="search-box"
+				><span class="sr-only">템플릿 검색</span><input
+					bind:value={query}
+					placeholder="템플릿 이름 또는 태그 검색"
+				/><span class="icon-24"><img src={figmaSearch} alt="" /></span></label
+			>
 		</div>
-		<label class="search"><span class="sr-only">템플릿 검색</span><input bind:value={query} placeholder="템플릿 이름 또는 태그 검색" /></label>
-		<select bind:value={sortOrder} aria-label="정렬"><option value="recent">최신순</option><option value="used">사용 많은 순</option></select>
 	</div>
-
-	{#if loading}
-		<div class="empty-state">템플릿을 불러오는 중입니다.</div>
-	{:else if errorMessage}
-		<div class="empty-state error">{errorMessage}<button type="button" onclick={load}>다시 시도</button></div>
-	{:else if visibleCards.length === 0}
-		<div class="empty-state">
-			<strong>조건에 맞는 템플릿이 없습니다.</strong>
-			<p>{categoryFilter === "favorite" ? "전체 또는 임시 탭에서 별표를 눌러 즐겨찾기에 추가할 수 있습니다." : "새 템플릿을 만들거나 검색 조건을 바꿔보세요."}</p>
-			{#if odiuser.get()?.recent_template}
-				<button class="recent-button" type="button" onclick={addRecentTemplate}>최근 사용 설정 열기</button>
-			{/if}
-		</div>
-	{:else}
-		<p class="count">총 {visibleCards.length}개 템플릿</p>
-		<section class="template-grid">
-			{#each visibleCards as card (card.template_id)}
-				<article class="template-card">
-					<button class="card-main" type="button" onclick={() => selected = card}>
-						<div class="card-heading"><img src={iconFor(card)} alt="" /><div><span class="type-chip">{card.typeLabel}</span><h2>{card.title}</h2></div></div>
-						<div class="tags">{#each card.tags as tag}<span>#{tag}</span>{/each}</div>
-						<div class="details"><span>{card.durationLabel}</span><span>{card.audienceLabel}</span></div>
-						<div class="usage"><span>{dateText(card.lastUsedAt)}</span><span>총 사용 {card.usedCount}회</span></div>
-					</button>
-					<button class="favorite-button" class:marked={favoriteIds.includes(card.template_id)} type="button" aria-label={favoriteIds.includes(card.template_id) ? "즐겨찾기 해제" : "즐겨찾기 추가"} disabled={savingFavorite === card.template_id} onclick={() => toggleFavorite(card)}>★</button>
-					<div class="card-actions"><button type="button" onclick={() => selected = card}>바로 시작</button><button type="button" onclick={() => { selected = card; useSelected(true); }}>수정</button></div>
-				</article>
-			{/each}
-		</section>
-	{/if}
-
-	{#if selected}
-		<div class="modal-backdrop" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) selected = null; }}>
-			<div class="template-modal" role="dialog" aria-modal="true" aria-labelledby="template-modal-title">
-				<button type="button" class="close" aria-label="닫기" onclick={() => selected = null}>×</button>
-				<p class="modal-label">{selected.typeLabel} 템플릿</p>
-				<h2 id="template-modal-title">{selected.title}</h2>
-				<p class="modal-copy">이전에 사용한 설정을 불러올까요?</p>
-				<div class="modal-info"><div><b>자료 업로드</b><span>{selected.template.files.slide?.original_name ?? "발표 자료 없음"}</span><span>{selected.template.files.script?.original_name ?? "스크립트 없음"}</span></div><div><b>환경</b><span>{selected.placeLabel}</span><span>{selected.durationLabel}</span><span>{selected.audienceLabel}</span></div></div>
-				<div class="modal-actions"><button type="button" onclick={() => useSelected(true)}>수정하기</button><button type="button" onclick={() => selected = null}>취소하기</button><button class="primary" type="button" disabled={starting} onclick={() => useSelected(false)}>{starting ? "불러오는 중..." : "시작하기"}</button></div>
+	{#if loading}<div class="state">템플릿을 불러오는 중입니다.</div>{:else if errorMessage}<div
+			class="state error"
+		>
+			{errorMessage}<button type="button" onclick={load}>다시 시도</button>
+		</div>{:else if visibleCards.length === 0}<div class="state">
+			<strong>즐겨찾는 템플릿이 없습니다.</strong>
+			<p>자주 쓰는 템플릿을 즐겨찾기에 추가해보세요.</p>
+		</div>{:else}
+		<section class="template-list" aria-label="즐겨찾는 템플릿 목록">
+			{#each pagedCards as card (card.template_id)}<article class="template-row">
+					<div class="identity">
+						<span class="template-icon"><img src={iconFor(card)} alt="" /></span>
+						<div class="identity-copy">
+							<div class="title-line">
+								<span class:interview={card.typeLabel === '면접'} class="type-chip"
+									>{card.typeLabel}</span
+								>
+								<h2>{card.title}</h2>
+							</div>
+							<div class="tags">
+								{#each card.tags as tag}<span>#{tag}</span>{/each}
+							</div>
+						</div>
+					</div>
+					<div class="session-info">
+						<span
+							><span class="icon-18"><img src={figmaSchedule} alt="" /></span
+							>{card.durationLabel}</span
+						><span
+							><span class="icon-18"><img src={figmaGroup} alt="" /></span
+							>{card.audienceLabel}</span
+						>
+					</div>
+					<div class="usage">
+						<span>{dateText(card.lastUsedAt)}</span><span>총 사용 {card.usedCount}회</span>
+					</div>
+					<div class="row-actions">
+						<button class="start" type="button" onclick={() => (selected = card)}>바로 시작</button
+						><button
+							class="edit"
+							type="button"
+							onclick={() => {
+								selected = card;
+								void useSelected(true);
+							}}>수정</button
+						><button
+							class="remove"
+							type="button"
+							aria-label={`${card.title} 즐겨찾기 해제`}
+							disabled={savingFavorite === card.template_id}
+							onclick={() => void removeFavorite(card)}
+							><span class="icon-24"><img src={figmaClose} alt="" /></span></button
+						>
+					</div>
+				</article>{/each}
+		</section>{/if}
+	<footer class="list-footer">
+		<p>총 {visibleCards.length}개 템플릿</p>
+		{#if pageCount > 1}<nav class="pagination" aria-label="페이지 이동">
+				{#each Array(pageCount) as _, index}<button
+						class:active={currentPage === index + 1}
+						type="button"
+						onclick={() => (currentPage = index + 1)}>{index + 1}</button
+					>{/each}
+			</nav>{/if}
+	</footer>
+	{#if selected}<div
+			class="modal-backdrop"
+			role="presentation"
+			onclick={(event) => {
+				if (event.target === event.currentTarget) selected = null;
+			}}
+		>
+			<div
+				class="template-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="template-modal-title"
+			>
+				<button
+					type="button"
+					class="modal-close"
+					aria-label="닫기"
+					onclick={() => (selected = null)}
+					><span class="icon-24"><img src={figmaModalClose} alt="" /></span></button
+				>
+				<div class="modal-title">
+					<p>{selected.title}</p>
+					<h2 id="template-modal-title">이전에 사용한 설정을 불러올까요?</h2>
+				</div>
+				<div class="modal-cards">
+					<article>
+						<h3>자료 업로드</h3>
+						<div class="file-box">
+							<img src={figmaPdf} alt="" /><span
+								>{selected.template.files.slide?.original_name ?? '발표 슬라이드.pdf'}<small
+									>2026. 06. 24 업로드</small
+								></span
+							>
+						</div>
+						<div class="file-box">
+							<img src={figmaDescription} alt="" /><span
+								>{selected.template.files.script?.original_name ?? '발표 스크립트.txt'}<small
+									>2026. 06. 24 업로드</small
+								></span
+							>
+						</div>
+					</article>
+					<article>
+						<h3>청중 설정</h3>
+						<dl>
+							<div>
+								<dt>유형</dt>
+								<dd>혼합</dd>
+							</div>
+							<div>
+								<dt>규모</dt>
+								<dd>{selected.audienceLabel.replace(/[^0-9]/g, '') || '50'}명</dd>
+							</div>
+							<div>
+								<dt>전문성</dt>
+								<dd>보통</dd>
+							</div>
+							<div>
+								<dt>관심도</dt>
+								<dd>높음</dd>
+							</div>
+						</dl>
+					</article>
+				</div>
+				<button class="modal-edit" type="button" onclick={() => void useSelected(true)}
+					><span class="icon-24"><img src={figmaStylus} alt="" /></span>수정하기</button
+				>
+				<div class="modal-actions">
+					<button type="button" onclick={() => (selected = null)}>취소하기</button><button
+						class="primary"
+						type="button"
+						disabled={starting}
+						onclick={() => void useSelected(false)}
+						><span class="icon-30"><img src={figmaSafetyGoggles} alt="" /></span>{starting
+							? '불러오는 중...'
+							: '시작하기'}</button
+					>
+				</div>
 			</div>
-		</div>
-	{/if}
+		</div>{/if}
 </main>
 
 <style>
-	.favorites-page { width: 100%; min-height: 100vh; padding: 42px 52px 64px; color: var(--text-primary); background: var(--surface); }
-	.page-header { display:grid; grid-template-columns: 1fr auto; gap: 16px 28px; align-items:end; padding-bottom: 30px; border-bottom:1px solid var(--cool-grey-light-active); }
-	.eyebrow { grid-column:1/-1; margin:0; color:var(--primary); font-size:14px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-	h1,h2,p { margin:0; } h1 { font-size:30px; } .page-header div p { margin-top:9px; color:var(--text-secondary); }
-	.new-template,.recent-button,.modal-actions button,.card-actions button,.empty-state button { border:1px solid var(--cool-grey-light-active); border-radius:10px; background:var(--surface); color:var(--text-primary); font:inherit; font-weight:600; cursor:pointer; }
-	.new-template { height:44px; padding:0 18px; }
-	.toolbar { display:flex; align-items:center; gap:12px; padding:26px 0; }
-	.filter-tabs { display:flex; gap:4px; padding:4px; border-radius:10px; background:#f3f5f8; }
-	.filter-tabs button { border:0; padding:8px 17px; border-radius:7px; color:var(--text-secondary); background:transparent; font:inherit; cursor:pointer; }.filter-tabs button.active { background:white; color:var(--primary); font-weight:700; box-shadow:0 1px 3px #0001; }
-	.search { flex:1; min-width:180px; }.search input,select { box-sizing:border-box; width:100%; height:40px; padding:0 13px; border:1px solid var(--cool-grey-light-active); border-radius:8px; background:white; font:inherit; }.toolbar select { width:110px; }
-	.count { margin-bottom:16px; color:var(--text-secondary); font-size:14px; }
-	.template-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:18px; }.template-card { position:relative; display:flex; flex-direction:column; min-height:270px; border:1px solid var(--cool-grey-light-active); border-radius:14px; background:white; overflow:hidden; box-shadow:0 2px 8px #0b12200a; }.card-main { flex:1; padding:22px; border:0; background:transparent; text-align:left; cursor:pointer; }.card-heading { display:flex; gap:14px; align-items:start; }.card-heading img { width:44px; height:44px; padding:8px; border-radius:8px; background:#eeeeff; }.type-chip { display:inline-block; color:#5426c7; font-size:13px; font-weight:700; }.card-heading h2 { margin-top:4px; font-size:19px; }.tags { display:flex; flex-wrap:wrap; gap:6px; min-height:26px; margin:16px 0; }.tags span { padding:5px 8px; border-radius:999px; background:#f2f4f7; color:var(--text-secondary); font-size:12px; }.details,.usage { display:flex; flex-wrap:wrap; gap:8px 14px; color:var(--text-secondary); font-size:13px; }.usage { justify-content:space-between; margin-top:20px; font-size:12px; }.favorite-button { position:absolute; top:15px; right:14px; border:0; background:none; color:#b2b6bd; font-size:25px; cursor:pointer; }.favorite-button.marked { color:#f2b640; }.card-actions { display:flex; gap:8px; padding:0 18px 18px; }.card-actions button { flex:1; height:38px; }.card-actions button:first-child,.modal-actions .primary { border-color:var(--primary); background:var(--primary); color:white; }
-	.empty-state { display:flex; min-height:260px; flex-direction:column; align-items:center; justify-content:center; gap:11px; border:1px dashed var(--cool-grey-light-active); border-radius:14px; color:var(--text-secondary); text-align:center; }.empty-state.error { color:#b44343; }.empty-state button { padding:9px 14px; }.modal-backdrop { position:fixed; z-index:20; inset:0; display:grid; place-items:center; padding:24px; background:#07102280; }.template-modal { position:relative; width:min(660px,100%); padding:38px; border-radius:16px; background:white; box-shadow:0 20px 80px #0004; }.close { position:absolute; top:16px; right:18px; border:0; background:none; font-size:28px; cursor:pointer; }.modal-label { color:var(--primary); font-size:14px; font-weight:700; }.template-modal h2 { margin-top:8px; font-size:27px; }.modal-copy { margin-top:8px; color:var(--text-secondary); }.modal-info { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:26px; }.modal-info div { display:flex; flex-direction:column; gap:8px; padding:16px; border-radius:10px; background:#f7f8fa; }.modal-info span { color:var(--text-secondary); font-size:14px; }.modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:28px; }.modal-actions button { min-height:40px; padding:0 14px; }.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
-	@media (max-width:720px) { .favorites-page{padding:28px 20px 48px}.page-header{grid-template-columns:1fr}.new-template{justify-self:start}.toolbar{align-items:stretch; flex-wrap:wrap}.filter-tabs{width:100%}.search{order:2; width:100%}.toolbar select{order:2; width:auto}.modal-info{grid-template-columns:1fr}.modal-actions{flex-wrap:wrap}.modal-actions .primary{flex:1}.template-modal{padding:30px 20px 20px} }
+	:global(*) {
+		box-sizing: border-box;
+	}
+	.favorites-page {
+		min-height: 100vh;
+		width: 100%;
+		padding: 36px 45px 40px 51px;
+		background: #fff;
+		color: #030812;
+	}
+	p,
+	h1,
+	h2,
+	h3,
+	dl,
+	dd {
+		margin: 0;
+	}
+	.page-header {
+		display: flex;
+		min-height: 140px;
+		align-items: flex-start;
+		justify-content: space-between;
+	}
+	.eyebrow {
+		color: #03f;
+		font-size: 20px;
+		font-weight: 500;
+		letter-spacing: -0.2px;
+		line-height: 1.2;
+	}
+	h1 {
+		margin-top: 24px;
+		font-size: 42px;
+		font-weight: 700;
+		letter-spacing: -0.42px;
+		line-height: 1.2;
+	}
+	.subtitle {
+		margin-top: 8px;
+		color: #81838f;
+		font-size: 20px;
+		font-weight: 500;
+		letter-spacing: -0.2px;
+	}
+	.new-template {
+		display: inline-flex;
+		width: 212px;
+		height: 50px;
+		margin-top: 48px;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 16px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		background: #fff;
+		color: #81838f;
+		font: inherit;
+		font-size: 18px;
+		cursor: pointer;
+	}
+	.list-toolbar {
+		position: relative;
+		display: flex;
+		min-height: 66px;
+		align-items: flex-start;
+		justify-content: space-between;
+		border-bottom: 1px solid #d4d6e2;
+	}
+	.type-tabs {
+		display: flex;
+		gap: 4px;
+		align-self: end;
+	}
+	.type-tabs button {
+		width: 80px;
+		height: 35px;
+		padding: 0 0 12px;
+		border: 0;
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: #81838f;
+		font: inherit;
+		font-size: 18px;
+		font-weight: 500;
+		cursor: pointer;
+	}
+	.type-tabs button.active {
+		border-bottom-color: #03f;
+		color: #03f;
+		font-weight: 700;
+	}
+	.tools {
+		display: flex;
+		gap: 8px;
+		padding-bottom: 16px;
+	}
+	.sort-box,
+	.search-box {
+		position: relative;
+		display: flex;
+		height: 50px;
+		align-items: center;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		background: #fff;
+	}
+	.sort-box {
+		width: 142px;
+	}
+	.search-box {
+		width: 280px;
+	}
+	select,
+	input {
+		width: 100%;
+		height: 100%;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: #81838f;
+		font: inherit;
+		font-size: 18px;
+		letter-spacing: -0.18px;
+		appearance: none;
+	}
+	select {
+		padding: 0 48px 0 20px;
+	}
+	input {
+		padding: 0 52px 0 20px;
+	}
+	.sort-box > .icon-24,
+	.search-box > .icon-24 {
+		position: absolute;
+		right: 16px;
+		pointer-events: none;
+	}
+	.template-list {
+		display: grid;
+		gap: 12px;
+		padding-top: 16px;
+	}
+	.template-row {
+		display: grid;
+		width: 100%;
+		min-height: 128px;
+		grid-template-columns: minmax(430px, 1.25fr) minmax(240px, 0.85fr) minmax(175px, 0.52fr) auto;
+		align-items: center;
+		gap: 20px;
+		padding: 24px 30px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		background: #fff;
+	}
+	.identity {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 22px;
+	}
+	.template-icon {
+		width: 48px;
+		height: 48px;
+		flex: 0 0 48px;
+	}
+	.template-icon img {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+	.identity-copy {
+		min-width: 0;
+		display: grid;
+		gap: 8px;
+	}
+	.title-line {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 8px;
+	}
+	.title-line h2 {
+		overflow: hidden;
+		font-size: 22px;
+		font-weight: 700;
+		line-height: 1.35;
+		letter-spacing: -0.22px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.type-chip {
+		flex: none;
+		padding: 2px 9px;
+		border-radius: 999px;
+		background: rgba(128, 125, 254, 0.15);
+		color: #4522c4;
+		font-size: 18px;
+		font-weight: 500;
+	}
+	.type-chip.interview {
+		background: rgba(207, 255, 94, 0.28);
+		color: #466700;
+	}
+	.tags {
+		display: flex;
+		gap: 4px;
+		overflow: hidden;
+	}
+	.tags span {
+		padding: 3px 8px;
+		border: 1px solid #81838f;
+		border-radius: 999px;
+		color: #81838f;
+		font-size: 14px;
+		white-space: nowrap;
+	}
+	.session-info,
+	.usage {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		color: #81838f;
+		font-size: 14px;
+	}
+	.session-info > span {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.row-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.row-actions > button {
+		height: 42px;
+		border-radius: 8px;
+		font: inherit;
+		font-size: 16px;
+		font-weight: 500;
+		cursor: pointer;
+	}
+	.row-actions .start {
+		width: 96px;
+		border: 1px solid #03f;
+		background: #03f;
+		color: #fff;
+	}
+	.row-actions .edit {
+		width: 96px;
+		border: 1px solid #d4d6e2;
+		background: #fff;
+		color: #81838f;
+	}
+	.row-actions .remove {
+		display: grid;
+		width: 32px;
+		place-items: center;
+		border: 0;
+		background: transparent;
+	}
+	.list-footer {
+		position: relative;
+		min-height: 62px;
+		padding-top: 20px;
+		color: #81838f;
+		font-size: 18px;
+	}
+	.pagination {
+		position: absolute;
+		top: 17px;
+		left: 50%;
+		display: flex;
+		gap: 6px;
+		transform: translateX(-50%);
+	}
+	.pagination button {
+		width: 30px;
+		height: 30px;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		color: #81838f;
+		font: inherit;
+		cursor: pointer;
+	}
+	.pagination button.active {
+		background: #03f;
+		color: #fff;
+	}
+	.state {
+		min-height: 400px;
+		display: grid;
+		place-content: center;
+		gap: 10px;
+		color: #81838f;
+		text-align: center;
+	}
+	.state button {
+		justify-self: center;
+		height: 40px;
+		padding: 0 16px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		background: #fff;
+	}
+	.state.error {
+		color: #b44343;
+	}
+	.modal-backdrop {
+		position: fixed;
+		z-index: 50;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		background: rgba(0, 0, 0, 0.35);
+	}
+	.template-modal {
+		position: relative;
+		width: 536px;
+		height: 500px;
+		padding: 38px 18px 20px;
+		border-radius: 16px;
+		background: #fff;
+		box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+	}
+	.modal-close {
+		position: absolute;
+		top: 20px;
+		right: 20px;
+		display: grid;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		place-items: center;
+		border: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+	.modal-title {
+		display: grid;
+		justify-items: center;
+		gap: 4px;
+		line-height: 1.35;
+		text-align: center;
+	}
+	.modal-title p {
+		color: #03f;
+		font-size: 18px;
+		font-weight: 500;
+	}
+	.modal-title h2 {
+		font-size: 24px;
+		font-weight: 700;
+		letter-spacing: -0.24px;
+	}
+	.modal-cards {
+		display: grid;
+		grid-template-columns: 244px 244px;
+		gap: 12px;
+		margin-top: 35px;
+	}
+	.modal-cards article {
+		height: 228px;
+		padding: 20px 11px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+	}
+	.modal-cards h3 {
+		margin: 0 8px 16px;
+		font-size: 18px;
+	}
+	.file-box {
+		height: 72px;
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		padding: 0 19px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		color: #81838f;
+		font-size: 14px;
+	}
+	.file-box + .file-box {
+		margin-top: 8px;
+	}
+	.file-box img {
+		width: 36px;
+		height: 36px;
+		flex: none;
+	}
+	.file-box span {
+		display: grid;
+		gap: 4px;
+	}
+	.file-box small {
+		color: #81838f;
+		font-size: 12px;
+	}
+	dl {
+		display: grid;
+		gap: 10px;
+	}
+	dl > div {
+		display: grid;
+		grid-template-columns: 70px 1fr;
+		align-items: center;
+		color: #81838f;
+		font-size: 14px;
+	}
+	dt {
+		padding-left: 8px;
+		border-left: 2px solid #d4d6e2;
+	}
+	dd {
+		color: #030812;
+	}
+	.modal-edit {
+		width: 500px;
+		height: 50px;
+		margin-top: 12px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		border: 0;
+		border-radius: 8px;
+		background: rgba(0, 51, 255, 0.1);
+		color: #03f;
+		font: inherit;
+		font-size: 18px;
+		cursor: pointer;
+	}
+	.modal-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+		margin-top: 12px;
+	}
+	.modal-actions button {
+		height: 50px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		border: 1px solid #d4d6e2;
+		border-radius: 8px;
+		background: #fff;
+		color: #81838f;
+		font: inherit;
+		font-size: 18px;
+		cursor: pointer;
+	}
+	.modal-actions .primary {
+		border-color: #03f;
+		background: #03f;
+		color: #fff;
+	}
+	.icon-18,
+	.icon-24,
+	.icon-26,
+	.icon-30 {
+		display: inline-grid;
+		flex: 0 0 auto;
+		place-items: center;
+	}
+	.icon-18 {
+		width: 18px;
+		height: 18px;
+	}
+	.icon-24 {
+		width: 24px;
+		height: 24px;
+	}
+	.icon-26 {
+		width: 26px;
+		height: 26px;
+	}
+	.icon-30 {
+		width: 30px;
+		height: 30px;
+	}
+	.icon-18 img,
+	.icon-24 img,
+	.icon-26 img,
+	.icon-30 img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+	}
+	@media (max-width: 1200px) {
+		.template-row {
+			grid-template-columns: minmax(300px, 1fr) minmax(200px, 0.6fr) auto;
+		}
+		.usage {
+			display: none;
+		}
+	}
+	@media (max-width: 760px) {
+		.favorites-page {
+			padding: 26px 20px 40px;
+		}
+		.page-header {
+			min-height: 190px;
+			display: block;
+		}
+		.new-template {
+			margin-top: 20px;
+		}
+		.subtitle {
+			font-size: 16px;
+			line-height: 1.5;
+		}
+		.list-toolbar {
+			display: block;
+		}
+		.tools {
+			padding-top: 14px;
+		}
+		.sort-box {
+			width: 120px;
+		}
+		.search-box {
+			flex: 1;
+		}
+		.template-row {
+			grid-template-columns: 1fr;
+			padding: 20px;
+		}
+		.session-info,
+		.usage {
+			display: flex;
+		}
+		.row-actions {
+			justify-content: flex-end;
+		}
+		.template-modal {
+			width: min(536px, 100%);
+			height: auto;
+		}
+		.modal-cards {
+			grid-template-columns: 1fr;
+		}
+		.modal-cards article {
+			height: auto;
+		}
+		.modal-edit {
+			width: 100%;
+		}
+	}
 </style>

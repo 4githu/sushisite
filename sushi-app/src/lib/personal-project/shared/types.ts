@@ -67,12 +67,16 @@ export type Settlement = {
 export type School = {
 	id: number;
 	name: string;
-	defaultHourlyRate: number;
+	admissionYear: number;
+	schoolName: string;
 	memo: string;
 	isActive: boolean;
 	roundCount: number;
 	priority: number;
 	termStatus: 'active' | 'ended';
+	currentStage: import('../aura/stages').ProgressStage;
+	recommendedStage: import('../aura/stages').ProgressStage;
+	freeForThreePlus: boolean;
 	rounds?: ClinicRound[];
 };
 
@@ -91,6 +95,8 @@ export type ClinicRound = {
 	id: number;
 	schoolId: number;
 	schoolName: string;
+	progressStage: import('../aura/stages').ProgressStage;
+	parentFreeForThreePlus: boolean;
 	eventId: number;
 	roundNumber: number;
 	roundNumbers: number[];
@@ -113,6 +119,8 @@ export type SchoolSettlement = {
 	month: number;
 	totalAmount: number;
 	completedCount: number;
+	settlementCount: number;
+	generatedAt: string | null;
 	items: ClinicRound[];
 };
 
@@ -122,6 +130,7 @@ export type TargetReport = {
 	studentName: string;
 	schoolId: number;
 	schoolName: string;
+	progressStage: import('../aura/stages').ProgressStage;
 	roundNumber: number;
 	roundNumbers: number[];
 	roundLabel: string;

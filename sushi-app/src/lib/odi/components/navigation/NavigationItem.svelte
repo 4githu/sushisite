@@ -17,78 +17,55 @@
 	} = $props();
 </script>
 
-<button
-	type="button"
-	class={[
-		"navigation-item",
-		"clickable",
-		selected && "selected"
-	]}
-	onclick={onclick}
->
-	
+<button type="button" class={['navigation-item', 'clickable', selected && 'selected']} {onclick}>
 	{#if icon}
-		<img
-			class="icon"
-			src={icon}
-			alt=""
-		/>
+		<img class="icon" src={icon} alt="" />
 	{/if}
 
 	<span class="text-body-medium">
 		{label}
 	</span>
-
 </button>
 
 <style>
+	.navigation-item {
+		display: inline-flex;
 
-.navigation-item{
+		align-items: center;
 
-	display:inline-flex;
+		justify-content: flex-start;
 
-	align-items:center;
+		width: 100%;
+		max-width: 212px;
+		height: 50px;
 
-	justify-content:flex-start;
+		padding: 12px 11px 11px 12px;
 
-	width:212px;
-	height:50px;
+		gap: 10px;
 
-	padding:
-		12px
-		11px
-		11px
-		12px;
+		border-radius: var(--radius-sm);
 
-	gap:10px;
+		background: transparent;
 
-	border-radius:var(--radius-sm);
+		color: var(--surface);
 
-	background:transparent;
+		transition:
+			background var(--transition-fast),
+			color var(--transition-fast);
+	}
 
-	color:var(--surface);
+	.navigation-item:hover {
+		background: rgb(from var(--purple) r g b / 20%);
+	}
 
-	transition:
-		background var(--transition-fast),
-		color var(--transition-fast);
-}
+	.navigation-item.selected {
+		background: rgb(from var(--purple) r g b / 40%);
+	}
 
-.navigation-item:hover{
+	.icon {
+		width: 24px;
+		height: 24px;
 
-	background:rgb(from var(--purple) r g b / 20%);
-}
-
-.navigation-item.selected{
-
-	background:rgb(from var(--purple) r g b / 40%);
-}
-
-.icon{
-
-	width:24px;
-	height:24px;
-
-	flex-shrink:0;
-}
-
+		flex-shrink: 0;
+	}
 </style>

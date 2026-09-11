@@ -2,20 +2,25 @@
 
 <script lang="ts">
 	import ReportCard from './ReportCard.svelte';
-	import { clampScore, scoreCardLabel } from './reportUtils';
-	import type { ReportFeedback } from './reportTypes';
+	import { clampScore } from './reportUtils';
+	import type { ReportComparison, ReportFeedback } from './reportTypes';
 
 	let {
-		feedback
+		feedback,
+		comparison,
+		variant = 'default'
 	}: {
 		feedback: ReportFeedback;
+		comparison?: ReportComparison;
+		variant?: 'default' | 'v3';
 	} = $props();
 
 	const scores = $derived(feedback.score_card?.scores ?? {});
-	const descriptions = $derived(feedback.score_card?.descriptions ?? {});
 	const overall = $derived(feedback.score?.overall_score ?? null);
 	const percentile = $derived(feedback.score?.percentile ?? null);
-	const averageScores = $derived(feedback.score_card?.average_scores);
+	const averageScores = $derived(
+		comparison?.account_average ?? feedback.score_card?.average_scores
+	);
 	const hasUserScores = $derived(
 		[scores.engagement, scores.clarity, scores.credibility].some((value) => Number.isFinite(value))
 	);
@@ -60,15 +65,15 @@
 	}
 </script>
 
-<ReportCard padding="22px 16px" minHeight="524px">
-	<div class="score-card">
+<ReportCard padding="24px" minHeight="380px">
+	<div class:v3={variant === 'v3'} class="score-card">
 		<h2>나의 발표 점수</h2>
 
 		<div class="score-main">
 			{#if percentile !== null}
 				<span class="percent-chip">발표자 중 상위 {percentile}%예요</span>
 			{:else}
-				<span class="percent-chip neutral">비교 통계는 아직 제공되지 않습니다</span>
+				<span class="percent-chip neutral">비교 데이터 준비 중</span>
 			{/if}
 
 			<div class="score-number">
@@ -101,9 +106,7 @@
 				<line class="axis" x1="160" y1="125" x2="250" y2="178" />
 
 				{#if hasAverageScores}
-					<polygon
-						class="average-polygon"
-						points={polygon(averageValues)}
+					<polygon class="average-polygon" points={polygon(averageValues)} />
 				{/if}
 				{#if hasUserScores}<polygon class="user-polygon" points={polygon(radarValues)} />{/if}
 			</svg>
@@ -117,24 +120,67 @@
 				{#if hasAverageScores}<span><i class="dot avg"></i>평균 발표</span>{/if}
 			</div>
 		</div>
-
-		<div class="score-descriptions">
-			{#each ['engagement', 'credibility', 'clarity'] as key}
-				<div class="desc-row">
-					<strong>{scoreCardLabel(key as 'engagement' | 'clarity' | 'credibility')}</strong>
-					<p>{descriptions[key as keyof typeof descriptions] ?? '분석 설명이 없습니다.'}</p>
-				</div>
-			{/each}
-		</div>
 	</div>
 </ReportCard>
 
 <style>
 	.score-card {
 		position: relative;
-		height: 480px;
+		height: 332px;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.score-card.v3 {
+		height: 780px;
+	}
+
+	.score-card.v3 h2 {
+		font-size: 40px;
+	}
+
+	.score-card.v3 .score-main {
+		margin-top: 30px;
+	}
+
+	.score-card.v3 .score-number strong {
+		font-size: 128px;
+	}
+
+	.score-card.v3 .radar-wrap {
+		left: 61%;
+		top: 42px;
+		width: min(900px, 58vw);
+		height: 660px;
+	}
+
+	.score-card.v3 .radar {
+		width: 100%;
+		height: 634px;
+	}
+
+	.score-card.v3 .radar-label {
+		font-size: 28px;
+	}
+
+	.score-card.v3 .radar-label.top {
+		left: 50%;
+		transform: translateX(-50%);
+	}
+
+	.score-card.v3 .radar-label.left {
+		left: 0;
+	}
+
+	.score-card.v3 .radar-label.right {
+		right: 0;
+	}
+
+	.score-card.v3 .legend {
+		left: -52%;
+		right: auto;
+		top: 390px;
+		font-size: 18px;
 	}
 
 	h2 {
@@ -144,7 +190,7 @@
 	}
 
 	.score-main {
-		margin-top: var(--space-6);
+		margin-top: var(--space-4);
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
@@ -157,6 +203,14 @@
 		color: var(--primary);
 		font-size: 13px;
 		font-weight: var(--font-medium);
+	}
+	.score-card.v3 .percent-chip {
+		padding: 8px;
+		font-size: 24px;
+	}
+	.score-card.v3 .score-number span {
+		padding-bottom: 12px;
+		font-size: 40px;
 	}
 
 	.percent-chip.neutral {
@@ -185,7 +239,7 @@
 	.radar-wrap {
 		position: absolute;
 		left: 50%;
-		top: 88px;
+		top: 76px;
 		width: 320px;
 		height: 230px;
 		transform: translateX(-50%);
@@ -269,41 +323,7 @@
 		background: var(--lime);
 	}
 
-	.score-descriptions {
-		margin-top: auto;
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.desc-row {
-		min-height: 50px;
-		padding: 11px 16px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-4);
-		border: 1px solid #caced9;
-		border-radius: var(--radius-sm);
-		background: var(--surface);
-	}
-
-	.desc-row strong {
-		color: var(--brand-black);
-		font-size: 16px;
-		font-weight: var(--font-bold);
-		white-space: nowrap;
-	}
-
-	.desc-row p {
-		color: var(--text-secondary);
-		font-size: 16px;
-		font-weight: var(--font-medium);
-		text-align: right;
-	}
-
-	/* 리포트 3단 그리드와 브라우저 확대 시 카드 자체 폭이 좁아집니다.
-	 * 이때는 절대 위치 레이더와 하단 설명을 분리해 서로 침범하지 않게 합니다. */
+	/* 카드 폭이 좁아지면 절대 위치 레이더를 문서 흐름으로 되돌립니다. */
 	@container (max-width: 540px) {
 		.score-card {
 			height: auto;
@@ -325,22 +345,24 @@
 			height: 250px;
 		}
 
-		.score-descriptions {
-			margin-top: 8px;
+		.score-card.v3 {
+			height: auto;
 		}
 
-		.desc-row {
-			min-height: 0;
-			align-items: flex-start;
-			flex-direction: column;
-			gap: 4px;
+		.score-card.v3 .radar-wrap {
+			left: auto;
+			top: auto;
+			width: 100%;
+			height: 280px;
 		}
 
-		.desc-row p {
-			margin: 0;
-			font-size: 14px;
-			line-height: 1.45;
-			text-align: left;
+		.score-card.v3 .radar {
+			height: 280px;
+		}
+
+		.score-card.v3 .legend {
+			right: 0;
+			top: 38px;
 		}
 	}
 </style>

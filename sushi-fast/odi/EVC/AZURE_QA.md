@@ -15,7 +15,7 @@ The existing EVC question provider (`question_generation.py`, default model
    with `X-Request-Id` UUID and `X-Next-Audience-Id` when another question remains.
    Responses normalize UUIDs to hyphenated form; clients should send canonical UUIDs
    or compare parsed UUID values instead of raw strings.
-6. Azure STT text is retained before calling the existing question provider. The LLM receives
+6. The session-selected STT provider's text is retained before calling the existing question provider. The LLM receives
    presentation evidence, actual Q&A history and the next speaker's profile/evaluation state.
    It may ask a follow-up or another relevant question. The next slot is replaced; total is unchanged.
 7. Response: `question_index`, `request_id`, `saved`, `transcript`, `total`, `next_question`
@@ -46,8 +46,11 @@ OPENAI_API_KEY=<existing server secret, unchanged>
 ```
 
 Continuous recognition works with the PSA F0 resource; Fast transcription does not.
-EVC_STT_PROVIDER changes presentation-segment recognition (including word timing);
-without it the existing Deepgram default is preserved. Q&A uses Azure.
+`EVC_STT_PROVIDER` is the default for sessions without an owning ODI account. For linked
+sessions, `config.preferences.stt_provider` (`deepgram` or `azure`) is captured when the
+session starts and is then used consistently for presentation segments and Q&A. The selected
+provider's key, region (Azure), and SDK are validated before the session is claimed. A missing
+configuration blocks start with `stt_provider_unavailable`; it never silently switches providers.
 Run a single EVC worker, consistent with its in-memory SessionStore and the F0 STT
 concurrency limit. Configure the reverse proxy answer-request timeout to at least
 720 seconds and upload limit to 20 MB. This code does not modify the subscription/tier.

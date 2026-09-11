@@ -26,6 +26,9 @@ ALLOWED_SUFFIX_BY_ROLE = {
     "script": {".txt", ".md"},
 }
 
+VIDEO_UPLOAD_MAX_BYTES = 300 * 1024 * 1024
+VIDEO_UPLOAD_SUFFIXES = {".mp4", ".webm", ".mov"}
+
 
 def load_pdf_backend():
     try:
@@ -70,6 +73,16 @@ def path_from_storage_path(storage_path: str) -> Path:
         raise HTTPException(status_code=400, detail="허용되지 않은 파일 경로입니다.")
 
     return candidate
+
+
+def session_media_path_from_storage_path(user_id: str, session_id: str, storage_path: str) -> Path:
+    path = path_from_storage_path(storage_path)
+    session_media_root = (
+        STORAGE_ROOT / "users" / str(user_id) / "sessions" / session_id / "media"
+    ).resolve()
+    if session_media_root not in path.parents:
+        raise HTTPException(status_code=403, detail="현재 세션의 영상 경로가 아닙니다.")
+    return path
 
 
 def ensure_role(role: str) -> None:
@@ -146,6 +159,55 @@ async def save_temp_upload(user_id: str, role: str, upload: UploadFile) -> dict[
         "expires_at": utc_after_days_iso(TEMP_EXPIRE_DAYS),
         "page_count": page_count,
         "image_manifest_path": None,
+    }
+
+
+async def save_session_video_upload(
+    user_id: str,
+    session_id: str,
+    upload: UploadFile,
+) -> dict[str, Any]:
+    """Persist an authenticated session video without passing it through temp bundles."""
+    original_name = upload.filename or "session-video"
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in VIDEO_UPLOAD_SUFFIXES:
+        allowed = ", ".join(sorted(VIDEO_UPLOAD_SUFFIXES))
+        raise HTTPException(status_code=400, detail=f"영상은 {allowed} 형식만 업로드할 수 있습니다.")
+
+    content_type = (upload.content_type or "").lower()
+    if content_type and not content_type.startswith("video/"):
+        raise HTTPException(status_code=400, detail="영상 파일의 MIME 형식이 올바르지 않습니다.")
+
+    media_dir = STORAGE_ROOT / "users" / str(user_id) / "sessions" / session_id / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    target_path = media_dir / f"video_{uuid4().hex[:16]}{suffix}"
+    size_bytes = 0
+
+    try:
+        with target_path.open("wb") as out:
+            while True:
+                chunk = await upload.read(1024 * 1024)
+                if not chunk:
+                    break
+                size_bytes += len(chunk)
+                if size_bytes > VIDEO_UPLOAD_MAX_BYTES:
+                    raise HTTPException(status_code=413, detail="영상은 300MB 이하만 업로드할 수 있습니다.")
+                out.write(chunk)
+    except Exception:
+        target_path.unlink(missing_ok=True)
+        raise
+    finally:
+        await upload.close()
+
+    if size_bytes == 0:
+        target_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="비어 있는 영상은 업로드할 수 없습니다.")
+
+    return {
+        "storage_path": as_storage_path(target_path),
+        "original_name": original_name,
+        "mime_type": content_type or None,
+        "size_bytes": size_bytes,
     }
 
 

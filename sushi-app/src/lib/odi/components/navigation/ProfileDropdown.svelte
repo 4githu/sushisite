@@ -176,23 +176,23 @@
 
 <!-- src/lib/odi/components/navigation/ProfileDropdown.svelte -->
 <script lang="ts">
-	import DropdownItem from "./DropdownItem.svelte";
+	import DropdownItem from './DropdownItem.svelte';
 
-	import {
-		account_icon as AccountCircle
-	} from "$lib/odi/icons";
+	import { account_icon as AccountCircle } from '$lib/odi/icons';
 
 	let {
-		userName = "사용자",
-		planName = "새싹 보이스",
+		userName = '사용자',
+		planName = '새싹 보이스',
 		profileImage = AccountCircle,
 		onOpenAccount,
+		onOpenSettings,
 		onLogout
 	}: {
 		userName?: string;
 		planName?: string;
 		profileImage?: string;
 		onOpenAccount?: () => void;
+		onOpenSettings?: () => void;
 		onLogout?: () => void;
 	} = $props();
 </script>
@@ -217,7 +217,7 @@
 
 	<DropdownItem label="회원정보 수정" onclick={onOpenAccount} />
 
-	<DropdownItem label="설정" disabled status="준비 중" />
+	<DropdownItem label="설정" onclick={onOpenSettings} />
 
 	<div class="divider"></div>
 
@@ -225,7 +225,6 @@
 
 	<DropdownItem label="로그아웃" onclick={onLogout} />
 </div>
-
 
 <style>
 	.dropdown {

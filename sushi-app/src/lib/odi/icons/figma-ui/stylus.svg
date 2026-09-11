@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="stylus">
+<mask id="mask0_0_146" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+<rect id="Bounding box" width="24" height="24" fill="#0033FF"/>
+</mask>
+<g mask="url(#mask0_0_146)">
+<path id="stylus_2" d="M4.175 21C3.825 21.0833 3.52083 20.9958 3.2625 20.7375C3.00417 20.4792 2.91667 20.175 3 19.825L4 15.05L8.95 20L4.175 21ZM8.95 20L4 15.05L15.45 3.6C15.8333 3.21667 16.3083 3.025 16.875 3.025C17.4417 3.025 17.9167 3.21667 18.3 3.6L20.4 5.7C20.7833 6.08333 20.975 6.55833 20.975 7.125C20.975 7.69167 20.7833 8.16667 20.4 8.55L8.95 20ZM16.875 5L6.525 15.35L8.65 17.475L19 7.125L16.875 5Z" fill="#0033FF"/>
+</g>
+</g>
+</svg>

@@ -6,6 +6,13 @@
 	import SegmentedControl from "$lib/odi/components/session/SegmentedControl.svelte";
 	import SessionSlider from "$lib/odi/components/session/SessionSlider.svelte";
 	import {
+		formatDurationInput,
+		minutesToSeconds,
+		roundDuration,
+		secondsToMinutes,
+		type DurationUnit
+	} from "$lib/odi/utils/duration";
+	import {
 		podium as 세미나실콘,
 		school as 학회장콘,
 		chair_alt as 강의실콘,
@@ -51,8 +58,62 @@
 		{ label: "10분", value: "10" },
 		{ label: "15분", value: "15" },
 		{ label: "20분", value: "20" },
-		{ label: "30분", value: "30" }
+		{ label: "30분", value: "30" },
+		{ label: "직접 입력", value: "custom" }
 	];
+	const presetDurations = new Set(durationItems.slice(0, -1).map((item) => Number(item.value)));
+	let customDuration = $state(false);
+	let customUnit = $state<DurationUnit>('minutes');
+	let customValue = $state('2');
+	let customSeconds = $state(120);
+
+	const durationSelectValue = $derived(
+		customDuration || !presetDurations.has(durationMinutes) ? 'custom' : String(durationMinutes)
+	);
+
+	$effect(() => {
+		if (!customDuration && durationMinutes > 0 && !presetDurations.has(durationMinutes)) {
+			customSeconds = durationMinutes * 60;
+			customValue = formatDurationInput(durationMinutes);
+		}
+	});
+
+	function selectDuration(event: Event) {
+		const value = (event.currentTarget as HTMLSelectElement).value;
+		if (value === 'custom') {
+			customDuration = true;
+			customUnit = 'minutes';
+			customSeconds = durationMinutes > 0 ? durationMinutes * 60 : 120;
+			customValue = formatDurationInput(customSeconds / 60);
+			applyCustomDuration();
+			return;
+		}
+
+		customDuration = false;
+		durationMinutes = Number(value);
+	}
+
+	function applyCustomDuration() {
+		const numericValue = Number(customValue);
+		if (!Number.isFinite(numericValue) || numericValue <= 0) {
+			durationMinutes = 0;
+			return;
+		}
+
+		const roundedValue = roundDuration(numericValue);
+		customValue = formatDurationInput(roundedValue);
+		customSeconds = customUnit === 'minutes' ? roundedValue * 60 : roundedValue;
+		// 기존 JSON의 duration_minutes 필드를 그대로 사용해 이전 코드와 호환합니다.
+		durationMinutes = customSeconds / 60;
+	}
+
+	function changeCustomUnit(event: Event) {
+		const nextUnit = (event.currentTarget as HTMLSelectElement).value as DurationUnit;
+		customUnit = nextUnit;
+		customValue = formatDurationInput(
+			nextUnit === 'minutes' ? secondsToMinutes(customSeconds) : minutesToSeconds(customSeconds / 60)
+		);
+	}
 
 	const placeItems = [
 		{ label: "강의실", value: "강의실", icon: 강의실콘 },
@@ -118,11 +179,36 @@
 
 					<SessionSelect
 						items={durationItems}
-						value={String(durationMinutes)}
+						value={durationSelectValue}
 						width="100%"
 						icon={알람콘}
-						onchange={(event) => durationMinutes = Number((event.currentTarget as HTMLSelectElement).value)}
+						onchange={selectDuration}
 					/>
+
+					{#if durationSelectValue === 'custom'}
+						<div class="custom-duration-row">
+							<input
+								class="custom-duration-input text-body-medium"
+								type="number"
+								inputmode="decimal"
+								min="0.01"
+								step="0.01"
+								aria-label="직접 입력 발표 시간"
+								bind:value={customValue}
+								oninput={applyCustomDuration}
+							/>
+							<select
+								class="custom-duration-unit text-body-medium"
+								aria-label="발표 시간 단위"
+								value={customUnit}
+								onchange={changeCustomUnit}
+							>
+								<option value="minutes">분</option>
+								<option value="seconds">초</option>
+							</select>
+						</div>
+						<p class="duration-help text-caption-medium">소수점 둘째 자리까지 입력할 수 있어요.</p>
+					{/if}
 				</div>
 
 				<div class="field">
@@ -204,6 +290,28 @@
 
 	.required {
 		color: var(--purple);
+	}
+
+	.custom-duration-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 112px;
+		gap: var(--space-3);
+	}
+
+	.custom-duration-input,
+	.custom-duration-unit {
+		width: 100%;
+		height: 52px;
+		padding: 0 var(--space-4);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--text-primary);
+	}
+
+	.duration-help {
+		margin-top: calc(var(--space-2) * -1);
+		color: var(--text-secondary);
 	}
 
 	@container (max-width: 980px) {

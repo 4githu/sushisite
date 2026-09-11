@@ -1,24 +1,25 @@
 <!-- src/routes/odi/+layout.svelte -->
 <script lang="ts">
-	import "$lib/odi/styles/globals.css";
+	import '$lib/odi/styles/globals.css';
 
-	import type { Snippet } from "svelte";
-	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
+	import type { Snippet } from 'svelte';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 
-	import { auth } from "$lib/stores/mainauth";
-	import { odiuser, template } from "$lib/odi/stores";
+	import { auth } from '$lib/stores/mainauth';
+	import { odiuser, template } from '$lib/odi/stores';
 	import { API_BASE as API } from '$lib/config/api';
 
-	import NavigationBar from "$lib/odi/components/navigation/NavigationBar.svelte";
-	import SessionStartModal from "$lib/odi/components/session/SessionStartModal.svelte";
-	import OdiGuestModal from "$lib/odi/components/login/OdiGuestModal.svelte";
-	import LoginModal from "$lib/odi/components/login/LoginModal.svelte";
-	import AccountModal from "$lib/odi/components/login/AccountModal.svelte";
-	import OdiJoinRequiredModal from "$lib/odi/components/login/OdiJoinRequiredModal.svelte";
+	import NavigationBar from '$lib/odi/components/navigation/NavigationBar.svelte';
+	import SessionStartModal from '$lib/odi/components/session/SessionStartModal.svelte';
+	import OdiGuestModal from '$lib/odi/components/login/OdiGuestModal.svelte';
+	import LoginModal from '$lib/odi/components/login/LoginModal.svelte';
+	import AccountModal from '$lib/odi/components/login/AccountModal.svelte';
+	import ReportSettingsModal from '$lib/odi/components/login/ReportSettingsModal.svelte';
+	import OdiJoinRequiredModal from '$lib/odi/components/login/OdiJoinRequiredModal.svelte';
 
-	type SessionType = "presentation" | "interview";
+	type SessionType = 'presentation' | 'interview';
 
 	let {
 		children
@@ -30,17 +31,18 @@
 	let showGuestModal = $state(false);
 	let showLoginModal = $state(false);
 	let showAccountModal = $state(false);
+	let showReportSettingsModal = $state(false);
 	let showJoinRequiredModal = $state(false);
 	let checkingAccess = $state(true);
 	let sidebarOpen = $state(true);
 
-	let mainAuthName = $state("");
-	let mainAuthEmail = $state("");
+	let mainAuthName = $state('');
+	let mainAuthEmail = $state('');
 
-	const isAuthExceptionPage = $derived(page.url.pathname.startsWith("/odi/join"));
+	const isAuthExceptionPage = $derived(page.url.pathname.startsWith('/odi/join'));
 
 	onMount(async () => {
-		sidebarOpen = !window.matchMedia("(max-width: 900px)").matches;
+		sidebarOpen = !window.matchMedia('(max-width: 900px)').matches;
 
 		if (isAuthExceptionPage) {
 			checkingAccess = false;
@@ -50,17 +52,17 @@
 		try {
 			const result = await odiuser.checkAccess();
 
-			if (result.status === "odi_authenticated") {
+			if (result.status === 'odi_authenticated') {
 				showGuestModal = false;
 				showJoinRequiredModal = false;
 				return;
 			}
 
-			if (result.status === "main_authenticated_needs_odi_join") {
+			if (result.status === 'main_authenticated_needs_odi_join') {
 				const payload = auth.get();
 
-				mainAuthName = payload?.data?.name ?? "사용자";
-				mainAuthEmail = payload?.data?.email ?? "";
+				mainAuthName = payload?.data?.name ?? '사용자';
+				mainAuthEmail = payload?.data?.email ?? '';
 
 				showJoinRequiredModal = true;
 				return;
@@ -94,17 +96,17 @@
 		template.clear();
 		template.setDefault(type);
 
-		if (type === "presentation") {
-			goto("/odi/session/presentation");
+		if (type === 'presentation') {
+			goto('/odi/session/presentation');
 			return;
 		}
 
-		goto("/odi/session/interview");
+		goto('/odi/session/interview');
 	}
 
 	function loadPreviousSession() {
 		showStartModal = false;
-		console.log("기존 세션 불러오기");
+		console.log('기존 세션 불러오기');
 	}
 
 	function closeGuestModal() {
@@ -122,14 +124,14 @@
 
 	function openRegisterPage() {
 		showGuestModal = false;
-		goto("/register");
+		goto('/register');
 	}
 
 	function handleLoginSuccess() {
 		const payload = auth.get();
 
-		mainAuthName = payload?.data?.name ?? "사용자";
-		mainAuthEmail = payload?.data?.email ?? "";
+		mainAuthName = payload?.data?.name ?? '사용자';
+		mainAuthEmail = payload?.data?.email ?? '';
 
 		showGuestModal = false;
 		showLoginModal = false;
@@ -153,16 +155,29 @@
 		showAccountModal = false;
 	}
 
+	function openReportSettingsModal() {
+		if (!odiuser.get()) {
+			showLoginModal = true;
+			return;
+		}
+
+		showReportSettingsModal = true;
+	}
+
+	function closeReportSettingsModal() {
+		showReportSettingsModal = false;
+	}
+
 	function goOdiJoin() {
 		showJoinRequiredModal = false;
-		goto("/odi/join");
+		goto('/odi/join');
 	}
 
 	async function logoutMainAuth() {
 		await Promise.all([
 			fetch(`${API}/auth/logout`, {
-				method: "POST",
-				credentials: "include"
+				method: 'POST',
+				credentials: 'include'
 			}).catch(() => null),
 			odiuser.logout().catch(() => null)
 		]);
@@ -200,6 +215,7 @@
 		<NavigationBar
 			onNewSession={openStartModal}
 			onOpenAccount={openAccountModal}
+			onOpenSettings={openReportSettingsModal}
 			onCloseMobile={() => (sidebarOpen = false)}
 		/>
 	</div>
@@ -218,22 +234,19 @@
 {/if}
 
 {#if showGuestModal && !checkingAccess}
-	<OdiGuestModal
-		onClose={closeGuestModal}
-		onRegister={openRegisterPage}
-		onLogin={openLoginModal}
-	/>
+	<OdiGuestModal onClose={closeGuestModal} onRegister={openRegisterPage} onLogin={openLoginModal} />
 {/if}
 
 {#if showLoginModal}
-	<LoginModal
-		onClose={closeLoginModal}
-		onLoginSuccess={handleLoginSuccess}
-	/>
+	<LoginModal onClose={closeLoginModal} onLoginSuccess={handleLoginSuccess} />
 {/if}
 
 {#if showAccountModal}
 	<AccountModal onClose={closeAccountModal} />
+{/if}
+
+{#if showReportSettingsModal}
+	<ReportSettingsModal onClose={closeReportSettingsModal} />
 {/if}
 
 {#if showJoinRequiredModal && !checkingAccess}
@@ -255,7 +268,7 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		width: 260px;
+		width: min(260px, 100vw);
 		height: 100vh;
 		z-index: 100;
 		transform: translateX(-100%);

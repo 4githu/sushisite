@@ -5,7 +5,17 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
+from .academic import (
+    STAGE_LABELS,
+    STAGE_TERM_PERIOD,
+    canonical_school_name,
+    next_stage,
+    normalize_admission_year,
+    parse_legacy_school_name,
+    stage_for_date,
+)
 from .db import DB_PATH, connection
+from .pricing import clinic_hourly_cost, clinic_settlement_amount
 
 
 ATTACHMENT_ROOT = DB_PATH.parent / "uploads" / "aura-report-attachments"
@@ -18,6 +28,21 @@ def _calculated_amount(hourly_rate: int, start: datetime, end: datetime | None) 
         return hourly_rate
     minutes = max(0, int((end - start).total_seconds() // 60))
     return round(hourly_rate * minutes / 60)
+
+
+def _round_target_count(conn, round_id: int) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) FROM aura_round_targets WHERE round_id = ?", (round_id,)
+    ).fetchone()[0]
+
+
+def _invalidate_settlement_snapshots(conn, user_id: int, *starts: datetime) -> None:
+    """Require a new monthly settlement after a clinic round changes."""
+    periods = {(start.year, start.month) for start in starts}
+    conn.executemany(
+        "DELETE FROM aura_settlement_snapshots WHERE user_id = ? AND year = ? AND month = ?",
+        [(user_id, year, month) for year, month in periods],
+    )
 
 
 def _conflicting_events(
@@ -716,15 +741,21 @@ def settlements(user_id: int, year: int, month: int):
 
 
 def _school_dict(row, round_count: int = 0):
+    admission_year, school_name = parse_legacy_school_name(row["name"])
+    admission_year = row["admission_year"] or admission_year
     return {
         "id": row["id"],
         "name": row["name"],
-        "defaultHourlyRate": row["default_hourly_rate"],
+        "admissionYear": admission_year,
+        "schoolName": school_name,
         "memo": row["memo"],
         "isActive": bool(row["is_active"]),
         "roundCount": round_count,
         "priority": row["priority"],
         "termStatus": row["term_status"],
+        "currentStage": row["current_stage"],
+        "recommendedStage": stage_for_date(admission_year, datetime.now().date()),
+        "freeForThreePlus": bool(row["free_for_three_plus"]),
     }
 
 
@@ -736,8 +767,9 @@ def list_schools(user_id: int):
                LEFT JOIN aura_clinic_rounds r ON r.school_id = s.id
                WHERE s.user_id = ?
                GROUP BY s.id
-               ORDER BY (s.term_status = 'active') DESC, s.priority DESC,
-                        s.is_active DESC, s.name""",
+               ORDER BY (s.term_status = 'active') DESC,
+                        s.admission_year DESC,
+                        s.priority DESC, s.is_active DESC, s.name""",
             (user_id,),
         ).fetchall()
         return [_school_dict(row, row["round_count"]) for row in rows]
@@ -745,6 +777,12 @@ def list_schools(user_id: int):
 
 def create_school(user_id: int, data):
     value = data.model_dump()
+    admission_year = normalize_admission_year(value.pop("admission_year"))
+    school_name = value.pop("school_name").strip()
+    current_stage = value.pop("current_stage") or stage_for_date(
+        admission_year, datetime.now().date()
+    )
+    name = canonical_school_name(admission_year, school_name)
     with connection() as conn:
         max_priority = conn.execute(
             "SELECT COALESCE(MAX(priority), 0) FROM aura_schools WHERE user_id = ?",
@@ -755,20 +793,27 @@ def create_school(user_id: int, data):
         try:
             cursor = conn.execute(
                 """INSERT INTO aura_schools
-                   (user_id, name, default_hourly_rate, memo, priority)
-                   VALUES (?, ?, ?, ?, ?)""",
+                   (user_id, name, memo, priority,
+                    term_period, free_for_three_plus, admission_year, current_stage)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     user_id,
-                    value["name"].strip(),
-                    value["default_hourly_rate"],
+                    name,
                     value["memo"],
                     value["priority"],
+                    STAGE_TERM_PERIOD[current_stage],
+                    value["free_for_three_plus"],
+                    admission_year,
+                    current_stage,
                 ),
             )
             conn.commit()
         except Exception as exc:
             conn.rollback()
-            raise HTTPException(status_code=409, detail="이미 등록된 학교 이름입니다.") from exc
+            raise HTTPException(
+                status_code=409,
+                detail="같은 입학연도와 학교가 이미 등록되어 있습니다.",
+            ) from exc
         return _school_dict(
             _owned_row(conn, "aura_schools", cursor.lastrowid, user_id)
         )
@@ -776,6 +821,8 @@ def create_school(user_id: int, data):
 
 def update_school(user_id: int, school_id: int, data):
     values = data.model_dump(exclude_unset=True)
+    if "current_stage" in values:
+        values["term_period"] = STAGE_TERM_PERIOD[values["current_stage"]]
     with connection() as conn:
         _owned_row(conn, "aura_schools", school_id, user_id)
         if values:
@@ -789,9 +836,27 @@ def update_school(user_id: int, school_id: int, data):
             except Exception as exc:
                 conn.rollback()
                 raise HTTPException(
-                    status_code=409, detail="이미 등록된 학교 이름입니다."
+                    status_code=409, detail="학교 설정을 변경하지 못했습니다."
                 ) from exc
         return _school_dict(_owned_row(conn, "aura_schools", school_id, user_id))
+
+
+def advance_school_stages(user_id: int):
+    with connection() as conn:
+        schools = conn.execute(
+            """SELECT * FROM aura_schools
+               WHERE user_id = ? AND is_active = 1 AND term_status = 'active'""",
+            (user_id,),
+        ).fetchall()
+        for school in schools:
+            stage = next_stage(school["current_stage"])
+            conn.execute(
+                """UPDATE aura_schools SET current_stage = ?, term_period = ?
+                   WHERE id = ?""",
+                (stage, STAGE_TERM_PERIOD[stage], school["id"]),
+            )
+        conn.commit()
+    return list_schools(user_id)
 
 
 def move_school(user_id: int, school_id: int, direction: str):
@@ -801,9 +866,9 @@ def move_school(user_id: int, school_id: int, direction: str):
         current = _owned_row(conn, "aura_schools", school_id, user_id)
         schools = conn.execute(
             """SELECT * FROM aura_schools
-               WHERE user_id = ? AND term_status = ?
+               WHERE user_id = ? AND term_status = ? AND current_stage = ?
                ORDER BY priority DESC, name""",
-            (user_id, current["term_status"]),
+            (user_id, current["term_status"], current["current_stage"]),
         ).fetchall()
         for index, school in enumerate(schools):
             conn.execute(
@@ -890,6 +955,8 @@ def _round_dict(conn, row):
         "id": row["id"],
         "schoolId": row["school_id"],
         "schoolName": row["school_name"],
+        "progressStage": row["progress_stage"],
+        "parentFreeForThreePlus": bool(row["school_free_for_three_plus"]),
         "eventId": row["event_id"],
         "roundNumber": row["round_number"],
         "roundNumbers": round_numbers,
@@ -910,7 +977,9 @@ def _round_dict(conn, row):
 
 def _round_query():
     return """
-        SELECT r.*, s.name AS school_name, e.start_time, e.end_time,
+        SELECT r.*, s.name AS school_name,
+               s.free_for_three_plus AS school_free_for_three_plus,
+               e.start_time, e.end_time,
                e.description, e.title
         FROM aura_clinic_rounds r
         JOIN aura_schools s ON s.id = r.school_id
@@ -987,14 +1056,14 @@ def export_school_archive(user_id: int, school_id: int):
     school = get_school(user_id, school_id)
     with connection() as conn:
         templates = conn.execute(
-            """SELECT round_number, version, content_json, is_active, created_at
+            """SELECT progress_stage, round_number, version, content_json, is_active, created_at
                FROM aura_round_templates
                WHERE user_id = ? AND school_id = ?
                ORDER BY round_number, version""",
             (user_id, school_id),
         ).fetchall()
         reports = conn.execute(
-            """SELECT t.student_name, r.round_numbers_json, rp.template_version,
+            """SELECT t.student_name, r.progress_stage, r.round_numbers_json, rp.template_version,
                       rp.content_json, rp.source_notes, rp.question_checks_json, rp.status,
                       rp.submitted_at, rp.updated_at
                FROM aura_target_reports rp
@@ -1010,6 +1079,7 @@ def export_school_archive(user_id: int, school_id: int):
             "school": school,
             "templates": [
                 {
+                    "progressStage": row["progress_stage"],
                     "roundNumber": row["round_number"],
                     "version": row["version"],
                     "contentJson": json.loads(row["content_json"]),
@@ -1021,6 +1091,7 @@ def export_school_archive(user_id: int, school_id: int):
             "reports": [
                 {
                     "studentName": row["student_name"],
+                    "progressStage": row["progress_stage"],
                     "roundNumbers": json.loads(row["round_numbers_json"] or "[]"),
                     "templateVersion": row["template_version"],
                     "contentJson": json.loads(row["content_json"]),
@@ -1044,12 +1115,11 @@ def create_clinic_round(user_id: int, data):
                     conn, user_id, data.start_time, data.end_time
                 )
             )
-        hourly_rate = (
-            data.hourly_rate
-            if data.hourly_rate is not None
-            else school["default_hourly_rate"]
+        progress_stage = data.progress_stage or school["current_stage"]
+        hourly_rate = clinic_hourly_cost(progress_stage, len(data.student_names))
+        amount = clinic_settlement_amount(
+            progress_stage, data.start_time, data.end_time, len(data.student_names)
         )
-        amount = _calculated_amount(hourly_rate, data.start_time, data.end_time)
         try:
             event = conn.execute(
                 """INSERT INTO events
@@ -1067,8 +1137,8 @@ def create_clinic_round(user_id: int, data):
             round_cursor = conn.execute(
                 """INSERT INTO aura_clinic_rounds
                    (user_id, school_id, event_id, round_number, report_required,
-                    hourly_rate, amount, round_numbers_json)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    hourly_rate, amount, round_numbers_json, progress_stage)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     user_id,
                     data.school_id,
@@ -1078,6 +1148,7 @@ def create_clinic_round(user_id: int, data):
                     hourly_rate,
                     amount,
                     json.dumps([data.round_number]),
+                    progress_stage,
                 ),
             )
             for index, name in enumerate(data.student_names):
@@ -1087,6 +1158,7 @@ def create_clinic_round(user_id: int, data):
                        VALUES (?, ?, ?)""",
                     (round_cursor.lastrowid, name, index),
                 )
+            _invalidate_settlement_snapshots(conn, user_id, data.start_time)
             conn.commit()
         except Exception as exc:
             conn.rollback()
@@ -1115,12 +1187,11 @@ def create_clinic_round_series(user_id: int, data):
                     _conflicting_events(conn, user_id, start, start + duration)
                 )
 
-        hourly_rate = (
-            data.hourly_rate
-            if data.hourly_rate is not None
-            else school["default_hourly_rate"]
+        progress_stage = data.progress_stage or school["current_stage"]
+        hourly_rate = clinic_hourly_cost(progress_stage, len(data.student_names))
+        amount = clinic_settlement_amount(
+            progress_stage, data.start_time, data.end_time, len(data.student_names)
         )
-        amount = _calculated_amount(hourly_rate, data.start_time, data.end_time)
         round_ids = []
         group_id = str(uuid4())
         occurrences = data.round_numbers_by_occurrence or [
@@ -1152,8 +1223,8 @@ def create_clinic_round_series(user_id: int, data):
                     """INSERT INTO aura_clinic_rounds
                        (user_id, school_id, event_id, round_number,
                         round_numbers_json, report_required, hourly_rate, amount,
-                        series_group_id, series_index)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        series_group_id, series_index, progress_stage)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         user_id,
                         data.school_id,
@@ -1165,6 +1236,7 @@ def create_clinic_round_series(user_id: int, data):
                         amount,
                         group_id,
                         index,
+                        progress_stage,
                     ),
                 )
                 round_ids.append(round_cursor.lastrowid)
@@ -1175,6 +1247,7 @@ def create_clinic_round_series(user_id: int, data):
                            VALUES (?, ?, ?)""",
                         (round_cursor.lastrowid, name, target_index),
                     )
+            _invalidate_settlement_snapshots(conn, user_id, *starts)
             conn.commit()
         except Exception as exc:
             conn.rollback()
@@ -1227,6 +1300,8 @@ def update_clinic_round(user_id: int, round_id: int, data):
             if requested_school_id is not None
             else _owned_row(conn, "aura_schools", current["school_id"], user_id)
         )
+        if requested_school_id is not None and "progress_stage" not in values:
+            values["progress_stage"] = requested_school["current_stage"]
         event = _owned_row(conn, "events", current["event_id"], user_id)
         start = data.start_time or datetime.fromisoformat(
             event["start_time"].replace("Z", "+00:00")
@@ -1244,13 +1319,12 @@ def update_clinic_round(user_id: int, round_id: int, data):
                     conn, user_id, start, end, current["event_id"]
                 )
             )
-        hourly_rate = (
-            data.hourly_rate
-            if data.hourly_rate is not None
-            else current["hourly_rate"]
+        pricing_changed = (
+            time_changed
+            or student_names is not None
+            or "progress_stage" in values
+            or requested_school_id is not None
         )
-        if time_changed or data.hourly_rate is not None:
-            values["amount"] = _calculated_amount(hourly_rate, start, end)
         rounds = [current]
         if scope == "following" and current["series_group_id"]:
             rounds = conn.execute(
@@ -1285,7 +1359,13 @@ def update_clinic_round(user_id: int, round_id: int, data):
             event["start_time"].replace("Z", "+00:00")
         )
         duration = end - start
+        affected_starts = []
         for item in rounds:
+            item_event = _owned_row(conn, "events", item["event_id"], user_id)
+            item_start = datetime.fromisoformat(
+                item_event["start_time"].replace("Z", "+00:00")
+            )
+            target_start = item_start
             existing_numbers = json.loads(item["round_numbers_json"] or "[]") or [
                 item["round_number"]
             ]
@@ -1296,23 +1376,29 @@ def update_clinic_round(user_id: int, round_id: int, data):
                 if requested_round_number is not None
                 else existing_numbers
             )
-            if values or requested_round_number is not None:
+            if values or requested_round_number is not None or pricing_changed:
                 item_values = dict(values)
                 if requested_round_number is not None:
                     item_values["round_number"] = target_numbers[0]
                     item_values["round_numbers_json"] = json.dumps(target_numbers)
-                item_event = _owned_row(conn, "events", item["event_id"], user_id)
-                item_start = datetime.fromisoformat(
-                    item_event["start_time"].replace("Z", "+00:00")
-                )
                 item_end = datetime.fromisoformat(
                     item_event["end_time"].replace("Z", "+00:00")
                 )
-                if time_changed or data.hourly_rate is not None:
+                if pricing_changed:
                     target_start = item_start + start_delta
                     target_end = target_start + duration
-                    item_values["amount"] = _calculated_amount(
-                        hourly_rate, target_start, target_end
+                    target_count = (
+                        len(student_names)
+                        if student_names is not None
+                        else _round_target_count(conn, item["id"])
+                    )
+                    target_stage = item_values.get("progress_stage", item["progress_stage"])
+                    item_values["hourly_rate"] = clinic_hourly_cost(target_stage, target_count)
+                    item_values["amount"] = clinic_settlement_amount(
+                        target_stage,
+                        target_start,
+                        target_end,
+                        target_count,
                     )
                 sets = ", ".join(f"{key} = ?" for key in item_values)
                 conn.execute(
@@ -1340,6 +1426,8 @@ def update_clinic_round(user_id: int, round_id: int, data):
                         updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
                     (*item_event_values.values(), item["event_id"]),
                 )
+            affected_starts.append(item_start)
+            affected_starts.append(target_start if time_changed else item_start)
             if requested_school_id is not None or requested_round_number is not None:
                 target_round_label = ",".join(str(number) for number in target_numbers)
                 conn.execute(
@@ -1374,7 +1462,7 @@ def update_clinic_round(user_id: int, round_id: int, data):
                         "DELETE FROM aura_round_targets WHERE id = ?",
                         (target["id"],),
                     )
-            if requested_round_number is not None:
+            if requested_round_number is not None or "progress_stage" in values:
                 conn.execute(
                     """DELETE FROM aura_target_reports
                        WHERE has_user_edits = 0
@@ -1388,6 +1476,7 @@ def update_clinic_round(user_id: int, round_id: int, data):
                     "UPDATE events SET status = 'done' WHERE id = ?",
                     (item["event_id"],),
                 )
+        _invalidate_settlement_snapshots(conn, user_id, *affected_starts)
         conn.commit()
     return get_clinic_round(user_id, round_id)
 
@@ -1395,9 +1484,15 @@ def update_clinic_round(user_id: int, round_id: int, data):
 def delete_clinic_round(user_id: int, round_id: int):
     with connection() as conn:
         current = _owned_row(conn, "aura_clinic_rounds", round_id, user_id)
+        event = _owned_row(conn, "events", current["event_id"], user_id)
         conn.execute(
             "DELETE FROM events WHERE id = ? AND user_id = ?",
             (current["event_id"], user_id),
+        )
+        _invalidate_settlement_snapshots(
+            conn,
+            user_id,
+            datetime.fromisoformat(event["start_time"].replace("Z", "+00:00")),
         )
         conn.commit()
 
@@ -1414,6 +1509,21 @@ def add_round_target(user_id: int, round_id: int, data):
                VALUES (?, ?, ?)""",
             (round_id, data.student_name.strip(), order),
         )
+        round_row = _owned_row(conn, "aura_clinic_rounds", round_id, user_id)
+        event = _owned_row(conn, "events", round_row["event_id"], user_id)
+        start = datetime.fromisoformat(event["start_time"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(event["end_time"].replace("Z", "+00:00"))
+        conn.execute(
+            "UPDATE aura_clinic_rounds SET hourly_rate = ?, amount = ? WHERE id = ?",
+            (
+                clinic_hourly_cost(round_row["progress_stage"], _round_target_count(conn, round_id)),
+                clinic_settlement_amount(
+                    round_row["progress_stage"], start, end, _round_target_count(conn, round_id)
+                ),
+                round_id,
+            ),
+        )
+        _invalidate_settlement_snapshots(conn, user_id, start)
         conn.commit()
         return {
             "id": cursor.lastrowid,
@@ -1425,18 +1535,33 @@ def add_round_target(user_id: int, round_id: int, data):
 def delete_round_target(user_id: int, target_id: int):
     with connection() as conn:
         row = conn.execute(
-            """SELECT t.id FROM aura_round_targets t
+            """SELECT t.id, r.id AS round_id, r.progress_stage, e.start_time, e.end_time
+               FROM aura_round_targets t
                JOIN aura_clinic_rounds r ON r.id = t.round_id
+               JOIN events e ON e.id = r.event_id
                WHERE t.id = ? AND r.user_id = ?""",
             (target_id, user_id),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="학생 항목을 찾을 수 없습니다.")
         conn.execute("DELETE FROM aura_round_targets WHERE id = ?", (target_id,))
+        start = datetime.fromisoformat(row["start_time"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(row["end_time"].replace("Z", "+00:00"))
+        conn.execute(
+            "UPDATE aura_clinic_rounds SET hourly_rate = ?, amount = ? WHERE id = ?",
+            (
+                clinic_hourly_cost(row["progress_stage"], _round_target_count(conn, row["round_id"])),
+                clinic_settlement_amount(
+                    row["progress_stage"], start, end, _round_target_count(conn, row["round_id"])
+                ),
+                row["round_id"],
+            ),
+        )
+        _invalidate_settlement_snapshots(conn, user_id, start)
         conn.commit()
 
 
-def _default_template_document(school_name: str, round_number: int):
+def _default_template_document(school_name: str, progress_stage: str, round_number: int):
     now = datetime.now(timezone.utc).isoformat()
 
     def block(kind: str, text: str, level: int | None = None):
@@ -1455,7 +1580,11 @@ def _default_template_document(school_name: str, round_number: int):
         "createdAt": now,
         "updatedAt": now,
         "blocks": [
-            block("heading", f"{school_name} {round_number}회차 클리닉", 1),
+            block(
+                "heading",
+                f"{school_name} {STAGE_LABELS[progress_stage]} {round_number}회차 클리닉",
+                1,
+            ),
             block("heading", "관찰 내용", 2),
             block("paragraph", ""),
             block("heading", "보완할 부분", 2),
@@ -1469,7 +1598,7 @@ def _default_template_document(school_name: str, round_number: int):
 def _target_owner(conn, target_id: int, user_id: int):
     row = conn.execute(
         """SELECT t.*, r.id AS clinic_round_id, r.round_number,
-                  r.round_numbers_json, r.school_id,
+                  r.round_numbers_json, r.progress_stage, r.school_id,
                   s.name AS school_name, e.start_time, e.end_time
            FROM aura_round_targets t
            JOIN aura_clinic_rounds r ON r.id = t.round_id
@@ -1492,16 +1621,19 @@ def _combined_round_template(conn, user_id: int, target):
     for round_number in round_numbers:
         template = conn.execute(
             """SELECT * FROM aura_round_templates
-               WHERE user_id = ? AND school_id = ? AND round_number = ?
+               WHERE user_id = ? AND school_id = ? AND progress_stage = ?
+                 AND round_number = ?
                  AND is_active = 1
                ORDER BY version DESC LIMIT 1""",
-            (user_id, target["school_id"], round_number),
+            (user_id, target["school_id"], target["progress_stage"], round_number),
         ).fetchone()
         templates.append(template)
         documents.append(
             json.loads(template["content_json"])
             if template
-            else _default_template_document(target["school_name"], round_number)
+            else _default_template_document(
+                target["school_name"], target["progress_stage"], round_number
+            )
         )
     now = datetime.now(timezone.utc).isoformat()
     combined = {
@@ -1556,9 +1688,15 @@ def get_or_create_target_report(user_id: int, target_id: int):
                LEFT JOIN aura_target_reports rp ON rp.target_id = t.id
                WHERE sibling_round.user_id = ?
                  AND sibling_round.school_id = ?
+                 AND sibling_round.progress_stage = ?
                  AND sibling_round.round_numbers_json = ?
                ORDER BY sibling_event.start_time, t.sort_order, t.id""",
-            (user_id, target["school_id"], target["round_numbers_json"]),
+            (
+                user_id,
+                target["school_id"],
+                target["progress_stage"],
+                target["round_numbers_json"],
+            ),
         ).fetchall()
         round_numbers = json.loads(target["round_numbers_json"] or "[]") or [
             target["round_number"]
@@ -1569,6 +1707,7 @@ def get_or_create_target_report(user_id: int, target_id: int):
             "studentName": target["student_name"],
             "schoolId": target["school_id"],
             "schoolName": target["school_name"],
+            "progressStage": target["progress_stage"],
             "roundNumber": target["round_number"],
             "roundNumbers": round_numbers,
             "roundLabel": f"{','.join(str(number) for number in round_numbers)}회차",
@@ -1739,7 +1878,8 @@ def update_target_report(user_id: int, report_id: int, data, submit: bool = Fals
         if submit:
             _clear_target_report_attachments(conn, user_id, report_id)
             submitted = conn.execute(
-                """SELECT rp.assessment_json, r.school_id, r.round_numbers_json
+                """SELECT rp.assessment_json, r.school_id, r.progress_stage,
+                          r.round_numbers_json
                    FROM aura_target_reports rp
                    JOIN aura_round_targets t ON t.id = rp.target_id
                    JOIN aura_clinic_rounds r ON r.id = t.round_id
@@ -1758,9 +1898,10 @@ def update_target_report(user_id: int, report_id: int, data, submit: bool = Fals
             )
             existing = conn.execute(
                 """SELECT id, items_json FROM clinic_report_score_formats
-                   WHERE school_id = ? AND round_key = ? AND is_active = 1
+                   WHERE school_id = ? AND progress_stage = ?
+                     AND round_key = ? AND is_active = 1
                    LIMIT 1""",
-                (submitted["school_id"], round_key),
+                (submitted["school_id"], submitted["progress_stage"], round_key),
             ).fetchone()
             if existing:
                 # 기존 학교·회차 양식은 다음 리포트의 기본값으로만 유지한다.
@@ -1770,12 +1911,13 @@ def update_target_report(user_id: int, report_id: int, data, submit: bool = Fals
                 now = datetime.now(timezone.utc).isoformat()
                 conn.execute(
                     """INSERT INTO clinic_report_score_formats
-                       (user_id, school_id, round_key, name, items_json, source,
+                       (user_id, school_id, progress_stage, round_key, name, items_json, source,
                         is_active, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, 'manual', 1, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, 'manual', 1, ?, ?)""",
                     (
                         user_id,
                         submitted["school_id"],
+                        submitted["progress_stage"],
                         round_key,
                         str(assessment.get("formatName") or "학습 내용 및 암기 정도 평가"),
                         json.dumps(items, ensure_ascii=False),
@@ -1792,21 +1934,22 @@ def save_round_template(user_id: int, school_id: int, round_number: int, data):
         school = _owned_row(conn, "aura_schools", school_id, user_id)
         current = conn.execute(
             """SELECT COALESCE(MAX(version), 0) FROM aura_round_templates
-               WHERE school_id = ? AND round_number = ?""",
-            (school_id, round_number),
+               WHERE school_id = ? AND progress_stage = ? AND round_number = ?""",
+            (school_id, data.progress_stage, round_number),
         ).fetchone()[0]
         conn.execute(
             """UPDATE aura_round_templates SET is_active = 0
-               WHERE school_id = ? AND round_number = ?""",
-            (school_id, round_number),
+               WHERE school_id = ? AND progress_stage = ? AND round_number = ?""",
+            (school_id, data.progress_stage, round_number),
         )
         cursor = conn.execute(
             """INSERT INTO aura_round_templates
-               (user_id, school_id, round_number, version, content_json)
-               VALUES (?, ?, ?, ?, ?)""",
+               (user_id, school_id, progress_stage, round_number, version, content_json)
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (
                 user_id,
                 school_id,
+                data.progress_stage,
                 round_number,
                 current + 1,
                 json.dumps(data.content_json, ensure_ascii=False),
@@ -1817,24 +1960,82 @@ def save_round_template(user_id: int, school_id: int, round_number: int, data):
             "id": cursor.lastrowid,
             "schoolId": school_id,
             "schoolName": school["name"],
+            "progressStage": data.progress_stage,
             "roundNumber": round_number,
             "version": current + 1,
         }
 
 
 def school_settlements(user_id: int, year: int, month: int):
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT data_json, generated_at, pricing_version FROM aura_settlement_snapshots
+               WHERE user_id = ? AND year = ? AND month = ?""",
+            (user_id, year, month),
+        ).fetchone()
+    if not row or row["pricing_version"] < 6:
+        return {
+            "year": year,
+            "month": month,
+            "totalAmount": 0,
+            "completedCount": 0,
+            "settlementCount": 0,
+            "items": [],
+            "generatedAt": None,
+        }
+    result = json.loads(row["data_json"])
+    result["generatedAt"] = row["generated_at"]
+    return result
+
+
+def generate_school_settlements(user_id: int, year: int, month: int):
     start = f"{year:04d}-{month:02d}-01"
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
     end = f"{next_year:04d}-{next_month:02d}-01"
     items = [
         item
         for item in list_clinic_rounds(user_id, None, start, end)
-        if item["attendanceStatus"] == "completed"
+        if item["attendanceStatus"] != "cancelled"
     ]
-    return {
+    # 월 정산은 저장 당시의 금액을 신뢰하지 않는다. 모든 행을 현재의 단일
+    # 가격 규칙으로 다시 산출해 스냅샷과 엑셀 모두 동일한 값을 사용한다.
+    for item in items:
+        participant_count = len(item["targets"])
+        item["hourlyRate"] = clinic_hourly_cost(item["progressStage"], participant_count)
+        item["amount"] = clinic_settlement_amount(
+            item["progressStage"],
+            datetime.fromisoformat(item["startTime"].replace("Z", "+00:00")),
+            datetime.fromisoformat(item["endTime"].replace("Z", "+00:00")),
+            participant_count,
+        )
+    result = {
         "year": year,
         "month": month,
         "totalAmount": sum(item["amount"] for item in items),
-        "completedCount": len(items),
+        # 정산 확인은 리포트 작성/제출 여부와 무관하게 할 수 있어야 한다.
+        # 기존 클라이언트 호환을 위해 completedCount도 함께 유지한다.
+        "completedCount": sum(
+            item["attendanceStatus"] == "completed" for item in items
+        ),
+        "settlementCount": len(items),
         "items": items,
     }
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO aura_settlement_snapshots
+                   (user_id, year, month, data_json, pricing_version, generated_at)
+               VALUES (?, ?, ?, ?, 6, CURRENT_TIMESTAMP)
+               ON CONFLICT(user_id, year, month) DO UPDATE SET
+                   data_json = excluded.data_json,
+                   pricing_version = excluded.pricing_version,
+                   generated_at = CURRENT_TIMESTAMP""",
+            (user_id, year, month, json.dumps(result, ensure_ascii=False)),
+        )
+        conn.commit()
+        generated_at = conn.execute(
+            """SELECT generated_at FROM aura_settlement_snapshots
+               WHERE user_id = ? AND year = ? AND month = ?""",
+            (user_id, year, month),
+        ).fetchone()["generated_at"]
+    result["generatedAt"] = generated_at
+    return result

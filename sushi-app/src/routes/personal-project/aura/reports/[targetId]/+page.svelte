@@ -2,9 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AuraReportEditor from '$lib/personal-project/aura/components/AuraReportEditor.svelte';
+	import { progressStageLabels } from '$lib/personal-project/aura/stages';
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
-import { personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
+	import { personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
 	import type {
 		AiReportModel,
 		AiReportResult,
@@ -20,6 +21,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	let saving = $state(false);
 	let message = $state('');
 	let error = $state('');
+	let autosaveTimer: number | undefined;
 
 	let aiModels = $state<AiReportModel[]>([]);
 	let selectedModel = $state('');
@@ -27,8 +29,14 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	let aiGenerating = $state(false);
 	let scoreMode = $state<'auto' | 'none'>('auto');
 	type HighlightMeaning = 'fixed' | 'unfixed' | 'not_reasked';
-	let highlightSemantics = $state<{ yellow: HighlightMeaning; orange: HighlightMeaning; peach: HighlightMeaning }>({
-		yellow: 'fixed', orange: 'unfixed', peach: 'not_reasked'
+	let highlightSemantics = $state<{
+		yellow: HighlightMeaning;
+		orange: HighlightMeaning;
+		peach: HighlightMeaning;
+	}>({
+		yellow: 'fixed',
+		orange: 'unfixed',
+		peach: 'not_reasked'
 	});
 	let includeQuestionChecks = $state(false);
 	let generatedReport = $state<AiReportResult['output'] | null>(null);
@@ -50,6 +58,9 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	let pdfPreview = $state<HTMLElement>();
 	let pdfBusy = $state(false);
 	let kakaoBusy = $state(false);
+	let nativeKakaoBusy = $state(false);
+	let nativeKakaoAvailable = $state(false);
+	let nativeKakaoChecked = $state(false);
 	let preparedShareFiles = $state<File[]>([]);
 	let shareStatus = $state('');
 	let finalControlsCollapsed = $state(false);
@@ -60,7 +71,9 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		return document.blocks.some((block) => {
 			if (block.type === 'table') {
 				return block.rows.some((row) =>
-					row.some((cell) => cell.blocks.some((child) => child.children.some((chunk) => chunk.text.trim())))
+					row.some((cell) =>
+						cell.blocks.some((child) => child.children.some((chunk) => chunk.text.trim()))
+					)
 				);
 			}
 			return block.children.some((chunk) => chunk.text.trim());
@@ -94,7 +107,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			);
 			const blob = await new Promise<Blob>((resolve, reject) =>
 				pageCanvas.toBlob(
-					(value) => (value ? resolve(value) : reject(new Error('리포트 이미지를 만들지 못했습니다.'))),
+					(value) =>
+						value ? resolve(value) : reject(new Error('리포트 이미지를 만들지 못했습니다.')),
 					'image/jpeg',
 					0.9
 				)
@@ -111,7 +125,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		loadingTargetId = targetId;
 		try {
 			const [nextReport, attachments] = await Promise.all([
-				personalApi.targetReport(targetId), personalApi.targetReportAttachments(targetId)
+				personalApi.targetReport(targetId),
+				personalApi.targetReportAttachments(targetId)
 			]);
 			if (loadingTargetId !== targetId) return;
 			report = nextReport;
@@ -132,8 +147,12 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			problemSolvingNote = generatedReport?.problemSolvingNote ?? '';
 			if (generatedReport && !generatedReport.assessment) scoreMode = 'none';
 			aiModel = nextReport.aiModel;
-			blankTestImages = attachments.filter((item) => item.kind === 'blank_test').map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
-			problemImages = attachments.filter((item) => item.kind === 'problem_solving').map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
+			blankTestImages = attachments
+				.filter((item) => item.kind === 'blank_test')
+				.map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
+			problemImages = attachments
+				.filter((item) => item.kind === 'problem_solving')
+				.map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
 			await loadAi(targetId);
 			if (page.url.searchParams.get('pdf') === '1') {
 				modalStage = generatedReport ? 'final' : 'generate';
@@ -237,6 +256,16 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		} finally {
 			saving = false;
 		}
+	}
+
+	function queueAutosave(value: EditorDocument) {
+		draftDocument = value;
+		if (!report || report.status === 'submitted') return;
+		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		autosaveTimer = window.setTimeout(() => {
+			autosaveTimer = undefined;
+			void save(false, true);
+		}, 1_500);
 	}
 
 	async function openGenerateModal() {
@@ -354,7 +383,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 
 	async function imageFileToDataUrl(file: File) {
 		const isHeic =
-			/\.(heic|heif)$/i.test(file.name) || /image\/(heic|heif|heic-sequence|heif-sequence)/i.test(file.type);
+			/\.(heic|heif)$/i.test(file.name) ||
+			/image\/(heic|heif|heic-sequence|heif-sequence)/i.test(file.type);
 		if (isHeic) {
 			try {
 				const { default: heic2any } = await import('heic2any');
@@ -366,7 +396,9 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				if (!jpeg) throw new Error('변환 결과가 비어 있습니다.');
 				return await blobToDataUrl(await compressImageBlob(jpeg));
 			} catch (cause) {
-				throw new Error(`HEIC 변환 실패: ${cause instanceof Error ? cause.message : '지원하지 않는 파일입니다.'}`);
+				throw new Error(
+					`HEIC 변환 실패: ${cause instanceof Error ? cause.message : '지원하지 않는 파일입니다.'}`
+				);
 			}
 		}
 		if (!file.type.startsWith('image/')) throw new Error('이미지 파일이 아닙니다.');
@@ -375,7 +407,10 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 
 	async function pdfToImageFiles(file: File) {
 		const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-		pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
+		pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+			'pdfjs-dist/legacy/build/pdf.worker.mjs',
+			import.meta.url
+		).toString();
 		const pdfDocument = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
 		if (pdfDocument.numPages > 20) throw new Error('PDF는 최대 20페이지까지 첨부할 수 있습니다.');
 		const files: File[] = [];
@@ -388,8 +423,19 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			const context = canvas.getContext('2d');
 			if (!context) throw new Error('PDF 페이지를 그릴 수 없습니다.');
 			await page.render({ canvasContext: context, viewport }).promise;
-			const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value: Blob | null) => value ? resolve(value) : reject(new Error('PDF 이미지 변환에 실패했습니다.')), 'image/jpeg', 0.88));
-			files.push(new File([blob], `${file.name.replace(/\.pdf$/i, '')}-${pageNumber}.jpg`, { type: 'image/jpeg' }));
+			const blob = await new Promise<Blob>((resolve, reject) =>
+				canvas.toBlob(
+					(value: Blob | null) =>
+						value ? resolve(value) : reject(new Error('PDF 이미지 변환에 실패했습니다.')),
+					'image/jpeg',
+					0.88
+				)
+			);
+			files.push(
+				new File([blob], `${file.name.replace(/\.pdf$/i, '')}-${pageNumber}.jpg`, {
+					type: 'image/jpeg'
+				})
+			);
 		}
 		return files;
 	}
@@ -403,7 +449,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		const sourceFiles: File[] = [];
 		for (const file of Array.from(files)) {
 			try {
-				if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) sourceFiles.push(...await pdfToImageFiles(file));
+				if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name))
+					sourceFiles.push(...(await pdfToImageFiles(file)));
 				else sourceFiles.push(file);
 			} catch (cause) {
 				failures.push(`${file.name}: ${cause instanceof Error ? cause.message : 'PDF 변환 실패'}`);
@@ -415,10 +462,19 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				const blob = await fetch(dataUrl).then((response) => response.blob());
 				if (!report) throw new Error('리포트를 불러오는 중입니다.');
 				const saved = await personalApi.uploadTargetReportAttachment(
-					report.targetId, kind === 'blank' ? 'blank_test' : 'problem_solving',
-					new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'image.jpg', { type: blob.type || 'image/jpeg' })
+					report.targetId,
+					kind === 'blank' ? 'blank_test' : 'problem_solving',
+					new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg') || 'image.jpg', {
+						type: blob.type || 'image/jpeg'
+					})
 				);
-				added.push({ ...saved, kind: saved.kind as 'blank_test' | 'problem_solving', byteSize: blob.size, createdAt: new Date().toISOString(), url: personalApi.targetReportAttachmentUrl(saved.id) });
+				added.push({
+					...saved,
+					kind: saved.kind as 'blank_test' | 'problem_solving',
+					byteSize: blob.size,
+					createdAt: new Date().toISOString(),
+					url: personalApi.targetReportAttachmentUrl(saved.id)
+				});
 			} catch (cause) {
 				failures.push(`${file.name}: ${cause instanceof Error ? cause.message : '처리 실패'}`);
 			}
@@ -437,14 +493,17 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		const item = (kind === 'blank' ? blankTestImages : problemImages)[index];
 		if (!item) return;
 		await personalApi.deleteTargetReportAttachment(item.id);
-		if (kind === 'blank') blankTestImages = blankTestImages.filter((_, itemIndex) => itemIndex !== index);
+		if (kind === 'blank')
+			blankTestImages = blankTestImages.filter((_, itemIndex) => itemIndex !== index);
 		else problemImages = problemImages.filter((_, itemIndex) => itemIndex !== index);
 		preparedShareFiles = [];
 		shareStatus = '';
 	}
 
 	async function pasteAttachmentImages(event: ClipboardEvent, kind: 'blank' | 'problem') {
-		const images = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith('image/'));
+		const images = Array.from(event.clipboardData?.files ?? []).filter((file) =>
+			file.type.startsWith('image/')
+		);
 		if (!images.length) return;
 		event.preventDefault();
 		const transfer = new DataTransfer();
@@ -473,9 +532,8 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				};
 			}
 			if (!(await save(false, true))) return;
-			const { captureReport, jsPDF } = await import(
-				'$lib/personal-project/aura/reportExport.client'
-			);
+			const { captureReport, jsPDF } =
+				await import('$lib/personal-project/aura/reportExport.client');
 			const canvas = await captureReport(pdfPreview);
 			const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
 			const margin = 10;
@@ -507,7 +565,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 				}
 				offset += pageHeight;
 			}
-			const safeName = `${report.schoolName}_${report.roundLabel}_${report.studentName}`.replace(
+			const safeName = `${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
 				/[\\/:*?"<>|]/g,
 				'_'
 			);
@@ -579,6 +637,73 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		);
 	}
 
+	async function checkNativeKakao() {
+		if (nativeKakaoChecked) return;
+		nativeKakaoChecked = true;
+		try {
+			const status = await personalApi.nativeKakaoStatus();
+			nativeKakaoAvailable = status.enabled && status.destination === '나와의 채팅';
+		} catch {
+			// 서버가 허용한 단일 계정 외에는 버튼 자체를 표시하지 않는다.
+			nativeKakaoAvailable = false;
+		}
+	}
+
+	async function sendToNativeKakao() {
+		if (!report || nativeKakaoBusy || kakaoBusy) return;
+		if (!confirm('Mac mini의 카카오톡 ‘나와의 채팅’으로 리포트 이미지 묶음을 보낼까요?')) return;
+		nativeKakaoBusy = true;
+		error = '';
+		message = '';
+		shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
+		try {
+			const assessment = parseAssessmentCsv();
+			if (generatedReport) {
+				generatedReport = {
+					...generatedReport,
+					problemSolvingNote: problemSolvingNote.trim(),
+					assessment:
+						scoreMode === 'none'
+							? null
+							: { formatName: '학습 내용 및 암기 정도 평가', items: assessment.items },
+					learningContent: { paragraphs: finalParagraphs.filter((item) => item.trim()) }
+				};
+			}
+			if (!(await save(false, true)))
+				throw new Error('리포트를 저장하지 못해 전송을 중단했습니다.');
+			shareStatus = 'Mac mini에서 자기 채팅과 접근성 권한을 확인하는 중입니다…';
+			const job = await personalApi.createNativeKakaoJob(report.targetId);
+			shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
+			const pageFiles = await reportPageFiles();
+			if (!pageFiles.length) throw new Error('전송할 리포트 이미지가 없습니다.');
+
+			shareStatus = `서버에 이미지 ${pageFiles.length}장을 안전하게 준비하는 중입니다…`;
+			if (pageFiles.length > job.maxPages) {
+				throw new Error(
+					`리포트가 ${pageFiles.length}장입니다. 한 번에 최대 ${job.maxPages}장까지 보낼 수 있습니다.`
+				);
+			}
+			for (const [index, file] of pageFiles.entries()) {
+				shareStatus = `이미지 업로드 중… ${index + 1}/${pageFiles.length}`;
+				await personalApi.uploadNativeKakaoPage(report.targetId, job.jobId, index + 1, file);
+			}
+			shareStatus = 'Mac mini에서 자기 채팅과 첨부 화면을 확인하는 중입니다…';
+			const result = await personalApi.sendNativeKakaoJob(report.targetId, job.jobId);
+			if (!result.sent || result.destination !== '나와의 채팅') {
+				throw new Error('카카오톡 전송 완료 증거를 확인하지 못했습니다.');
+			}
+			message = `나와의 채팅에 리포트 이미지 ${result.sentCount}장을 묶음으로 보냈습니다.`;
+			shareStatus = '';
+			preparedShareFiles = [];
+			modalStage = 'closed';
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : '나와의 채팅 전송에 실패했습니다.';
+			shareStatus = '';
+		} finally {
+			nativeKakaoBusy = false;
+		}
+	}
+
 	async function switchStudent(targetId: number) {
 		if (!report || targetId === report.targetId || saving) return;
 		if (report.status !== 'submitted' && !(await save(false, true))) return;
@@ -592,7 +717,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	async function saveAsTemplate() {
 		if (
 			!report ||
-			!confirm(`${report.schoolName} ${report.roundLabel}의 새 기본 양식으로 저장할까요?`)
+			!confirm(`${report.schoolName} ${progressStageLabels[report.progressStage]} ${report.roundLabel}의 새 기본 양식으로 저장할까요?`)
 		)
 			return;
 		saving = true;
@@ -600,6 +725,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			draftDocument = editor?.getJSON() ?? draftDocument;
 			const result = await personalApi.saveRoundTemplate(
 				report.schoolId,
+				report.progressStage,
 				report.roundNumber,
 				draftDocument
 			);
@@ -614,6 +740,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	$effect(() => {
 		const targetId = Number(page.params.targetId);
 		if (targetId && targetId !== report?.targetId) void load(targetId);
+		void checkNativeKakao();
 	});
 </script>
 
@@ -623,7 +750,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		<h1>{report?.studentName ?? '리포트 불러오는 중'}</h1>
 		<p>
 			{report
-				? `${report.schoolName} · ${report.roundLabel} · 기본 양식 ${report.templateVersion ? `v${report.templateVersion}` : '회차별 결합'}`
+				? `${report.schoolName} · ${progressStageLabels[report.progressStage]} · ${report.roundLabel} · 기본 양식 ${report.templateVersion ? `v${report.templateVersion}` : '회차별 결합'}`
 				: '잠시만 기다려주세요.'}
 		</p>
 	</div>
@@ -667,26 +794,36 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 
 	<div class="report-layout" class:note-hidden={noteCollapsed}>
 		<aside class="card note-panel" class:note-collapsed={noteCollapsed}>
-			<div class="note-heading"><div><p class="eyebrow">Quick notes</p><h2>관찰 메모</h2></div><button class="note-toggle" onclick={() => (noteCollapsed = !noteCollapsed)}>{noteCollapsed ? '열기' : '접기'}</button></div>
-			{#if !noteCollapsed}<p>학생에게만 해당하는 메모입니다. 기본 양식에는 자동 반영되지 않습니다.</p>
-			<textarea bind:value={sourceNotes} placeholder="발음, 태도, 다음 회차에서 확인할 점…"
-			></textarea>
-			<div class="highlight-guide">
-				<span></span><strong>형광 표시 부분을 AI가 부족한 내용으로 읽습니다.</strong>
-				<small>Ctrl/Cmd+Alt+1 살구 · +2 노랑 · +3 주황 · +H 최근 색</small>
-			</div>
-			<details class="note-shortcuts">
-				<summary>에디터 단축키 보기</summary>
+			<div class="note-heading">
 				<div>
-					<span><kbd>Ctrl/Cmd+B</kbd> 굵게</span>
-					<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
-					<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
-					<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음</span>
-					<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
-					<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
-					<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
+					<p class="eyebrow">Quick notes</p>
+					<h2>관찰 메모</h2>
 				</div>
-			</details>
+				<button class="note-toggle" onclick={() => (noteCollapsed = !noteCollapsed)}
+					>{noteCollapsed ? '열기' : '접기'}</button
+				>
+			</div>
+			{#if !noteCollapsed}<p>
+					학생에게만 해당하는 메모입니다. 기본 양식에는 자동 반영되지 않습니다.
+				</p>
+				<textarea bind:value={sourceNotes} placeholder="발음, 태도, 다음 회차에서 확인할 점…"
+				></textarea>
+				<div class="highlight-guide">
+					<span></span><strong>형광 표시 부분을 AI가 부족한 내용으로 읽습니다.</strong>
+					<small>Ctrl/Cmd+Alt+1 살구 · +2 노랑 · +3 주황 · +H 최근 색</small>
+				</div>
+				<details class="note-shortcuts">
+					<summary>에디터 단축키 보기</summary>
+					<div>
+						<span><kbd>Ctrl/Cmd+B</kbd> 굵게</span>
+						<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
+						<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
+						<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음</span>
+						<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
+						<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
+						<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
+					</div>
+				</details>
 			{/if}
 		</aside>
 
@@ -697,8 +834,14 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 					<h2>{report.studentName} 리포트</h2>
 				</div>
 				<div class="editor-header-actions">
-					{#if noteCollapsed}<button class="note-toggle" onclick={() => (noteCollapsed = false)}>퀵메모 열기</button>{/if}
-					{#if report.status !== 'submitted'}<button class="complete-status-button" onclick={() => save(true)} disabled={saving}>작성 완료</button>{/if}
+					{#if noteCollapsed}<button class="note-toggle" onclick={() => (noteCollapsed = false)}
+							>퀵메모 열기</button
+						>{/if}
+					{#if report.status !== 'submitted'}<button
+							class="complete-status-button"
+							onclick={() => save(true)}
+							disabled={saving}>작성 완료</button
+						>{/if}
 					<span class={`status-pill ${report.status}`}
 						>{report.status === 'submitted' ? '제출 완료' : '작성 중'}</span
 					>
@@ -713,7 +856,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 					initialValue={initialDocument}
 					readonly={false}
 					placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
-					onchange={(value) => (draftDocument = value)}
+					onchange={queueAutosave}
 					{questionChecks}
 					onquestionchange={(blockId, checked) => {
 						questionChecks = { ...questionChecks, [blockId]: checked };
@@ -774,7 +917,7 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 					<section class="generate-input">
 						<div class="student-summary">
 							<strong>{report.studentName}</strong><span
-								>{report.schoolName} · {report.roundLabel}</span
+								>{report.schoolName} · {progressStageLabels[report.progressStage]} · {report.roundLabel}</span
 							>
 						</div>
 						<label class="score-mode"
@@ -788,16 +931,31 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 						<section class="generation-rules">
 							<strong>형광색 의미</strong>
 							<small>이번 AI 생성에서만 적용됩니다.</small>
-							<label><span>노랑</span><select bind:value={highlightSemantics.yellow}>
-								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
-							</select></label>
-							<label><span>주황</span><select bind:value={highlightSemantics.orange}>
-								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
-							</select></label>
-							<label><span>살구</span><select bind:value={highlightSemantics.peach}>
-								<option value="fixed">고침</option><option value="unfixed">못고침</option><option value="not_reasked">재질문 못함</option>
-							</select></label>
-							<label class="question-rule"><input type="checkbox" bind:checked={includeQuestionChecks} /> <span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label>
+							<label
+								><span>노랑</span><select bind:value={highlightSemantics.yellow}>
+									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
+										value="not_reasked">재질문 못함</option
+									>
+								</select></label
+							>
+							<label
+								><span>주황</span><select bind:value={highlightSemantics.orange}>
+									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
+										value="not_reasked">재질문 못함</option
+									>
+								</select></label
+							>
+							<label
+								><span>살구</span><select bind:value={highlightSemantics.peach}>
+									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
+										value="not_reasked">재질문 못함</option
+									>
+								</select></label
+							>
+							<label class="question-rule"
+								><input type="checkbox" bind:checked={includeQuestionChecks} />
+								<span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label
+							>
 						</section>
 						<div class="rating-grid">
 							<label
@@ -876,7 +1034,12 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			{:else}
 				<div class="final-columns" class:controls-collapsed={finalControlsCollapsed}>
 					<section class="final-controls">
-						<div class="final-controls-heading"><h3>학습 내용 최종 수정</h3><button class="panel-collapse" onclick={() => (finalControlsCollapsed = true)}>접기</button></div>
+						<div class="final-controls-heading">
+							<h3>학습 내용 최종 수정</h3>
+							<button class="panel-collapse" onclick={() => (finalControlsCollapsed = true)}
+								>접기</button
+							>
+						</div>
 						<p>PDF에 들어가기 전에 문장을 한 번 더 고칠 수 있습니다.</p>
 						{#each finalParagraphs as paragraph, index}<div class="paragraph-row">
 								<textarea bind:value={finalParagraphs[index]}></textarea><button
@@ -906,9 +1069,15 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 							></textarea>
 						</label>
 						<div class="attachment-fields">
-							{#if attachmentNotice}<p class="attachment-notice" class:attachment-error={attachmentNotice.includes('실패')}>{attachmentNotice}</p>{/if}
+							{#if attachmentNotice}<p
+									class="attachment-notice"
+									class:attachment-error={attachmentNotice.includes('실패')}
+								>
+									{attachmentNotice}
+								</p>{/if}
 							<label
-								><strong>백지테스트 사진</strong><small>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
+								><strong>백지테스트 사진</strong><small
+									>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
 								><input
 									type="file"
 									accept="image/*,.heic,.heif,application/pdf"
@@ -920,13 +1089,25 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 									}}
 									disabled={attachmentBusy}
 								/></label
-			>
-							<button type="button" class="paste-image-button" onpaste={(event) => pasteAttachmentImages(event, 'blank')}>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button>
+							>
+							<button
+								type="button"
+								class="paste-image-button"
+								onpaste={(event) => pasteAttachmentImages(event, 'blank')}
+								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+							>
 							{#if blankTestImages.length}<div class="attachment-list">
-									{#each blankTestImages as image, index}<figure><img src={image.url} alt={`백지테스트 ${index + 1}`} /><button aria-label={`백지테스트 ${index + 1} 삭제`} onclick={() => removeAttachmentImage('blank', index)}>×</button><figcaption>백지테스트 {index + 1}</figcaption></figure>{/each}
+									{#each blankTestImages as image, index}<figure>
+											<img src={image.url} alt={`백지테스트 ${index + 1}`} /><button
+												aria-label={`백지테스트 ${index + 1} 삭제`}
+												onclick={() => removeAttachmentImage('blank', index)}>×</button
+											>
+											<figcaption>백지테스트 {index + 1}</figcaption>
+										</figure>{/each}
 								</div>{/if}
 							<label
-								><strong>문제 풀이 사진</strong><small>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
+								><strong>문제 풀이 사진</strong><small
+									>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
 								><input
 									type="file"
 									accept="image/*,.heic,.heif,application/pdf"
@@ -938,31 +1119,72 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 									}}
 									disabled={attachmentBusy}
 								/></label
-			>
-							<button type="button" class="paste-image-button" onpaste={(event) => pasteAttachmentImages(event, 'problem')}>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button>
+							>
+							<button
+								type="button"
+								class="paste-image-button"
+								onpaste={(event) => pasteAttachmentImages(event, 'problem')}
+								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+							>
 							{#if problemImages.length}<div class="attachment-list">
-									{#each problemImages as image, index}<figure><img src={image.url} alt={`문제풀이 ${index + 1}`} /><button aria-label={`문제풀이 ${index + 1} 삭제`} onclick={() => removeAttachmentImage('problem', index)}>×</button><figcaption>문제풀이 {index + 1}</figcaption></figure>{/each}
+									{#each problemImages as image, index}<figure>
+											<img src={image.url} alt={`문제풀이 ${index + 1}`} /><button
+												aria-label={`문제풀이 ${index + 1} 삭제`}
+												onclick={() => removeAttachmentImage('problem', index)}>×</button
+											>
+											<figcaption>문제풀이 {index + 1}</figcaption>
+										</figure>{/each}
 								</div>{/if}
 						</div>
 						<div class="final-buttons">
-							<button class="ghost-button" onclick={() => (modalStage = 'generate')}>이전</button
-							><div class="export-group">
+							<button class="ghost-button" onclick={() => (modalStage = 'generate')}>이전</button>
+							<div class="export-group">
 								{#if shareStatus}<small class="share-status">{shareStatus}</small>{/if}
-							<div class="export-actions"><button class="ghost-button" onclick={() => save(true)} disabled={saving || report?.status === 'submitted'}>{report?.status === 'submitted' ? '작성 완료됨' : '작성 완료 및 임시 사진 정리'}</button><button class="ghost-button" onclick={preparedShareFiles.length ? sharePreparedImages : prepareKakaoShare} disabled={kakaoBusy || pdfBusy}
-				>{kakaoBusy ? '이미지 묶음 만드는 중…' : preparedShareFiles.length ? '카카오톡 선택하기' : '카카오톡 이미지 묶음 준비'}</button
-							><button class="primary-button" onclick={downloadPdf} disabled={pdfBusy || kakaoBusy}
-								>{pdfBusy ? 'PDF 만드는 중…' : 'PDF 저장 및 다운로드'}</button
-							></div></div>
+								<div class="export-actions">
+									<button
+										class="ghost-button"
+										onclick={() => save(true)}
+										disabled={saving || report?.status === 'submitted'}
+										>{report?.status === 'submitted'
+											? '작성 완료됨'
+											: '작성 완료 및 임시 사진 정리'}</button
+									><button
+										class="ghost-button"
+										onclick={preparedShareFiles.length ? sharePreparedImages : prepareKakaoShare}
+										disabled={kakaoBusy || nativeKakaoBusy || pdfBusy}
+										>{kakaoBusy
+											? '이미지 묶음 만드는 중…'
+											: preparedShareFiles.length
+												? '카카오톡 선택하기'
+												: '카카오톡 이미지 묶음 준비'}</button
+									>{#if nativeKakaoAvailable}<button
+											class="native-kakao-button"
+											onclick={sendToNativeKakao}
+											disabled={nativeKakaoBusy || kakaoBusy || pdfBusy}
+											>{nativeKakaoBusy
+												? '나와의 채팅 전송 중…'
+												: 'Mac 카카오톡 나와의 채팅 전송'}</button
+										>{/if}<button
+										class="primary-button"
+										onclick={downloadPdf}
+										disabled={pdfBusy || kakaoBusy || nativeKakaoBusy}
+										>{pdfBusy ? 'PDF 만드는 중…' : 'PDF 저장 및 다운로드'}</button
+									>
+								</div>
+							</div>
 						</div>
 					</section>
 					<section class="pdf-scroll">
-						{#if finalControlsCollapsed}<button class="panel-expand" onclick={() => (finalControlsCollapsed = false)}>최종 수정 열기</button>{/if}
+						{#if finalControlsCollapsed}<button
+								class="panel-expand"
+								onclick={() => (finalControlsCollapsed = false)}>최종 수정 열기</button
+							>{/if}
 						<article class="pdf-preview" bind:this={pdfPreview}>
 							<h1>⊙ {report.studentName} 클리닉 리포트</h1>
 							<table class="summary-table">
 								<tbody>
 									<tr
-										><th>구분</th><td>{report.schoolName} {report.roundLabel}</td><th>강의수강도</th
+										><th>구분</th><td>{report.schoolName} {progressStageLabels[report.progressStage]} {report.roundLabel}</td><th>강의수강도</th
 										><td>{lectureProgress}</td></tr
 									>
 									<tr
@@ -1089,7 +1311,10 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		font-size: 10px;
 		cursor: pointer;
 	}
-	.complete-status-button:disabled { opacity: 0.55; cursor: wait; }
+	.complete-status-button:disabled {
+		opacity: 0.55;
+		cursor: wait;
+	}
 	.note-panel {
 		position: sticky;
 		top: 18px;
@@ -1111,7 +1336,9 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		font-size: 10px;
 		cursor: pointer;
 	}
-	.note-collapsed { padding-bottom: 12px; }
+	.note-collapsed {
+		padding-bottom: 12px;
+	}
 	.note-panel h2 {
 		margin: 6px 0;
 	}
@@ -1406,11 +1633,30 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 	}
 	.generation-rules > strong,
 	.generation-rules > small,
-	.generation-rules .question-rule { grid-column: 1 / -1; }
-	.generation-rules > small { color: var(--pp-muted); font-size: 8px; }
-	.generation-rules label { display: grid; gap: 4px; }
-	.generation-rules select { width: 100%; padding: 6px; border: 1px solid var(--pp-line); border-radius: 6px; background: #fff; }
-	.generation-rules .question-rule { display: flex; align-items: center; gap: 6px; padding-top: 4px; }
+	.generation-rules .question-rule {
+		grid-column: 1 / -1;
+	}
+	.generation-rules > small {
+		color: var(--pp-muted);
+		font-size: 8px;
+	}
+	.generation-rules label {
+		display: grid;
+		gap: 4px;
+	}
+	.generation-rules select {
+		width: 100%;
+		padding: 6px;
+		border: 1px solid var(--pp-line);
+		border-radius: 6px;
+		background: #fff;
+	}
+	.generation-rules .question-rule {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding-top: 4px;
+	}
 	.rating-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
@@ -1632,6 +1878,20 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 		display: flex;
 		gap: 8px;
 	}
+	.native-kakao-button {
+		padding: 9px 13px;
+		border: 1px solid #d7bd00;
+		border-radius: 8px;
+		background: #fee500;
+		color: #191919;
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.native-kakao-button:disabled {
+		opacity: 0.58;
+		cursor: wait;
+	}
 	.export-group {
 		display: grid;
 		justify-items: end;
@@ -1830,8 +2090,13 @@ import { personalApi, type ReportAttachment } from '$lib/personal-project/shared
 			height: calc(100dvh - 72px);
 			min-height: 0;
 		}
-		.final-buttons { flex-direction: column; align-items: stretch; }
-		.export-actions { flex-wrap: wrap; }
+		.final-buttons {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.export-actions {
+			flex-wrap: wrap;
+		}
 		.modal-actions select {
 			max-width: 160px;
 		}

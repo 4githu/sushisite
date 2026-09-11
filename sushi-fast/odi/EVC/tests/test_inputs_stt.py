@@ -14,9 +14,12 @@ from odi.EVC.inputs import (
 )
 from odi.EVC.schema import SpeechTextResult, SpeechWord
 from odi.EVC.speech2text import (
+    STTProviderConfigurationError,
     STTProviderError,
     normalize_deepgram_response,
+    normalize_provider_name,
     transcribe_audio,
+    validate_provider_configuration,
 )
 
 
@@ -175,3 +178,25 @@ def test_async_stt_boundary_supports_test_provider_and_retries(tmp_path: Path) -
         assert provider.calls == 2
 
     asyncio.run(scenario())
+
+
+def test_stt_provider_preference_is_strict_and_validated_before_use(monkeypatch) -> None:
+    assert normalize_provider_name("Azure") == "azure"
+    assert normalize_provider_name("deepgram") == "deepgram"
+    with pytest.raises(STTProviderConfigurationError):
+        normalize_provider_name("automatic")
+
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+    with pytest.raises(STTProviderConfigurationError, match="DEEPGRAM_API_KEY"):
+        validate_provider_configuration("deepgram")
+
+    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
+    monkeypatch.delenv("AZURE_SPEECH_REGION", raising=False)
+    with pytest.raises(STTProviderConfigurationError, match="AZURE_SPEECH"):
+        validate_provider_configuration("azure")
+
+    monkeypatch.setenv("AZURE_SPEECH_KEY", "test-key")
+    monkeypatch.setenv("AZURE_SPEECH_REGION", "koreacentral")
+    monkeypatch.setattr("odi.EVC.speech2text.importlib.util.find_spec", lambda _name: None)
+    with pytest.raises(STTProviderConfigurationError, match="azure-cognitiveservices-speech"):
+        validate_provider_configuration("azure")

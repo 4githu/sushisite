@@ -2,6 +2,11 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import AuraWeekScheduler from '$lib/personal-project/aura/components/AuraWeekScheduler.svelte';
+	import {
+		availableProgressStages,
+		progressStageLabels,
+		type ProgressStage
+	} from '$lib/personal-project/aura/stages';
 	import { PersonalApiError, personalApi } from '$lib/personal-project/shared/api';
 	import type { ClinicRound, School } from '$lib/personal-project/shared/types';
 
@@ -13,17 +18,19 @@
 	let saving = $state(false);
 	let selectedRound = $state<ClinicRound | null>(null);
 	let schoolId = $state('');
+	let progressStage = $state<ProgressStage>('accepted');
 	let roundNumbers = $state('1');
 	let studentNames = $state('');
 	let startTime = $state('');
 	let endTime = $state('');
-	let hourlyRate = $state(30000);
 	let description = $state('');
 	let isRecurring = $state(false);
 	let repeatCount = $state(2);
 	let intervalWeeks = $state(1);
 	let occurrenceRounds = $state<string[]>(['1', '2']);
 	let editScope = $state<'this' | 'following'>('this');
+	let roomRequestDate = $state<Date | null>(null);
+	let roomRequestNotice = $state('');
 
 	const pendingCount = $derived(
 		rounds.reduce(
@@ -57,6 +64,50 @@
 		}).format(new Date(value));
 	}
 
+	function sameLocalDay(value: string, date: Date) {
+		const itemDate = new Date(value);
+		return (
+			itemDate.getFullYear() === date.getFullYear() &&
+			itemDate.getMonth() === date.getMonth() &&
+			itemDate.getDate() === date.getDate()
+		);
+	}
+
+	function timeOnly(value: string) {
+		return new Intl.DateTimeFormat('ko-KR', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		}).format(new Date(value));
+	}
+
+	function schoolDisplayName(name: string) {
+		return name.replace(/^(서울|경기|한성)(\d{2})(.*)$/, '$2$1$3');
+	}
+
+	function roomRequestText(date: Date) {
+		const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+		const lines = rounds
+			.filter((round) => round.attendanceStatus !== 'cancelled' && sameLocalDay(round.startTime, date))
+			.sort((left, right) => +new Date(left.startTime) - +new Date(right.startTime))
+			.map((round) => {
+				const names = round.targets.map((target) => target.studentName).join(', ');
+				const remote = /비대면|온라인|zoom/i.test(round.description) ? ' (비대면)' : '';
+				return `${timeOnly(round.startTime)}-${timeOnly(round.endTime)} ${schoolDisplayName(round.schoolName)}${names ? ` ${names}` : ''}${remote}`;
+			});
+		return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})\n${lines.join('\n') || '등록된 클리닉 일정이 없습니다.'}\n\n강의실 배정 부탁드립니다.`;
+	}
+
+	async function copyRoomRequest() {
+		if (!roomRequestDate) return;
+		try {
+			await navigator.clipboard.writeText(roomRequestText(roomRequestDate));
+			roomRequestNotice = '복사했습니다. 원하는 대화방에 붙여넣으세요.';
+		} catch {
+			roomRequestNotice = '자동 복사에 실패했습니다. 아래 문구를 직접 복사해주세요.';
+		}
+	}
+
 	async function load() {
 		loading = true;
 		error = '';
@@ -76,11 +127,14 @@
 		}
 		const firstSchool = schools[0];
 		schoolId = String(firstSchool.id);
+		progressStage = firstSchool.currentStage;
 		const nextRound =
 			Math.max(
 				0,
 				...rounds
-					.filter((round) => round.schoolId === firstSchool.id)
+					.filter(
+						(round) => round.schoolId === firstSchool.id && round.progressStage === progressStage
+					)
 					.map((round) => round.roundNumber)
 			) + 1;
 		roundNumbers = String(nextRound);
@@ -89,7 +143,6 @@
 		const selectedEnd = end ?? new Date(selectedStart.getTime() + 60 * 60_000);
 		startTime = localInput(selectedStart);
 		endTime = localInput(selectedEnd);
-		hourlyRate = firstSchool.defaultHourlyRate;
 		studentNames = '';
 		description = '';
 		intervalWeeks = 1;
@@ -104,11 +157,11 @@
 	function openEdit(round: ClinicRound) {
 		selectedRound = round;
 		schoolId = String(round.schoolId);
+		progressStage = round.progressStage;
 		roundNumbers = round.roundNumbers.join(',');
 		studentNames = round.targets.map((target) => target.studentName).join('\n');
 		startTime = localInput(new Date(round.startTime));
 		endTime = localInput(new Date(round.endTime));
-		hourlyRate = round.hourlyRate;
 		description = round.description;
 		intervalWeeks = 1;
 		isRecurring = false;
@@ -138,14 +191,29 @@
 		const school = schools.find((item) => item.id === Number(schoolId));
 		if (!school) return;
 		if (selectedRound) return;
-		hourlyRate = school.defaultHourlyRate;
+		progressStage = school.currentStage;
+		setNextRound(school.id);
+	}
+
+	function setNextRound(selectedSchoolId = Number(schoolId)) {
 		const nextRound =
 			Math.max(
 				0,
-				...rounds.filter((round) => round.schoolId === school.id).map((round) => round.roundNumber)
+				...rounds
+					.filter(
+						(round) =>
+							round.schoolId === selectedSchoolId && round.progressStage === progressStage
+					)
+					.map((round) => round.roundNumber)
 			) + 1;
 		roundNumbers = String(nextRound);
 		occurrenceRounds = Array.from({ length: repeatCount }, (_, index) => String(nextRound + index));
+	}
+
+	function clinicHourlyCost(stage: ProgressStage, names = studentNames) {
+		const count = Math.max(1, names.split(/\n|,/).map((name) => name.trim()).filter(Boolean).length);
+		if (stage === 'deep') return 40_000;
+		return count <= 3 ? 30_000 : count * 10_000;
 	}
 
 	async function submitRound(allowOverlap = false) {
@@ -168,12 +236,12 @@
 					return;
 				await personalApi.updateRound(selectedRound.id, {
 					school_id: Number(schoolId),
+					progress_stage: progressStage,
 					round_number: numbers[0],
 					round_numbers: numbers,
 					student_names: names,
 					start_time: new Date(startTime).toISOString(),
 					end_time: new Date(endTime).toISOString(),
-					hourly_rate: hourlyRate,
 					description,
 					allow_overlap: allowOverlap,
 					scope: editScope
@@ -184,11 +252,11 @@
 			}
 			const body = {
 				school_id: Number(schoolId),
+				progress_stage: progressStage,
 				round_number: roundsByOccurrence[0][0],
 				student_names: names,
 				start_time: new Date(startTime).toISOString(),
 				end_time: new Date(endTime).toISOString(),
-				hourly_rate: hourlyRate,
 				description,
 				allow_overlap: allowOverlap
 			};
@@ -241,8 +309,8 @@
 <div class="page-head">
 	<div>
 		<p class="eyebrow">Aura clinic</p>
-		<h1>학교별 클리닉</h1>
-		<p>학교를 기준으로 회차와 학생 이름, 리포트를 한 흐름으로 관리합니다.</p>
+		<h1>아우라 클리닉</h1>
+		<p>캘린더에서 일정과 리포트를 관리하고, 학교 정보는 필요할 때만 확인하세요.</p>
 	</div>
 	<button class="primary-button" onclick={() => openCreate()}>＋ 새 회차</button>
 </div>
@@ -251,7 +319,7 @@
 
 <section class="stat-grid" aria-busy={loading}>
 	<article class="card stat-card sage">
-		<span>학교</span><strong>{schools.length}<small>곳</small></strong><a
+		<span>관리 학교</span><strong>{schools.length}<small>곳</small></strong><a
 			href="/personal-project/aura/schools">학교별 보기 →</a
 		>
 	</article>
@@ -272,13 +340,21 @@
 	</article>
 </section>
 
-<AuraWeekScheduler sessions={rounds} onselect={openCreate} onedit={openEdit} />
+	<AuraWeekScheduler
+		sessions={rounds}
+		onselect={openCreate}
+		onedit={openEdit}
+		ondate={(date) => {
+			roomRequestDate = date;
+			roomRequestNotice = '';
+		}}
+	/>
 
 <section class="card round-panel">
 	<header>
 		<div>
-			<p class="eyebrow">Schools & rounds</p>
-			<h2>최근 회차</h2>
+			<p class="eyebrow">Recent clinics</p>
+			<h2>최근 클리닉 일정</h2>
 		</div>
 		<a href="/personal-project/aura/schools">학교별 전체보기 →</a>
 	</header>
@@ -289,7 +365,7 @@
 					<a href={`/personal-project/aura/schools/${round.schoolId}`}>
 						<span class="round-number">{round.roundNumbers.join(',')}</span>
 						<span
-							><strong>{round.schoolName}</strong><small
+							><strong>{round.schoolName} · {progressStageLabels[round.progressStage]}</strong><small
 								>{formatDate(round.startTime)} · 학생 {round.targets.length}명</small
 							></span
 						>
@@ -351,6 +427,21 @@
 					</select>
 				</div>
 				<div class="field">
+					<label for="round-stage">진행 단계</label>
+					<select
+						id="round-stage"
+						bind:value={progressStage}
+						onchange={() => !selectedRound && setNextRound()}
+					>
+						{#each availableProgressStages(
+							schools.find((school) => school.id === Number(schoolId))?.currentStage ?? progressStage
+						) as stage}
+							<option value={stage}>{progressStageLabels[stage]}</option>
+						{/each}
+					</select>
+					<small>지난 단계의 클리닉도 선택해서 등록할 수 있습니다.</small>
+				</div>
+				<div class="field">
 					<label for="round-number">회차</label>
 					{#if isRecurring && !selectedRound}
 						<div id="round-number" class="repeat-placeholder">아래 반복 목록에서 입력</div>
@@ -374,6 +465,10 @@
 						placeholder="한 줄에 한 명씩 입력하세요&#10;김대호&#10;이민지"
 						required
 					></textarea>
+					<small
+						>현재 입력 기준 조교 시급: {clinicHourlyCost(progressStage).toLocaleString()}원
+						{progressStage === 'deep' ? ' (심층)' : ''}</small
+					>
 				</div>
 				<div class="field">
 					<label for="round-start">시작</label><input
@@ -391,15 +486,6 @@
 						step="1800"
 						bind:value={endTime}
 						required
-					/>
-				</div>
-				<div class="field">
-					<label for="round-rate">시급</label><input
-						id="round-rate"
-						type="number"
-						min="0"
-						step="1000"
-						bind:value={hourlyRate}
 					/>
 				</div>
 				{#if !selectedRound}
@@ -476,9 +562,57 @@
 	</div>
 {/if}
 
+{#if roomRequestDate}
+	<div
+		class="modal-backdrop"
+		role="presentation"
+		onclick={(event) => event.target === event.currentTarget && (roomRequestDate = null)}
+	>
+		<div class="modal room-request" role="dialog" aria-labelledby="room-request-title">
+			<p class="eyebrow">Classroom request</p>
+			<h2 id="room-request-title">강의실 배정 요청문</h2>
+			<p>선택한 날짜의 취소되지 않은 클리닉 일정만 모았습니다.</p>
+			<textarea readonly value={roomRequestText(roomRequestDate)} aria-label="강의실 배정 요청문"></textarea>
+			{#if roomRequestNotice}<small class="copy-notice">{roomRequestNotice}</small>{/if}
+			<div class="modal-actions">
+				<button class="ghost-button" onclick={() => (roomRequestDate = null)}>닫기</button>
+				<button class="primary-button" onclick={copyRoomRequest}>복사하기</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.modal {
 		width: min(680px, calc(100vw - 32px));
+	}
+	.room-request {
+		max-width: 580px;
+	}
+	.room-request h2 {
+		margin: 0;
+		font: 500 20px Georgia, 'Noto Sans KR', serif;
+	}
+	.room-request > p:not(.eyebrow) {
+		color: var(--pp-muted);
+		font-size: 10px;
+	}
+	.room-request textarea {
+		width: 100%;
+		min-height: 250px;
+		box-sizing: border-box;
+		padding: 13px;
+		border: 1px solid var(--pp-line);
+		border-radius: 8px;
+		background: #fffefb;
+		font: 12px/1.6 'Noto Sans KR', sans-serif;
+		resize: vertical;
+	}
+	.copy-notice {
+		display: block;
+		margin-top: 7px;
+		color: var(--pp-sage-dark);
+		font-size: 10px;
 	}
 	.quick-report-links {
 		margin: 0 0 16px;

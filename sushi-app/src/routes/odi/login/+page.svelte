@@ -50,7 +50,7 @@
 			const data = await fetchJson(res);
 
 			if (!data.success) {
-				throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
+				throw new Error(data.message ?? "이메일 또는 비밀번호가 올바르지 않습니다.");
 			}
 
 			const access = await odiuser.checkAccess();
@@ -107,6 +107,8 @@
 			<Button variant="primary" width="100%" disabled={!canLogin} onclick={login}>
 				로그인
 			</Button>
+
+			<a class="reset-link text-caption-medium" href="/login/reset">비밀번호를 잊으셨나요?</a>
 
 			<Button variant="secondary" width="100%" onclick={() => goto("/register")}>
 				회원가입
@@ -168,5 +170,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+	}
+
+	.reset-link {
+		align-self: center;
+		color: var(--primary);
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 </style>

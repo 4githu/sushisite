@@ -34,7 +34,7 @@
 		pinCode = value.pin_code ?? value.pinCode ?? '';
 		preSessionState = preSession.state ?? 'waiting';
 		sessionId = preSession.session_id ?? preSession.sessionId ?? null;
-		reportStatus = preSession.report_status ?? "not_started";
+		reportStatus = preSession.report_status ?? 'not_started';
 	}
 
 	function startPresentationTimer() {
@@ -187,7 +187,8 @@
 			await sessionStore.retryReport?.(pinCode);
 			await sessionStore.refreshPreSession?.(pinCode);
 		} catch (error) {
-			experienceError = error instanceof Error ? error.message : '리포트 생성 재시도에 실패했습니다.';
+			experienceError =
+				error instanceof Error ? error.message : '리포트 생성 재시도에 실패했습니다.';
 		} finally {
 			isRetryingReport = false;
 		}
@@ -245,9 +246,15 @@
 				</Button>
 			{/if}
 
-			{#if reportStatus === "failed"}
-				<Button variant="soft" size="lg" width="464px" disabled={isRetryingReport} onclick={retryReport}>
-					{isRetryingReport ? "리포트 재생성 중..." : "리포트 생성 다시 시도"}
+			{#if reportStatus === 'failed'}
+				<Button
+					variant="soft"
+					size="lg"
+					width="464px"
+					disabled={isRetryingReport}
+					onclick={retryReport}
+				>
+					{isRetryingReport ? '리포트 재생성 중...' : '리포트 생성 다시 시도'}
 				</Button>
 			{/if}
 
@@ -260,7 +267,9 @@
 							? '발표 시간 전에도 리포트는 미리 확인할 수 있습니다.'
 							: canOpenReport
 								? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
-								: isExperienceSession ? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.' : '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
+								: isExperienceSession
+									? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.'
+									: '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
 			</p>
 
 			{#if experienceError}
@@ -310,7 +319,7 @@
 		position: relative;
 		z-index: 1;
 		width: min(900px, 100%);
-		padding: 120px 40px 80px;
+		padding: clamp(72px, 10vh, 120px) clamp(16px, 3vw, 40px) 64px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -330,13 +339,13 @@
 	}
 
 	.pin-code {
-		margin-top: 96px;
+		margin-top: clamp(48px, 8vh, 96px);
 		color: var(--brand-dark);
 		font-family: var(--font-family);
-		font-size: 190px;
+		font-size: clamp(84px, 14vw, 190px);
 		font-weight: var(--font-medium);
 		line-height: 1;
-		letter-spacing: 7.6px;
+		letter-spacing: clamp(2px, 0.55vw, 7.6px);
 	}
 
 	.pin-code.demo-pin {
@@ -354,8 +363,9 @@
 	}
 
 	.ready-actions {
-		margin-top: 86px;
+		margin-top: clamp(48px, 7vh, 86px);
 		width: 464px;
+		max-width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
@@ -387,5 +397,20 @@
 		background: var(--surface);
 		color: var(--primary);
 		font-weight: var(--font-medium);
+	}
+
+	@media (max-height: 760px) and (min-width: 641px) {
+		.ready-content {
+			padding-top: 48px;
+		}
+
+		.pin-code {
+			margin-top: 30px;
+			font-size: 118px;
+		}
+
+		.ready-actions {
+			margin-top: 34px;
+		}
 	}
 </style>

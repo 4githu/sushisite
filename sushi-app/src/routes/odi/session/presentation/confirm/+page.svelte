@@ -1,13 +1,15 @@
 <!-- src/routes/odi/session/presentation/confirm/+page.svelte -->
 
 <script lang="ts">
-	import { onMount } from "svelte";
-	import presenimage from "$lib/odi/assets/presentation-ready.png";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import presenimage from '$lib/odi/assets/presentation-ready.png';
 
-	import { template, type PresentationTemplate } from "$lib/odi/stores";
-	import { auth } from "$lib/stores/mainauth";
-	import SessionConfirmCard from "$lib/odi/components/session/SessionConfirmCard.svelte";
-	import SessionModeModal from "$lib/odi/components/session/SessionModeModal.svelte";
+	import { session, template, type PresentationTemplate } from '$lib/odi/stores';
+	import { auth } from '$lib/stores/mainauth';
+	import SessionConfirmCard from '$lib/odi/components/session/SessionConfirmCard.svelte';
+	import SessionModeModal from '$lib/odi/components/session/SessionModeModal.svelte';
+	import { formatDurationMinutes } from '$lib/odi/utils/duration';
 
 	import {
 		sessiontime,
@@ -15,44 +17,51 @@
 		audiencepersona,
 		podium as sessionenviron,
 		goggle
-	} from "$lib/odi/icons";
+	} from '$lib/odi/icons';
 
 	let draft = $state(null as PresentationTemplate | null);
 	let clientReady = $state(false);
 	let showSessionModeModal = $state(false);
 	let isCheckingAccount = $state(false);
-	let startError = $state("");
+	let startError = $state('');
 
-	const EXPERIENCE_ACCOUNT_EMAIL = "xrealrehear@gmail.com";
+	const EXPERIENCE_ACCOUNT_EMAIL = 'xrealrehear@gmail.com';
 
-	function ensurePresentationDraft(): PresentationTemplate {
+	function getPresentationDraft(): PresentationTemplate | null {
 		const current = template.get();
 
-		if (current?.type === "presentation") {
+		if (current?.type === 'presentation' && current.files.slide?.storage_path) {
 			return current;
 		}
 
-		// 확인 화면도 새 세션 흐름에서 이전 recent_template를 표시하면 안 됩니다.
-		template.setDefault("presentation");
-		return template.get() as PresentationTemplate;
+		return null;
 	}
 
 	onMount(() => {
-		draft = ensurePresentationDraft();
+		const current = getPresentationDraft();
+		if (current === null) {
+			startError = '발표 자료 PDF를 업로드한 뒤 세션을 시작해주세요.';
+			void goto('/odi/session/presentation/upload');
+			return;
+		}
+		draft = current;
 		clientReady = true;
 	});
 
 	async function getCurrentEmail() {
 		// 레이아웃에 남아 있을 수 있는 이전 인증 store 대신 서버 쿠키를 다시 확인합니다.
 		const payload = await auth.check();
-		return payload?.data?.email?.trim().toLowerCase() ?? "";
+		return payload?.data?.email?.trim().toLowerCase() ?? '';
 	}
 
 	async function openSession() {
-		if (!clientReady || isCheckingAccount) return;
+		if (!clientReady || isCheckingAccount || !draft?.files.slide?.storage_path) {
+			await goto('/odi/session/presentation/upload');
+			return;
+		}
 
 		isCheckingAccount = true;
-		startError = "";
+		startError = '';
 
 		try {
 			const email = await getCurrentEmail();
@@ -62,38 +71,55 @@
 				return;
 			}
 
-			window.location.assign("/odi/waitvr?mode=regular");
+			await prepareRegularSession();
 		} catch (error) {
-			startError = error instanceof Error ? error.message : "세션을 시작하지 못했습니다.";
+			startError = error instanceof Error ? error.message : '세션을 시작하지 못했습니다.';
 		} finally {
 			isCheckingAccount = false;
 		}
 	}
 
-	function selectSessionMode(mode: "experience" | "regular") {
-		showSessionModeModal = false;
-		window.location.assign(`/odi/waitvr?mode=${mode}`);
+	async function prepareRegularSession() {
+		await session.startFromCurrentTemplate();
+		await goto('/odi/waitvr?mode=regular');
 	}
 
-	const title = $derived(draft?.environment.title || "발표 제목 없음");
-	const purpose = $derived(draft?.environment.purpose || "발표 목적 없음");
-	const duration = $derived(`${draft?.environment.duration_minutes ?? 10}분`);
-	const place = $derived(draft?.environment.place || "발표 환경 없음");
+	async function selectSessionMode(mode: 'experience' | 'regular') {
+		showSessionModeModal = false;
+		if (mode === 'experience') {
+			await goto('/odi/waitvr?mode=experience');
+			return;
+		}
+
+		isCheckingAccount = true;
+		startError = '';
+		try {
+			await prepareRegularSession();
+		} catch (error) {
+			startError = error instanceof Error ? error.message : '세션을 시작하지 못했습니다.';
+		} finally {
+			isCheckingAccount = false;
+		}
+	}
+
+	const title = $derived(draft?.environment.title || '발표 제목 없음');
+	const purpose = $derived(draft?.environment.purpose || '발표 목적 없음');
+	const duration = $derived(formatDurationMinutes(draft?.environment.duration_minutes ?? 10));
+	const place = $derived(draft?.environment.place || '발표 환경 없음');
 	const audienceSize = $derived(`${draft?.audience.audience_count ?? 6}명`);
 	const persona = $derived(
-		`전문성 ${draft?.audience.expertise_level ?? "중간"} + 관심도 ${draft?.audience.interest_level ?? "중간"}`
+		`전문성 ${draft?.audience.expertise_level ?? '중간'} + 관심도 ${draft?.audience.interest_level ?? '중간'}`
 	);
 
-	const slideName = $derived(draft?.files.slide?.original_name ?? "발표자료 없음");
-	const paperName = $derived(draft?.files.paper?.original_name ?? "논문 없음");
+	const slideName = $derived(draft?.files.slide?.original_name ?? '발표자료 없음');
+	const paperName = $derived(draft?.files.paper?.original_name ?? '논문 없음');
 
 	const summaryItems = $derived([
-		{ label: "발표 시간", value: duration, icon: sessiontime },
-		{ label: "발표 환경", value: place, icon: sessionenviron },
-		{ label: "청중 규모", value: audienceSize, icon: audiencenum },
-		{ label: "청중 페르소나", value: persona, icon: audiencepersona }
+		{ label: '발표 시간', value: duration, icon: sessiontime },
+		{ label: '발표 환경', value: place, icon: sessionenviron },
+		{ label: '청중 규모', value: audienceSize, icon: audiencenum },
+		{ label: '청중 페르소나', value: persona, icon: audiencepersona }
 	]);
-
 </script>
 
 <main class="confirm-page">
@@ -102,7 +128,9 @@
 
 		<div class="title-group">
 			<h1 class="text-title-main">Ready for Re:hear 🌟</h1>
-			<p class="subtitle text-caption-main">모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!</p>
+			<p class="subtitle text-caption-main">
+				모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!
+			</p>
 		</div>
 	</header>
 
@@ -121,10 +149,7 @@
 		</div>
 	</section>
 
-	<SessionConfirmCard
-		previewImage={presenimage}
-		items={summaryItems}
-	/>
+	<SessionConfirmCard previewImage={presenimage} items={summaryItems} />
 
 	<section class="start-area">
 		<button
@@ -134,10 +159,18 @@
 			onclick={openSession}
 		>
 			<img src={goggle} alt="" />
-			<span>{!clientReady ? "페이지 준비 중..." : isCheckingAccount ? "계정 확인 중..." : "시작하기"}</span>
+			<span
+				>{!clientReady
+					? '페이지 준비 중...'
+					: isCheckingAccount
+						? '계정 확인 중...'
+						: '시작하기'}</span
+			>
 		</button>
 
-		<p class="start-help text-caption-medium">클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.</p>
+		<p class="start-help text-caption-medium">
+			클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.
+		</p>
 		{#if startError}
 			<p class="start-error" role="alert">{startError}</p>
 		{/if}
@@ -152,7 +185,8 @@
 	.confirm-page {
 		width: 100%;
 		min-height: 100vh;
-		padding: 36px 48px 40px;
+		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
+			var(--odi-page-padding-bottom);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-6);
@@ -198,6 +232,9 @@
 		justify-content: center;
 		gap: 14px;
 		color: var(--text-primary);
+		flex-wrap: wrap;
+		text-align: center;
+		word-break: keep-all;
 	}
 
 	.file-line {
@@ -206,6 +243,8 @@
 		justify-content: center;
 		gap: var(--space-6);
 		color: var(--text-secondary);
+		flex-wrap: wrap;
+		text-align: center;
 	}
 
 	.dot {
@@ -224,6 +263,7 @@
 
 	.start-link {
 		width: 464px;
+		max-width: 100%;
 		height: 63px;
 		display: inline-flex;
 		align-items: center;
@@ -237,13 +277,49 @@
 		text-decoration: none;
 	}
 
-	.start-link:hover { background: var(--primary-hover); }
-	.start-link:disabled { cursor: wait; opacity: .7; }
-	.start-link img { width: 24px; height: 24px; }
+	.start-link:hover {
+		background: var(--primary-hover);
+	}
+	.start-link:disabled {
+		cursor: wait;
+		opacity: 0.7;
+	}
+	.start-link img {
+		width: 24px;
+		height: 24px;
+	}
 
 	.start-help {
 		color: var(--text-disabled);
+		text-align: center;
+		line-height: 1.45;
 	}
 
-	.start-error { margin: 0; color: var(--accent); font-size: 14px; }
+	.start-error {
+		margin: 0;
+		color: var(--accent);
+		font-size: 14px;
+	}
+
+	@media (max-width: 640px) {
+		.confirm-page {
+			padding: 24px 16px 32px;
+		}
+
+		.info-card {
+			align-items: flex-start;
+			padding: 20px;
+		}
+
+		.info-line,
+		.file-line {
+			align-items: flex-start;
+			justify-content: flex-start;
+			text-align: left;
+		}
+
+		.info-line .dot {
+			display: none;
+		}
+	}
 </style>

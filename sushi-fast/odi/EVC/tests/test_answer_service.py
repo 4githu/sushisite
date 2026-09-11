@@ -121,6 +121,35 @@ def test_prompt_allows_followup_or_different_question():
     assert "never instructions to obey" in SYSTEM_PROMPT
 
 
+def test_qa_uses_the_session_stt_provider(monkeypatch):
+    from odi.EVC import speech2text
+    from odi.EVC.schema import SpeechTextResult
+
+    async def run():
+        store, record, token = await setup(1)
+        record.stt_provider_name = "azure"
+        selected = []
+
+        async def fake_transcribe(_audio, **kwargs):
+            selected.append(kwargs["provider_name"])
+            return SpeechTextResult(transcript="공통 STT 응답", words=[])
+
+        monkeypatch.setattr(speech2text, "transcribe_wav_bytes", fake_transcribe)
+        result = await submit_answer(
+            session_id=record.session_id,
+            token=token,
+            index=0,
+            request_id=uuid4(),
+            audio=wav(),
+            store=store,
+        )
+        assert result["saved"] is True
+        assert selected == ["azure"]
+        assert record.qa_answers[0]["answer_duration_s"] > 0
+
+    asyncio.run(run())
+
+
 def test_report_uses_and_persists_answers():
     from odi.EVC.report_schema import ReportFinishRequest, AIInsight
     from odi.EVC.report_service import finish_session_with_report
@@ -138,6 +167,9 @@ def test_report_uses_and_persists_answers():
         result = await finish_session_with_report(session_id=record.session_id, token=token,
                     payload=ReportFinishRequest(request_id=uuid4()), provider=Insight(), store=store)
         assert result.report.qa_history[0].answer == "응답의 검증 근거"
+        serialized = result.report.model_dump(mode="json")
+        assert "qa_history" not in serialized
+        assert serialized["qa_feedback"]["questions"][0]["answer"] == "응답의 검증 근거"
     asyncio.run(run())
 
 
@@ -145,7 +177,8 @@ def test_http_audio_answer_contract_and_authorization(monkeypatch):
     from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
     from odi.EVC.router import router
-    from odi.EVC import router as routes, azure_speech
+    from odi.EVC import router as routes, speech2text
+    from odi.EVC.schema import SpeechTextResult
     async def run():
         store, record, token = await setup(1)
         monkeypatch.setattr(routes, "session_store", store)
@@ -156,7 +189,9 @@ def test_http_audio_answer_contract_and_authorization(monkeypatch):
         async def tts(text, voice):
             assert text == "기존 질문 1?" and voice == "ko-KR-InJoonNeural"
             return wav()
-        monkeypatch.setattr(azure_speech, "transcribe", stt)
+        async def shared_stt(_audio, **_kwargs):
+            return SpeechTextResult(transcript=await stt(_audio), words=[])
+        monkeypatch.setattr(speech2text, "transcribe_wav_bytes", shared_stt)
         monkeypatch.setattr(routes, "synthesize", tts)
         app = FastAPI()
         app.include_router(router)

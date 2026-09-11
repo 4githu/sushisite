@@ -1,19 +1,17 @@
 <script lang="ts">
-	import type { Snippet } from "svelte";
+	import type { Snippet } from 'svelte';
 
 	let {
 		children,
-		padding = "36px",
-		minHeight = "609px"
+		padding = '36px',
+		minHeight = '609px'
 	}: {
 		children: Snippet;
 		padding?: string;
 		minHeight?: string;
 	} = $props();
 
-	const styleVars = $derived(
-		`--card-padding:${padding}; --card-min-height:${minHeight};`
-	);
+	const styleVars = $derived(`--card-padding:${padding}; --card-min-height:${minHeight};`);
 </script>
 
 <section class="surface-card" style={styleVars}>
@@ -27,7 +25,7 @@
 		width: 100%;
 		height: 100%;
 
-		min-height: var(--card-min-height);
+		min-height: min(var(--card-min-height), max(380px, calc(100dvh - 330px)));
 
 		background: var(--surface);
 
@@ -55,6 +53,12 @@
 
 		.surface-card-body {
 			padding: 20px;
+		}
+	}
+
+	@media (max-height: 820px) and (min-width: 641px) {
+		.surface-card-body {
+			padding: 28px;
 		}
 	}
 </style>

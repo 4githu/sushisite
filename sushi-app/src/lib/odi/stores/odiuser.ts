@@ -22,7 +22,13 @@ export type OdiAccessStatus =
   | "main_authenticated_needs_odi_join"
   | "guest";
 
+export type OdiAccessResult = {
+  status: OdiAccessStatus;
+  user: OdiUser | null;
+};
+
 const store = writable<OdiUser | null>(null);
+let accessRequest: Promise<OdiAccessResult> | null = null;
 
 async function fetchJson(res: Response) {
   const data = await res.json().catch(() => null);
@@ -50,7 +56,12 @@ export const odiuser = {
     store.set(null);
   },
 
-  async checkAccess() {
+  async checkAccess(): Promise<OdiAccessResult> {
+    // 새로고침 시 부모 레이아웃과 자식 페이지가 같은 인증 복구를 동시에 시작할 수 있습니다.
+    // 하나의 요청을 공유해 ODI 쿠키가 준비되기 전에 페이지 API가 나가지 않게 합니다.
+    if (accessRequest) return accessRequest;
+
+    accessRequest = (async () => {
     // mainauth를 먼저 확인하고 auth_id로 ODI 토큰을 갱신합니다.
     // ODI 쿠키가 아직 없을 때 /me 404를 먼저 발생시키지 않습니다.
     const authPayload = await auth.check();
@@ -102,6 +113,27 @@ export const odiuser = {
       status: "main_authenticated_needs_odi_join" as const,
       user: null
     };
+    })();
+
+    try {
+      return await accessRequest;
+    } finally {
+      accessRequest = null;
+    }
+  },
+
+  async requireUser(): Promise<OdiUser> {
+    const currentUser = get(store);
+    if (currentUser) return currentUser;
+
+    const result = await this.checkAccess();
+    if (result.status === "odi_authenticated" && result.user) return result.user;
+
+    if (result.status === "main_authenticated_needs_odi_join") {
+      throw new Error("Re:hear 이용을 위한 계정 연결이 필요합니다.");
+    }
+
+    throw new Error("로그인 정보가 만료되었습니다. 다시 로그인해 주세요.");
   },
 
   async refresh(pathname: string = "") {

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from . import service
 from . import JMT
+from . import sushihash
 from pydantic import BaseModel
 from fastapi import Response
 from fastapi.responses import JSONResponse
@@ -28,6 +29,16 @@ class VerifyCodeRequest(BaseModel):
     code: str
 
 
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+
 class EditUserRequest(BaseModel):
     id: int
     password: str | None = None
@@ -51,7 +62,8 @@ def login(data: LoginRequest, request: Request):
     )
 
     response = JSONResponse({
-        "success": success
+        "success": success,
+        "message": None if success else result
     })
 
     if success:
@@ -97,14 +109,34 @@ def logout(request: Request):
 
 @router.post("/register/send")
 def register_send(data: RegisterRequest):
-    success = service.send_verification_email(
-        data.email,
-        data.password,
-        data.name
-    )
+    try:
+        success = service.send_verification_email(
+            data.email,
+            data.password,
+            data.name
+        )
+    except sushihash.PasswordTooLongError as error:
+        return JSONResponse({"success": False, "message": str(error)}, status_code=400)
 
     return {
         "success": success
+    }
+
+
+@router.post("/password-reset/send")
+def password_reset_send(data: PasswordResetRequest):
+    service.request_password_reset(data.email.strip().lower())
+    return {"success": True}
+
+
+@router.post("/password-reset/confirm")
+def password_reset_confirm(data: PasswordResetConfirmRequest):
+    success, message = service.reset_password(
+        data.email.strip().lower(), data.code.strip(), data.new_password
+    )
+    return {
+        "success": success,
+        "message": message
     }
 
 
