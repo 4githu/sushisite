@@ -4,7 +4,6 @@ import hashlib
 import os
 import secrets
 import time
-from datetime import datetime, timezone
 from urllib.parse import urlencode, urlsplit
 
 import httpx
@@ -12,7 +11,7 @@ from cryptography.fernet import Fernet
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from auth import JMT, userdb, sushihash
+from auth import JMT
 from personal_project.db import connection
 from personal_project import workspace  # additive tables
 
@@ -51,6 +50,8 @@ def safe_return(path):
 @router.get('/start')
 def start(request: Request, purpose: str='login', return_to: str='/personal-project/calendar'):
     if purpose not in ('login','calendar'): raise HTTPException(400,'잘못된 연결 방식입니다.')
+    if request.url.hostname == 'rehear.chobab.app' or return_to.startswith('/odi'):
+        raise HTTPException(410, 'ReHear에서는 Google 로그인을 지원하지 않습니다.')
     base=origin(request)
     kind='rehear' if request.url.hostname=='rehear.chobab.app' or return_to.startswith('/odi') else 'calendar'
     client,_=credentials(kind)
@@ -72,28 +73,6 @@ def start(request: Request, purpose: str='login', return_to: str='/personal-proj
     return response
 
 
-def google_identity(info):
-    if not info.get('email_verified') or not info.get('sub') or not info.get('email'):
-        raise HTTPException(400,'인증된 구글 이메일을 확인할 수 없습니다.')
-    email=info['email'].strip().lower()
-    with userdb.get_connection() as db:
-        db.execute('CREATE TABLE IF NOT EXISTS google_identities(subject TEXT PRIMARY KEY,user_id INTEGER NOT NULL UNIQUE)')
-        found=db.execute('SELECT user_id FROM google_identities WHERE subject=?',(info['sub'],)).fetchone()
-        if found: return dict(db.execute('SELECT * FROM users WHERE id=?',(found['user_id'],)).fetchone())
-        existing=db.execute('SELECT * FROM users WHERE lower(email)=?',(email,)).fetchone()
-        if existing:
-            # Google is authoritative for Gmail and hosted Workspace email. Other domains need explicit linking.
-            if not email.endswith('@gmail.com') and not info.get('hd'):
-                raise HTTPException(409,'기존 계정과의 안전한 연결이 필요합니다. 기존 이메일 로그인을 사용해주세요.')
-            user_id=existing['id']
-        else:
-            password=sushihash.make_hash(secrets.token_urlsafe(16))
-            cur=db.execute('INSERT INTO users(email,password_hash,name,created_at,email_verified) VALUES(?,?,?,?,1)',(email,password,info.get('name') or email.split('@')[0],datetime.now(timezone.utc).isoformat()))
-            user_id=cur.lastrowid
-        db.execute('INSERT INTO google_identities VALUES(?,?)',(info['sub'],user_id)); db.commit()
-        return dict(db.execute('SELECT * FROM users WHERE id=?',(user_id,)).fetchone())
-
-
 @router.get('/callback')
 def callback(request: Request, state: str='', code: str='', error: str=''):
     base=origin(request)
@@ -109,6 +88,7 @@ def callback(request: Request, state: str='', code: str='', error: str=''):
         response.delete_cookie('google_oauth_nonce',path='/auth/google')
         return response
     if error or not code: return result({'google_error':'cancelled'})
+    if row['client_kind'] == 'rehear': return result({'google_error':'unavailable'})
     client,secret=credentials(row['client_kind'])
     try:
         with httpx.Client(timeout=25) as http:
@@ -134,24 +114,7 @@ def callback(request: Request, state: str='', code: str='', error: str=''):
                 ON CONFLICT(user_id,subject) DO UPDATE SET email=excluded.email,client_kind=excluded.client_kind,refresh_token=excluded.refresh_token,scopes=excluded.scopes,error=NULL''',
                 (current,info['sub'],info['email'],row['client_kind'],refresh,scopes)); db.commit()
         return result({'google':'connected'})
-    try: user=google_identity(info)
-    except HTTPException: return result({'google_error':'account_link_required'})
-    response=result({'google':'signed_in'})
-    response.set_cookie('mainauth',JMT.make_jwt(user['id'],user,['id','name','email']),httponly=True,secure=base.startswith('https:'),samesite='lax',path='/',max_age=3600)
-    if row['client_kind']=='rehear':
-        from odi.db import odidb
-        odi=odidb.get_user_by_auth_id(str(user['id']))
-        if not odi:
-            odidb.create_user(str(user['id']),{
-                'owner_id':str(user['id']),
-                'profile':{'nickname':user['name'],'level':'새싹 보이스','current_exp':0,'next_level_exp':300},
-                'statistics':{'session_count':0,'practice_minutes':0,'current_streak':0,'best_streak':0},
-                'preferences':{'report_view_version':'v3','show_timeline_video':True},
-                'favorite_templates':[], 'recent_sessions':[], 'evc_trend':[]
-            },auth_id=str(user['id']))
-            odi=odidb.get_user_by_auth_id(str(user['id']))
-        response.set_cookie('odi_token',JMT.make_jwt(odi['user_id'],odi,['user_id','auth_id']),httponly=True,secure=base.startswith('https:'),samesite='lax',path='/',max_age=3600)
-    return response
+    return result({'google_error':'unavailable'})
 
 
 def access_token(account):
