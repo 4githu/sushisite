@@ -322,7 +322,7 @@ async def recover_pre_session_report(
     ]
     if not segments:
         raise ReportSourceMissingError("persisted presentation segments do not exist")
-    environment = (template_record.get("template") or {}).get("environment") or {}
+    environment = (pre_session.get("template_snapshot") or template_record.get("template") or {}).get("environment") or {}
     title = str(environment.get("title") or "발표")
     odidb.start_report_job(evc_session_id=evc_session_id, request_id=str(request_id))
     narrative = None

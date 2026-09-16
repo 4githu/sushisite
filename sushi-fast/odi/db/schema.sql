@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS templates (
     template_id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
     template TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    last_used_at TEXT,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    create_request_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
 
@@ -31,6 +35,9 @@ CREATE TABLE IF NOT EXISTS pre_sessions (
     session_id TEXT,
     state TEXT NOT NULL DEFAULT 'waiting',
     expires_at TEXT NOT NULL,
+    template_snapshot TEXT,
+    request_key TEXT,
+    request_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
 
     FOREIGN KEY (template_id) REFERENCES templates(template_id) ON DELETE CASCADE,
@@ -179,3 +186,21 @@ BEGIN
     SET updated_at = datetime('now')
     WHERE job_id = OLD.job_id;
 END;
+
+CREATE TABLE IF NOT EXISTS practice_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    request_hash TEXT,
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    metric_id TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'queued',
+    duration_seconds REAL NOT NULL,
+    target_seconds INTEGER NOT NULL DEFAULT 60,
+    transcript TEXT,
+    score INTEGER,
+    feedback TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    completed_at TEXT,
+    CHECK(state IN ('queued','analyzing','completed','failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_practice_user ON practice_attempts(user_id,created_at);

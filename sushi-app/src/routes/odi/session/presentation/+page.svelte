@@ -1,5 +1,6 @@
 <!-- src/routes/odi/session/presentation/+page.svelte -->
 <script lang="ts">
+	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -45,13 +46,13 @@
 		purpose = draft.environment.purpose || '프로젝트 목적';
 		language = draft.environment.language || '한국어';
 		place = draft.environment.place;
-		durationMinutes = 2;
+		durationMinutes = draft.environment.duration_minutes ?? 2;
 		questionCount = draft.environment.question_count ?? 0;
 
 		ready = true;
 	});
 
-	$effect(() => {
+	function syncDraft() {
 		if (!ready) return;
 
 		template.patchEnvironment({
@@ -62,7 +63,7 @@
 			duration_minutes: durationMinutes,
 			question_count: questionCount
 		});
-	});
+	}
 
 	const canNext = $derived(
 		title.trim().length > 0 &&
@@ -85,16 +86,53 @@
 			</p>
 		</div>
 	</header>
+	<TemplateSaveBar />
 
 	<ProgressStepper {steps} currentStep={0} />
 
 	<PresentationSessionBasicInfoCard
-		bind:title
-		bind:purpose
-		bind:language
-		bind:place
-		bind:durationMinutes
-		bind:questionCount
+		bind:title={
+			() => title,
+			(value) => {
+				title = value;
+				syncDraft();
+			}
+		}
+		bind:purpose={
+			() => purpose,
+			(value) => {
+				purpose = value;
+				syncDraft();
+			}
+		}
+		bind:language={
+			() => language,
+			(value) => {
+				language = value;
+				syncDraft();
+			}
+		}
+		bind:place={
+			() => place,
+			(value) => {
+				place = value;
+				syncDraft();
+			}
+		}
+		bind:durationMinutes={
+			() => durationMinutes,
+			(value) => {
+				durationMinutes = value;
+				syncDraft();
+			}
+		}
+		bind:questionCount={
+			() => questionCount,
+			(value) => {
+				questionCount = value;
+				syncDraft();
+			}
+		}
 	/>
 
 	<footer class="page-actions">

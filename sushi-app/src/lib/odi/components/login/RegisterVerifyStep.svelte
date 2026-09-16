@@ -1,8 +1,8 @@
 <!-- src/lib/odi/components/login/RegisterVerifyStep.svelte -->
 <script lang="ts">
 	import {
-		home as Mail,
-		home as Check
+		authMail as Mail,
+		authCheck as Check
 	} from "$lib/odi/icons";
 
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";

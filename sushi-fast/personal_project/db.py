@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pathlib import Path
 import re
 import sqlite3
+import os
 
 from .academic import (
     STAGE_TERM_PERIOD,
@@ -12,7 +13,7 @@ from .academic import (
 )
 
 
-DB_PATH = Path(__file__).resolve().parent / "personal_project.db"
+DB_PATH = Path(os.getenv('PERSONAL_PROJECT_DB_PATH', str(Path(__file__).resolve().parent / "personal_project.db")))
 
 
 SCHEMA = """

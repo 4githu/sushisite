@@ -25,6 +25,9 @@ class EventCreate(BaseModel):
     type: str = Field(default="personal", max_length=40)
     group_name: str | None = Field(default=None, max_length=80)
     category_name: str | None = Field(default=None, max_length=80)
+    location: str = Field(default='', max_length=500)
+    web_url: str = Field(default='', max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    project_id: int | None = None
 
     @model_validator(mode="after")
     def validate_times(self):
@@ -34,6 +37,9 @@ class EventCreate(BaseModel):
 
 
 class EventUpdate(BaseModel):
+    location: str | None = Field(default=None, max_length=500)
+    web_url: str | None = Field(default=None, max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    project_id: int | None = None
     title: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     start_time: datetime | None = None
@@ -42,6 +48,13 @@ class EventUpdate(BaseModel):
     status: EventStatus | None = None
     group_name: str | None = None
     category_name: str | None = None
+
+    @model_validator(mode='after')
+    def explicit_nonnull(self):
+        for name in ('title','start_time','is_all_day','status','location','web_url','description'):
+            if name in self.model_fields_set and getattr(self,name) is None:
+                raise ValueError(f'{name}은 비워둘 수 없습니다.')
+        return self
 
 
 class EventSeriesCreate(EventCreate):

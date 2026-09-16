@@ -44,7 +44,7 @@ export class PersonalApiError extends Error {
 	}
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
 	let response: Response;
 	try {
 		response = await fetch(`${API_BASE}/api/personal${path}`, {

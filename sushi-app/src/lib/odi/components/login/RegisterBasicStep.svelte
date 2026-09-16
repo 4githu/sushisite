@@ -1,9 +1,9 @@
 <!-- src/lib/odi/components/login/RegisterBasicStep.svelte -->
 <script lang="ts">
 	import {
-		home as Person,
-		home as Mail,
-		home as Lock
+		authPerson as Person,
+		authMail as Mail,
+		authLock as Lock
 	} from "$lib/odi/icons";
 
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";

@@ -40,10 +40,11 @@ export async function checkPersonalAuth(): Promise<PersonalUser | null> {
 }
 
 export async function loginPersonal(email: string, password: string): Promise<PersonalUser> {
+	const normalizedEmail = email.trim().toLowerCase();
 	const response = await fetchAuth('/auth/login', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ email, password })
+		body: JSON.stringify({ email: normalizedEmail, password })
 	});
 	const result = await response.json().catch(() => null);
 	if (!response.ok) {

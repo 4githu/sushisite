@@ -1,6 +1,5 @@
 <script lang="ts">
 	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
-	import { home as VoiceSelection } from '$lib/odi/icons';
 
 	type SummaryItem = {
 		label: string;
@@ -28,9 +27,9 @@
 		{/if}
 
 		<div class="summary-row">
-			{#each items as item}
+			{#each items as item (item.label)}
 				<div class="summary-item">
-					<img class="summary-icon" src={item.icon} alt="" />
+					{#if item.icon}<img class="summary-icon" src={item.icon} alt="" />{/if}
 
 					<p class="text-body-medium summary-label">
 						{item.label}

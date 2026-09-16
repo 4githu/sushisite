@@ -43,10 +43,14 @@ class TemplateCreateRequest(BaseModel):
 
 class TemplateUpdateRequest(BaseModel):
     template: JsonDict
+    expected_version: int | None = None
 
 
 class PreSessionStartRequest(BaseModel):
     user_id: str | int
+    template: JsonDict | None = None
+    template_id: str | None = None
+    request_id: str | None = Field(default=None, max_length=128)
     expires_minutes: int = Field(default=30, ge=1, le=180)
 
 

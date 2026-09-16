@@ -54,13 +54,12 @@
 		ready = true;
 	});
 
-	$effect(() => {
+	function syncScript() {
 		if (!ready) return;
 
-		template.patchFiles({
-			script_content: scriptText
-		});
-	});
+		if (template.get()?.files.script_content !== scriptText)
+			template.patchFiles({ script_content: scriptText, script_sections: undefined });
+	}
 
 	const canNext = $derived(
 		Boolean(slideFileRef?.storage_path) && !slideUploading && !paperUploading
@@ -121,7 +120,8 @@
 	}
 
 	function checkScript() {
-		console.log('script check', scriptText);
+		template.patchFiles({ script_content: scriptText });
+		void goto('/odi/session/presentation/script');
 	}
 </script>
 
@@ -143,7 +143,13 @@
 		<PresentationUploadFileCard
 			{slideFileRef}
 			{paperFileRef}
-			bind:scriptText
+			bind:scriptText={
+				() => scriptText,
+				(value) => {
+					scriptText = value;
+					syncScript();
+				}
+			}
 			{slideUploading}
 			{paperUploading}
 			{slideError}

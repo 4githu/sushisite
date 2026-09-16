@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { template } from '$lib/odi/stores';
 	import { goto } from '$app/navigation';
 
 	import Button from '$lib/odi/components/common/Button.svelte';
@@ -50,15 +52,19 @@
 		goto('/odi/session/interview/upload');
 	}
 
+	onMount(() => {
+		const draft = template.get();
+		if (draft?.type === 'interview') {
+			interviewerPersona = draft.audience.interviewer_persona as InterviewerPersona;
+			interviewStyle = draft.audience.interview_style as InterviewStyle;
+		}
+	});
 	function nextStep() {
-		const interviewerSetting = {
-			interviewerPersona,
-			interviewStyle
-		};
-
-		console.log(interviewerSetting);
-
-		goto('/odi/session/interview/confirm');
+		template.patchAudience({
+			interviewer_persona: interviewerPersona,
+			interview_style: interviewStyle
+		});
+		void goto('/odi/session/interview/confirm');
 	}
 </script>
 

@@ -1,47 +1,63 @@
 <script lang="ts">
+	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 
 	import Button from '$lib/odi/components/common/Button.svelte';
 	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
 	import SessionConfirmCard from '$lib/odi/components/session/SessionConfirmCard.svelte';
 
-	// 실제 이미지 파일 생기면 주석 해제
-	// import InterviewPreview from "$lib/odi/assets/interview-preview.png";
-
-	const applicationInfo = {
-		company: '주식회사 Re:hear',
-		department: 'Product Design 부서',
-		position: 'UX Designer'
-	};
-
-	const sessionSummary = [
-		{
-			label: '면접 시간',
-			value: '30분'
-		},
+	import { template, session } from '$lib/odi/stores';
+	const draft = $derived($template?.type === 'interview' ? $template : null);
+	const applicationInfo = $derived({
+		company: draft?.environment.company_name ?? '',
+		department: draft?.environment.department ?? '',
+		position: draft?.environment.position ?? ''
+	});
+	const sessionSummary = $derived([
+		{ label: '면접 시간', value: `${draft?.environment.duration_minutes ?? 0}분` },
 		{
 			label: '면접 형식',
-			value: '일대다, 3명'
+			value: `${draft?.environment.interview_context ?? ''}, ${draft?.environment.interviewer_count ?? 0}명`
 		},
 		{
 			label: '면접관 페르소나',
-			value: '인사담당자 + 실무자'
+			value:
+				(
+					{ hr: '인사담당자', practical: '실무자', executive: '임원', mixed: '혼합' } as Record<
+						string,
+						string
+					>
+				)[draft?.audience.interviewer_persona ?? ''] ??
+				draft?.audience.interviewer_persona ??
+				''
 		},
 		{
 			label: '면접 스타일',
-			value: '일반적'
+			value:
+				(
+					{ friendly: '친근한', neutral: '일반적', critical: '비판적', pressure: '압박' } as Record<
+						string,
+						string
+					>
+				)[draft?.audience.interview_style ?? ''] ??
+				draft?.audience.interview_style ??
+				''
 		}
-	];
-
-	function startSession() {
-		const sessionConfig = {
-			applicationInfo,
-			sessionSummary
-		};
-
-		console.log(sessionConfig);
-
-		goto('/odi/practice');
+	]);
+	let busy = $state(false),
+		error = $state('');
+	async function startSession() {
+		if (busy || !draft) return;
+		busy = true;
+		error = '';
+		try {
+			await session.startFromCurrentTemplate();
+			await goto('/odi/waitvr?mode=regular');
+		} catch (e) {
+			error = e instanceof Error ? e.message : '세션을 시작하지 못했습니다.';
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
@@ -57,6 +73,7 @@
 			</p>
 		</div>
 	</header>
+	<TemplateSaveBar />
 
 	<SurfaceCard padding="11px" minHeight="111px">
 		<div class="application-card">
@@ -75,7 +92,10 @@
 	<SessionConfirmCard items={sessionSummary} />
 
 	<div class="start-area">
-		<Button width="462px" onclick={startSession}>시작하기</Button>
+		<Button width="462px" onclick={startSession} disabled={busy || !draft}
+			>{busy ? '세션 준비 중…' : '이 환경으로 세션 시작'}</Button
+		>
+		{#if error}<p role="alert">{error}</p>{/if}
 
 		<p class="text-body-medium start-helper">
 			클릭하면 가상 면접 환경으로 이동하여 세션을 시작합니다.

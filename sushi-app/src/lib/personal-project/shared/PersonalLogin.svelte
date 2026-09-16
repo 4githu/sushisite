@@ -1,4 +1,6 @@
 <script lang="ts">
+    import GoogleLogin from './GoogleLogin.svelte';
+    import { page } from '$app/state';
 	import { loginPersonal, type PersonalUser } from './auth';
 
 	let {
@@ -23,7 +25,7 @@
 		loading = true;
 		error = '';
 		try {
-			onSuccess(await loginPersonal(email.trim(), password));
+			onSuccess(await loginPersonal(email, password));
 		} catch (cause) {
 			error =
 				cause instanceof Error
@@ -39,15 +41,16 @@
 	<section class="auth-card">
 		<div class="brand-mark">P</div>
 		<p class="eyebrow">Personal workspace</p>
-		<h1>개인 프로젝트 로그인</h1>
+		<h1>내 일정 시작하기</h1>
 		<p class="subtitle">
-			캘린더와 아우라가 같은 계정 쿠키를 사용합니다.<br />Calendar and Aura share one account.
+			구글 계정으로 캘린더와 아우라를 이용하세요.
 		</p>
 
 		{#if serverMessage}
 			<div class="server-message">{serverMessage}</div>
 		{/if}
 
+        <GoogleLogin returnTo={page.url.pathname + page.url.search} />
 		<form onsubmit={submit}>
 			<label for="personal-email">이메일 / Email</label>
 			<input

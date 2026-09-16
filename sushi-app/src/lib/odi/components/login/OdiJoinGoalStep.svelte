@@ -3,12 +3,12 @@
 	import OdiJoinOptionCard from "$lib/odi/components/login/OdiJoinOptionCard.svelte";
 
 	import {
-		home as Podium,
-		home as VoiceSelection,
-		home as Check,
-		home as Article,
-		home as Visibility,
-		home as Calendar
+		podium as Podium,
+		voice as VoiceSelection,
+		authCheck as Check,
+		figmaDescription as Article,
+		authVisibility as Visibility,
+		figmaReportCalendar as Calendar
 	} from "$lib/odi/icons";
 
 	export type TrainingType = "presentation" | "interview" | "both";
@@ -73,7 +73,7 @@
 		<h2>주로 어떤 상황을 연습하시나요?</h2>
 
 		<div class="three-grid">
-			{#each trainingOptions as option}
+			{#each trainingOptions as option (option.value)}
 				<OdiJoinOptionCard
 					title={option.title}
 					description={option.description}
@@ -89,7 +89,7 @@
 		<h2>가장 먼저 개선하고 싶은 부분은 무엇인가요?</h2>
 
 		<div class="two-grid">
-			{#each focusOptions as option}
+			{#each focusOptions as option (option.value)}
 				<OdiJoinOptionCard
 					title={option.title}
 					description={option.description}
@@ -106,7 +106,7 @@
 		<h2>얼마나 자주 연습할까요?</h2>
 
 		<div class="three-grid">
-			{#each frequencyOptions as option}
+			{#each frequencyOptions as option (option.value)}
 				<button
 					type="button"
 					class="frequency-card clickable"

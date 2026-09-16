@@ -1,4 +1,5 @@
 <script lang="ts">
+    import InstallApp from '$lib/personal-project/shared/InstallApp.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import PersonalAccountCard from '$lib/personal-project/shared/PersonalAccountCard.svelte';
@@ -42,6 +43,7 @@
 		</nav>
 		<a class="calendar-link" href="/personal-project/calendar">◇ 연결된 캘린더에서 보기</a>
 		<PersonalAccountCard />
+        <InstallApp service="aura" />
 	</aside>
 	<main class="personal-main">
 		{@render children()}

@@ -120,6 +120,26 @@ async def smart_start(
                 raise HTTPException(404, detail={"code": "template_not_found", "message": "pre-session template does not exist"})
             owner_user_id = str(template_record["owner_id"])
             template_id = str(pre_session["template_id"])
+            snapshot = pre_session.get("template_snapshot") or template_record["template"]
+            environment = snapshot.get("environment") or {}
+            audience = snapshot.get("audience") or {}
+            options.presentation_title = str(environment.get("title") or environment.get("company_name") or presentation_title)
+            options.topic_interest = normalize_contract_setting(audience.get("interest_level") or topic_interest)
+            options.prior_knowledge = normalize_contract_setting(audience.get("expertise_level") or prior_knowledge)
+            slide_path = ((snapshot.get("files") or {}).get("slide") or {}).get("storage_path")
+            if slide_path:
+                from odi.files.service import path_from_storage_path
+                import shutil
+                from uuid import uuid4
+                source = path_from_storage_path(slide_path)
+                if not source.is_file():
+                    raise HTTPException(422, '저장된 발표 자료가 만료되었습니다. 다시 업로드해 주세요.')
+                if stored_slide is not None:
+                    stored_slide.unlink(missing_ok=True)
+                EVC_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+                stored_slide = EVC_UPLOAD_DIR / f"{uuid4()}.pdf"
+                shutil.copy2(source, stored_slide)
+                slides = extract_slides(stored_slide)
             owner = odidb.get_user(owner_user_id)
             preferences = (owner or {}).get("config", {}).get("preferences", {})
             selected_stt_provider = normalize_provider_name(preferences.get("stt_provider"))

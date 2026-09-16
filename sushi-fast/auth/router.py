@@ -5,6 +5,7 @@ from . import sushihash
 from pydantic import BaseModel
 from fastapi import Response
 from fastapi.responses import JSONResponse
+import json
 
 from fastapi import Request
 
@@ -51,13 +52,22 @@ class EditUserRequest(BaseModel):
 
 def _is_secure_request(request: Request) -> bool:
     forwarded = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
-    return forwarded == "https" or request.url.scheme == "https"
+    if forwarded:
+        return forwarded == "https"
+
+    # Cloudflare Tunnel provides the original scheme through Cf-Visitor.  Vite's
+    # development proxy may not preserve X-Forwarded-Proto, so recognize both
+    # standard headers before falling back to the internal HTTP hop.
+    try:
+        return json.loads(request.headers.get("cf-visitor", "{}")).get("scheme") == "https" or request.url.scheme == "https"
+    except (TypeError, json.JSONDecodeError):
+        return request.url.scheme == "https"
 
 
 @router.post("/login")
 def login(data: LoginRequest, request: Request):
     success, result = service.login_with_password(
-        data.email,
+        data.email.strip().lower(),
         data.password
     )
 

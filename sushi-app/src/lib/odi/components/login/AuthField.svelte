@@ -1,7 +1,7 @@
 <!-- src/lib/odi/components/login/AuthField.svelte -->
 <script lang="ts">
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import { home as Check, home as Visibility, home as VisibilityOff } from '$lib/odi/icons';
+	import { authCheck as Check, authVisibility as Visibility } from '$lib/odi/icons';
 
 	let {
 		label,
@@ -66,8 +66,9 @@
 				class="visibility-button clickable"
 				onclick={() => (visible = !visible)}
 				aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
+				aria-pressed={visible}
 			>
-				<img src={visible ? VisibilityOff : Visibility} alt="" />
+				<img src={Visibility} alt="" />
 			</button>
 		{/if}
 	</div>

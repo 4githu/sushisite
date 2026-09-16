@@ -1,6 +1,7 @@
 <!-- src/routes/odi/session/presentation/confirm/+page.svelte -->
 
 <script lang="ts">
+	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import presenimage from '$lib/odi/assets/presentation-ready.png';
@@ -133,6 +134,7 @@
 			</p>
 		</div>
 	</header>
+	<TemplateSaveBar />
 
 	<section class="info-card">
 		<p class="text-body-medium">발표 정보</p>
@@ -164,12 +166,12 @@
 					? '페이지 준비 중...'
 					: isCheckingAccount
 						? '계정 확인 중...'
-						: '시작하기'}</span
+						: '이 환경으로 세션 시작'}</span
 			>
 		</button>
 
 		<p class="start-help text-caption-medium">
-			클릭하면 업로드 파일이 세션 파일로 확정되고, 발표 PDF는 이미지로 변환됩니다.
+			이번 설정으로 연습을 시작합니다. 저장된 기본 환경은 그대로 유지돼요.
 		</p>
 		{#if startError}
 			<p class="start-error" role="alert">{startError}</p>

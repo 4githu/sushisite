@@ -5,6 +5,11 @@ import time
 
 
 def login_with_password(email, password):
+    # Email addresses are case-insensitive in practice.  Registration and password
+    # reset already normalize their input, but login previously did an exact SQLite
+    # lookup, making a valid account appear missing when the user typed a capital
+    # letter or a trailing space.
+    email = email.strip().lower()
     user = userdb.get_user(email)
     if not user:
         return False, "이메일 또는 비밀번호가 올바르지 않습니다."

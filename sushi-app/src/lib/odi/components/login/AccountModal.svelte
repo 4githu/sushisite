@@ -1,12 +1,13 @@
 <!-- src/lib/odi/components/login/AccountModal.svelte -->
 <script lang="ts">
+	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import { auth } from "$lib/stores/mainauth";
 	import { odiuser } from "$lib/odi/stores";
-	import { home as Person, home as Mail, home as Lock } from "$lib/odi/icons";
+	import { authPerson as Person, authMail as Mail, authLock as Lock } from "$lib/odi/icons";
 	import { API_BASE as API } from '$lib/config/api';
 
 	const titleId = "account-modal-title";
@@ -26,7 +27,6 @@
 	let name = $state("");
 	let email = $state("");
 	let nickname = $state("");
-	let profileInitialized = $state(false);
 	let currentPassword = $state("");
 	let newPassword = $state("");
 	let newPasswordConfirm = $state("");
@@ -42,12 +42,11 @@
 	const canChangePassword = $derived(!loading && authId && currentPassword.length > 0 && newPassword.length > 0 && passwordValid && newPassword === newPasswordConfirm);
 	const canDeleteAccount = $derived(!loading && authId && deletePassword.length > 0);
 
-	$effect(() => {
-		if (profileInitialized || (!currentName && !currentEmail && !currentOdiUser)) return;
+	// Capture the authenticated profile once when opening this editable form.
+	onMount(() => {
 		name = currentName;
 		email = currentEmail;
 		nickname = currentOdiUser?.config?.profile?.nickname ?? currentName;
-		profileInitialized = true;
 	});
 
 	async function fetchJson(res: Response) {

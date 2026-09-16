@@ -1,9 +1,9 @@
 <!-- src/lib/odi/components/login/AgreementBox.svelte -->
 <script lang="ts">
 	import {
-		home as CheckBox,
-		home as CheckBoxOutlineBlank,
-		home as ChevronRight
+		authCheckboxChecked as CheckBox,
+		authCheckboxUnchecked as CheckBoxOutlineBlank,
+		authChevronDown as ChevronRight
 	} from "$lib/odi/icons";
 
 	let {
@@ -53,7 +53,7 @@
 
 	<div class="agreement-box">
 		<div class="agreement-row">
-			<button type="button" class="check-area clickable" onclick={toggleAll}>
+			<button type="button" class="check-area clickable" role="checkbox" aria-checked={allAgreed} onclick={toggleAll}>
 				<img src={allAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
 				<span class="text-body">모든 약관에 동의합니다.</span>
 			</button>
@@ -65,7 +65,7 @@
 		</div>
 
 		<div class="agreement-row">
-			<button type="button" class="check-area clickable" onclick={toggleService}>
+			<button type="button" class="check-area clickable" role="checkbox" aria-checked={serviceAgreed} onclick={toggleService}>
 				<img src={serviceAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
 				<span class="text-body">[필수] 서비스 이용약관 동의</span>
 			</button>
@@ -77,7 +77,7 @@
 		</div>
 
 		<div class="agreement-row">
-			<button type="button" class="check-area clickable" onclick={togglePrivacy}>
+			<button type="button" class="check-area clickable" role="checkbox" aria-checked={privacyAgreed} onclick={togglePrivacy}>
 				<img src={privacyAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
 				<span class="text-body">[필수] 개인정보 수집 및 이용 동의</span>
 			</button>
@@ -89,7 +89,7 @@
 		</div>
 
 		<div class="agreement-row">
-			<button type="button" class="check-area clickable" onclick={toggleMarketing}>
+			<button type="button" class="check-area clickable" role="checkbox" aria-checked={marketingAgreed} onclick={toggleMarketing}>
 				<img src={marketingAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
 				<span class="text-body">[선택] 서비스 소식 및 혜택 알림 수신 동의</span>
 			</button>
@@ -157,6 +157,7 @@
 	}
 
 	.term-button img {
+		transform: rotate(-90deg);
 		width: 15px;
 		height: 15px;
 		object-fit: contain;

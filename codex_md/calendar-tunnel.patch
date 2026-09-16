@@ -1,0 +1,11 @@
+*** Begin Patch
+*** Update File: /Users/sagi/.cloudflared/config.yml
+@@
+ ingress:
++  - hostname: calender.chobab.app
++    path: ^/(auth|pronunciation|api)(/.*)?$
++    service: http://127.0.0.1:8000
++  - hostname: calender.chobab.app
++    service: http://127.0.0.1:5173
+   - hostname: rehear.chobab.app
+*** End Patch
