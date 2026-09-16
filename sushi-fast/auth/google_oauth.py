@@ -87,7 +87,11 @@ def google_identity(info):
                 raise HTTPException(409,'기존 계정과의 안전한 연결이 필요합니다. 기존 이메일 로그인을 사용해주세요.')
             user_id=existing['id']
         else:
-            password=sushihash.make_hash(secrets.token_urlsafe(16))
+            # This password is never shown to the Google user.  Keep it below the
+            # bcrypt 72-byte limit after the server-side pepper is appended.
+            # token_urlsafe(8) produces an 11-character secret, which fits the
+            # production pepper while retaining an unguessable local credential.
+            password=sushihash.make_hash(secrets.token_urlsafe(8))
             cur=db.execute('INSERT INTO users(email,password_hash,name,created_at,email_verified) VALUES(?,?,?,?,1)',(email,password,info.get('name') or email.split('@')[0],datetime.now(timezone.utc).isoformat()))
             user_id=cur.lastrowid
         db.execute('INSERT INTO google_identities VALUES(?,?)',(info['sub'],user_id)); db.commit()
