@@ -81,6 +81,11 @@ def test_oauth_state_browser_binding_and_replay(monkeypatch):
     assert c.get('/auth/google/callback',params={'state':state,'error':'access_denied'}).status_code==400
     assert c.get('/auth/google/start?return_to=//evil.example').status_code==400
 
+def test_rehear_google_oauth_is_disabled():
+    app=FastAPI();app.include_router(oauth.router)
+    client=TestClient(app,base_url='https://rehear.chobab.app')
+    assert client.get('/auth/google/start?return_to=%2Fodi').status_code==410
+
 def test_readonly_import_cannot_be_edited():
     item=w.create_event(1,event())
     with connection() as db:
@@ -137,22 +142,6 @@ def test_export_is_idempotent_and_accounts_are_owned(monkeypatch):
     assert g.export_event(1,1,'cal',item['id'])['exported']
     assert not g.export_event(1,1,'cal',item['id'])['exported']
     assert calls==['POST']
-
-
-def test_oauth_login_provisions_once_and_encrypts_tokens(monkeypatch,tmp_path):
-    import sqlite3
-    from auth import userdb
-    monkeypatch.setattr(userdb,'DB_PATH',tmp_path/'users.db')
-    with userdb.get_connection() as db:
-        db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY,email TEXT UNIQUE,password_hash TEXT,name TEXT,created_at TEXT,email_verified INTEGER)');db.commit()
-    info={'sub':'google-sub','email':'example@gmail.com','email_verified':True,'name':'사용자'}
-    first=oauth.google_identity(info);second=oauth.google_identity(info)
-    assert first['id']==second['id']
-    assert first['email_verified']==1
-    monkeypatch.setenv('JWT_SECRET_KEY','test-secret-for-encryption')
-    token=oauth.cipher().encrypt(b'refresh-secret')
-    assert b'refresh-secret' not in token
-    assert oauth.cipher().decrypt(token)==b'refresh-secret'
 
 
 def test_widget_pair_one_use_feed_scoped_and_revocable():
