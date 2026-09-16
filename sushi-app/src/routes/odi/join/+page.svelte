@@ -20,7 +20,7 @@
 	} from '$lib/odi/components/login/OdiJoinGoalStep.svelte';
 	import OdiJoinCompleteStep from '$lib/odi/components/login/OdiJoinCompleteStep.svelte';
 
-	import { account_circle as AccountCircle, home as Mail, home as Person } from '$lib/odi/icons';
+	import { account_circle as AccountCircle, authMail as Mail, authPerson as Person } from '$lib/odi/icons';
 
 	const steps = ['계정 확인', '훈련 목표 설정', '계정 설정 완료'];
 

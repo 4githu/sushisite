@@ -100,12 +100,40 @@ async function mockSessionApi(page: Page, email = 'xrealrehear@gmail.com', user 
 		})
 	);
 	await page.route('**/odi/db/login', (route) => route.fulfill({ json: { user } }));
+	await page.route('**/odi/db/users/7/templates', (route) =>
+		route.fulfill({
+			json: {
+				templates: [
+					{
+						template_id: 'template-test',
+						version: 1,
+						use_count: 1,
+						last_used_at: '2026-09-10',
+						updated_at: '2026-09-10',
+						template: {
+							...presentationTemplate,
+							id: 'template-test',
+							version: 1,
+							files: {
+								...presentationTemplate.files,
+								slide: {
+									storage_path: 'users/7/bundles/test/slides.pdf',
+									original_name: 'slides.pdf',
+									status: 'committed'
+								}
+							}
+						}
+					}
+				]
+			}
+		})
+	);
 	await page.route('**/odi/db/users/7/recent-template', (route) =>
 		route.fulfill({
 			json: { user: { ...user, recent_template: presentationTemplate } }
 		})
 	);
-	await page.route('**/odi/db/pre-sessions/start-from-recent', (route) =>
+	await page.route('**/odi/db/pre-sessions/start', (route) =>
 		route.fulfill({
 			json: {
 				pin_code: '9876',
@@ -157,10 +185,11 @@ async function mockSessionApi(page: Page, email = 'xrealrehear@gmail.com', user 
 async function openSessionFromConfirm(page: Page) {
 	const browserErrors: string[] = [];
 	page.on('pageerror', (error) => browserErrors.push(error.message));
-	await page.goto('/odi/session/presentation/confirm');
-	// Store가 비어 있는 새 세션에서는 서버의 recent_template를 잠깐이라도 보여주지 않는다.
-	await expect(page.getByText('발표 제목 없음', { exact: true })).toBeVisible();
-	await page.getByRole('button', { name: '시작하기' }).click();
+	await page.goto('/odi/templates');
+	await page.getByRole('button', { name: '이 환경으로 시작', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: '이 환경으로 세션 시작' }).click();
+	await expect(page).toHaveURL(/presentation\/confirm/);
+	await page.getByRole('button', { name: '이 환경으로 세션 시작', exact: true }).click();
 	return browserErrors;
 }
 
@@ -389,7 +418,10 @@ test('세션 파라미터가 바뀌면 이전 응답을 버리고 새 리포트�
 });
 
 test('리포트는 노트북 100% 배율과 모바일에서 가로로 넘치지 않는다', async ({ page }) => {
-	await mockSessionApi(page, 'normal@example.com');
+	await mockSessionApi(page, 'normal@example.com', {
+		...odiUser,
+		config: { preferences: { show_timeline_video: false } }
+	});
 	await page.route('**/odi/db/sessions/session-responsive', (route) =>
 		route.fulfill({ json: { session: reportSession('session-responsive') } })
 	);
@@ -401,7 +433,7 @@ test('리포트는 노트북 100% 배율과 모바일에서 가로로 넘치지 
 		await page.setViewportSize(viewport);
 		await page.goto('/odi/report/session-responsive');
 		await expect(page.getByRole('heading', { name: '세션 점수' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: '몰입도' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Engagement' })).toBeVisible();
 		await expect(page.locator('.video-pane')).toHaveCount(0);
 		await expect(page.getByText('시연 영상 연결 대기 중')).toHaveCount(0);
 
@@ -543,7 +575,7 @@ test('계정 설정에서 리포트 버전을 저장하면 기존 config를 유�
 
 	await page.locator('.my-page').click();
 	await page.getByRole('button', { name: '설정' }).click();
-	const dialog = page.getByRole('dialog', { name: '결과 리포트 설정' });
+	const dialog = page.getByRole('dialog', { name: 'Re:hear 계정 설정' });
 	await expect(dialog.getByLabel(/버전 3/)).toBeEnabled();
 	await dialog.getByLabel(/버전 1/).check();
 	await dialog.getByLabel('타임라인 연동 영상 표시').uncheck();

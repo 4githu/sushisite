@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InstallApp from '$lib/personal-project/shared/InstallApp.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import PersonalAccountCard from '$lib/personal-project/shared/PersonalAccountCard.svelte';
@@ -36,7 +37,9 @@
 				<span class="nav-icon">▦</span>주간 시간표
 			</a>
 		</nav>
+		<a class="calendar-link" href="/personal-project/calendar/tasks">해야 할 일</a>
 		<PersonalAccountCard />
+		<InstallApp />
 	</aside>
 	<main class="personal-main">
 		{@render children()}

@@ -1,5 +1,6 @@
 // src/lib/odi/stores/session.ts
 
+import { withTemplateMutation } from '../domain/templateMutation';
 import { API_BASE as API } from '$lib/config/api';
 
 import { get, writable } from 'svelte/store';
@@ -125,6 +126,8 @@ async function ensureSessionContext() {
 	return { user, currentTemplate };
 }
 
+let startRequestId = '';
+let startFingerprint = '';
 export const session = {
 	subscribe: store.subscribe,
 
@@ -146,50 +149,62 @@ export const session = {
 		expires_minutes = 30,
 		options: { skipPresentationPublish?: boolean } = {}
 	) {
-		const { user } = await ensureSessionContext();
+		return withTemplateMutation(async () => {
+			const { user } = await ensureSessionContext();
 
-		await template.saveToRecent();
-
-		const res = await fetch(`${API}/odi/db/pre-sessions/start-from-recent`, {
-			method: 'POST',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				user_id: user.user_id,
-				expires_minutes
-			})
-		});
-
-		const data = await fetchJson(res);
-		const preSession = data.pre_session as OdiPreSession;
-
-		if (data.template?.template) {
-			template.set(data.template.template);
-		}
-
-		const preparedTemplate = data.template?.template;
-		if (preparedTemplate?.type === 'presentation' && !options.skipPresentationPublish) {
-			try {
-				await publishPresentationData(String(data.pin_code), preparedTemplate);
-			} catch (error) {
-				await this.updatePreSessionState(String(data.pin_code), 'cancelled').catch(() => undefined);
-				throw error;
+			const draft = template.get();
+			const fingerprint = JSON.stringify(draft);
+			if (startFingerprint !== fingerprint) {
+				startRequestId = crypto.randomUUID();
+				startFingerprint = fingerprint;
 			}
-		}
 
-		// Firebase 행까지 준비된 뒤에만 PIN을 노출합니다. XR이 PIN으로 조회할 때
-		// 아직 데이터가 없는 경쟁 상태를 만들지 않습니다.
-		store.update((state) => ({
-			...state,
-			pin_code: data.pin_code,
-			pre_session: preSession,
-			current_session: null,
-			file_bundle: data.file_bundle ?? null
-		}));
+			const res = await fetch(`${API}/odi/db/pre-sessions/start`, {
+				method: 'POST',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					user_id: user.user_id,
+					template: draft,
+					template_id: draft?.id,
+					request_id: startRequestId,
+					expires_minutes
+				})
+			});
 
-		return preSession;
+			const data = await fetchJson(res);
+			const preSession = data.pre_session as OdiPreSession;
+
+			if (data.template?.template) {
+				template.set(data.template.template);
+			}
+
+			const preparedTemplate = data.template?.template;
+			if (preparedTemplate?.type === 'presentation' && !options.skipPresentationPublish) {
+				try {
+					await publishPresentationData(String(data.pin_code), preparedTemplate);
+				} catch (error) {
+					await this.updatePreSessionState(String(data.pin_code), 'cancelled').catch(
+						() => undefined
+					);
+					throw error;
+				}
+			}
+
+			// Firebase 행까지 준비된 뒤에만 PIN을 노출합니다. XR이 PIN으로 조회할 때
+			// 아직 데이터가 없는 경쟁 상태를 만들지 않습니다.
+			store.update((state) => ({
+				...state,
+				pin_code: data.pin_code,
+				pre_session: preSession,
+				current_session: null,
+				file_bundle: data.file_bundle ?? null
+			}));
+
+			return preSession;
+		});
 	},
 
 	async startFixedDemoPresentation(expires_minutes = 30) {
@@ -470,6 +485,21 @@ export const session = {
 			credentials: 'include'
 		});
 		return fetchJson(res);
+	},
+
+	async listAllSessions() {
+		const user = await odiuser.requireUser();
+		const records: OdiSession[] = [];
+		for (let offset = 0; ; offset += 200) {
+			const res = await fetch(
+				`${API}/odi/db/users/${user.user_id}/sessions?limit=200&offset=${offset}`,
+				{ credentials: 'include' }
+			);
+			const batch = (await fetchJson(res)).sessions as OdiSession[];
+			records.push(...batch);
+			if (batch.length < 200) break;
+		}
+		return [...new Map(records.map((row) => [row.session_id, row])).values()];
 	},
 
 	async listMySessions(limit = 20) {

@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import TrainingRecommendations from '../home/TrainingRecommendations.svelte';
+	import { recommendations, trainingNames } from '$lib/odi/domain/sessionSummary';
+	import ReportMetricCard from './ReportMetricCard.svelte';
+	import { feedbackTone, qaScore, qaMetricAverage } from './reportViewModel';
 	import AudienceReactionCard from './AudienceReactionCard.svelte';
 	import DetailAnalysisCard from './DetailAnalysisCard.svelte';
 	import ScoreOverviewCard from './ScoreOverviewCard.svelte';
@@ -58,7 +63,6 @@
 	let activeTab = $state<TabId>('summary');
 	let timelineFilter = $state<'all' | 'E' | 'V' | 'C'>('all');
 	let selectedQuestionIndex = $state(0);
-	let showSecondaryTraining = $state(true);
 
 	const feedback = $derived((session.feedback ?? {}) as ReportFeedback);
 	const template = $derived(session.template ?? {});
@@ -167,75 +171,22 @@
 		return items.slice(0, 3);
 	});
 
-	const trainings = $derived.by((): ReportTraining[] => {
-		if ((feedback.recommended_trainings?.length ?? 0) > 0) {
-			return feedback.recommended_trainings ?? [];
-		}
-
-		const ranked = metrics
-			.map((metric) => ({ key: metric.key, score: scores[metric.key] ?? 0 }))
-			.sort((a, b) => a.score - b.score);
-		const weakest = ranked[0]?.key ?? 'engagement';
-		const fallback: Record<MetricKey, ReportTraining> = {
-			engagement: {
-				id: 'engagement-fallback',
-				title: '발화 속도 안정화 훈련',
-				description: '핵심 구간에서 말의 속도와 호흡을 조절해 청중의 집중을 안정적으로 유지해요.',
-				duration_minutes: 3,
-				type: 'VR 훈련',
-				priority: true
-			},
-			clarity: {
-				id: 'clarity-fallback',
-				title: '핵심 메시지 구조화 훈련',
-				description: '결론을 먼저 말하고 근거를 짧게 덧붙이는 전달 순서를 연습해요.',
-				duration_minutes: 3,
-				type: 'VR 훈련',
-				priority: true
-			},
-			credibility: {
-				id: 'credibility-fallback',
-				title: '근거 연결 훈련',
-				description: '주장과 사례, 자료를 자연스럽게 연결해 답변의 설득력을 높여요.',
-				duration_minutes: 3,
-				type: 'VR 훈련',
-				priority: true
-			}
-		};
-
-		return [fallback[weakest]];
-	});
+	const trainingIds = $derived(recommendations(session));
+	const trainings = $derived(
+		trainingIds.map((id) => ({
+			id,
+			title: trainingNames[id],
+			description: '이번 리포트의 측정 가능한 약점을 짧은 음성 훈련으로 연습해요.',
+			duration_minutes: 1,
+			type: '웹 음성 훈련'
+		}))
+	);
 
 	function changeTab(tab: TabId) {
 		activeTab = tab;
 		window.requestAnimationFrame(() => {
 			document.querySelector<HTMLElement>('.v3-tab-panel')?.focus({ preventScroll: true });
 		});
-	}
-
-	function feedbackTone(type: string) {
-		if (type === 'positive') return 'positive';
-		if (type === 'warning') return 'warning';
-		return 'negative';
-	}
-
-	function metricEnglish(key: MetricKey) {
-		return key === 'engagement' ? 'Engagement' : key === 'clarity' ? 'Clarity' : 'Credibility';
-	}
-
-	function qaScore(question: ReportQaQuestion) {
-		const values = Object.values(question.scores ?? {}).filter(Number.isFinite) as number[];
-		if (values.length === 0) return null;
-		return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-	}
-
-	function qaMetricAverage(key: 'understanding' | 'clarity' | 'evidence') {
-		const values = qaQuestions
-			.map((question) => question.scores?.[key])
-			.filter(Number.isFinite) as number[];
-		return values.length
-			? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-			: null;
 	}
 </script>
 
@@ -267,7 +218,7 @@
 			{#if fileNames.length > 0}
 				<div class="file-row">
 					<img src={figmaReportDownload} alt="" /><strong>첨부 자료</strong>
-					{#each fileNames as fileName, index}
+					{#each fileNames as fileName, index (index)}
 						<span>{fileName}</span>{#if index < fileNames.length - 1}<i>·</i>{/if}
 					{/each}
 				</div>
@@ -286,7 +237,7 @@
 	</header>
 
 	<nav class="report-tabs" aria-label="결과 리포트 항목">
-		{#each tabs as tab}
+		{#each tabs as tab, rowIndex0 (rowIndex0)}
 			<button
 				type="button"
 				class:active={activeTab === tab.id}
@@ -311,31 +262,17 @@
 			</div>
 
 			<div class="score-layout">
-				<div class="score-overview"
-					><ScoreOverviewCard {feedback} comparison={session.comparison} variant="v3" /></div
-				>
+				<div class="score-overview">
+					<ScoreOverviewCard {feedback} comparison={session.comparison} variant="v3" />
+				</div>
 
 				<div class="metric-cards">
-					{#each metrics as metric}
-						<article class="metric-card">
-							<div class="metric-copy">
-								<div class="metric-title">
-									<div>
-										<h3>{metricEnglish(metric.key)}</h3>
-										<small>{scoreCardLabel(metric.key)}</small>
-									</div>
-								</div>
-								<p class="metric-number">
-									<strong>{scores[metric.key] ?? '--'}</strong><small>/100</small><span
-										>{scoreGrade(scores[metric.key])}</span
-									>
-								</p>
-								<p>{descriptions[metric.key] ?? metric.meaning}</p>
-							</div>
-							<div class={`metric-icon ${metric.key}`}>
-								<img src={metric.icon} alt="" aria-hidden="true" />
-							</div>
-						</article>
+					{#each metrics as metric, rowIndex1 (rowIndex1)}
+						<ReportMetricCard
+							{metric}
+							score={scores[metric.key]}
+							description={descriptions[metric.key]}
+						/>
 					{/each}
 				</div>
 			</div>
@@ -356,7 +293,7 @@
 						<p>{feedback.ai_insight?.description ?? '이번 발표에서 먼저 확인할 결과예요.'}</p>
 					</div>
 					<div class="feedback-grid">
-						{#each keyFeedback as item}
+						{#each keyFeedback as item, rowIndex2 (rowIndex2)}
 							<article class={`feedback-card ${feedbackTone(item.type)}`}>
 								<div class="feedback-kind">
 									<img
@@ -452,11 +389,14 @@
 						<p>{trainings[0]?.description}</p>
 						<div>
 							<span>약 {trainings[0]?.duration_minutes ?? 3}분</span><span
-								>{trainings[0]?.type ?? 'VR 훈련'}</span
+								>{trainings[0]?.type ?? '웹 음성 훈련'}</span
 							>
 						</div>
 					</div>
-					<button type="button" class="primary-action clickable" onclick={onStartTraining}
+					<button
+						type="button"
+						class="primary-action clickable"
+						onclick={() => goto(`/odi/practice?training=${trainingIds[0]}`)}
 						>훈련 시작하기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
 						></button
 					>
@@ -471,7 +411,7 @@
 					'발표 흐름과 청중 반응이 달라진 지점을 함께 살펴보세요.'}
 			</div>
 			<div class="timeline-filters" aria-label="청중 반응 범례">
-				{#each [{ id: 'all', label: '전체' }, { id: 'E', label: '시선 응시' }, { id: 'V', label: '질문 생성' }, { id: 'C', label: '긍정 반응' }] as filter}
+				{#each [{ id: 'all', label: '전체' }, { id: 'E', label: '시선 응시' }, { id: 'V', label: '질문 생성' }, { id: 'C', label: '긍정 반응' }] as filter, rowIndex3 (rowIndex3)}
 					<button
 						type="button"
 						class:active={timelineFilter === filter.id}
@@ -521,7 +461,7 @@
 				<div class="qa-summary surface-card">
 					<div class="ring-score">
 						<strong>{qaFeedback?.score ?? '--'}</strong><span>/100</span><small
-							>{qaFeedback?.score ? scoreGrade(qaFeedback.score) : '평가 대기'}</small
+							>{qaFeedback?.score != null ? scoreGrade(qaFeedback.score) : '평가 대기'}</small
 						>
 					</div>
 					<div class="qa-summary-copy">
@@ -535,7 +475,7 @@
 						</ul>
 					</div>
 					<div class="qa-summary-metrics">
-						{#each [{ label: '질문 이해', value: qaMetricAverage('understanding') }, { label: '답변 명확성', value: qaMetricAverage('clarity') }, { label: '근거 활용', value: qaMetricAverage('evidence') }, { label: '평균 답변 시간', value: qaFeedback?.average_answer_seconds, suffix: '초' }] as metric}
+						{#each [{ label: '질문 이해', value: qaMetricAverage(qaQuestions, 'understanding') }, { label: '답변 명확성', value: qaMetricAverage(qaQuestions, 'clarity') }, { label: '근거 활용', value: qaMetricAverage(qaQuestions, 'evidence') }, { label: '평균 답변 시간', value: qaFeedback?.average_answer_seconds, suffix: '초' }] as metric, rowIndex4 (rowIndex4)}
 							<div>
 								<span>{metric.label}</span><strong
 									>{metric.value ?? '—'}<small
@@ -550,7 +490,7 @@
 				</div>
 
 				<div class="qa-question-tabs" role="tablist" aria-label="Q&A 질문 선택">
-					{#each qaQuestions as question, index}
+					{#each qaQuestions as question, index (index)}
 						<button
 							type="button"
 							class:active={selectedQuestionIndex === index}
@@ -611,14 +551,17 @@
 							</div>
 						</div>
 						<div class="question-scores">
-							{#each [{ label: '질문 이해', value: selectedQuestion?.scores?.understanding }, { label: '답변 명확성', value: selectedQuestion?.scores?.clarity }, { label: '근거 활용', value: selectedQuestion?.scores?.evidence }] as metric}<div
+							{#each [{ label: '질문 이해', value: selectedQuestion?.scores?.understanding }, { label: '답변 명확성', value: selectedQuestion?.scores?.clarity }, { label: '근거 활용', value: selectedQuestion?.scores?.evidence }] as metric, rowIndex5 (rowIndex5)}<div
 								>
 									<span>{metric.label}</span><strong
 										>{metric.value ?? '—'}<small>{metric.value !== undefined ? '/100' : ''}</small
 										></strong
 									>
 								</div>{/each}
-							<button type="button" class="primary-action" onclick={onStartTraining}
+							<button
+								type="button"
+								class="primary-action"
+								onclick={() => goto(`/odi/practice?training=${trainingIds[0]}`)}
 								>이 질문으로 다시 연습하기 <img src={figmaArrowForward} alt="" /></button
 							>
 						</div>
@@ -656,61 +599,7 @@
 				<h2>맞춤 훈련</h2>
 				<p>다음 발표를 위해 이번 세션에서 가장 먼저 개선하면 좋은 영역이에요.</p>
 			</div>
-			<div class="training-list">
-				{#each trainings.slice(0, 1) as training, index}
-					<article class:priority={training.priority || index === 0} class="training-card">
-						<div class="training-symbol"><img src={reportTraining} alt="" /></div>
-						<div class="training-copy">
-							{#if training.priority || index === 0}<small>가장 먼저 연습해보세요</small>{/if}
-							<h3>{training.title ?? '맞춤 훈련'}</h3>
-							<p>{training.description ?? feedback.ai_insight?.description}</p>
-							<div>
-								<span>약 {training.duration_minutes ?? 3}분</span><span
-									>{training.type ?? 'VR 훈련'}</span
-								>
-							</div>
-						</div>
-						<button type="button" class="primary-action clickable" onclick={onStartTraining}
-							>훈련 시작하기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
-							></button
-						>
-					</article>
-				{/each}
-				{#if trainings.length > 1}
-					<button
-						class="more-training-toggle"
-						type="button"
-						aria-expanded={showSecondaryTraining}
-						onclick={() => (showSecondaryTraining = !showSecondaryTraining)}
-						>다른 추천 훈련 {trainings.length - 1}개 더 보기
-						<span class="training-toggle-icon" class:expanded={showSecondaryTraining}
-							><img src={figmaChevronDown} alt="" /></span
-						></button
-					>
-					{#if showSecondaryTraining}
-						<h3 class="other-training-title">다른 추천 훈련</h3>
-						{#each trainings.slice(1) as training}
-							<article class="training-card">
-								<div class="training-symbol"><img src={reportTraining} alt="" /></div>
-								<div class="training-copy">
-									<h3>{training.title}</h3>
-									<p>{training.description}</p>
-									<div>
-										<span>약 {training.duration_minutes ?? 3}분</span><span
-											>{training.type ?? 'VR 훈련'}</span
-										>
-									</div>
-								</div>
-								<button type="button" class="primary-action secondary" onclick={onStartTraining}
-									>훈련 시작하기 <span class="inline-arrow"
-										><img src={figmaArrowForward} alt="" /></span
-									></button
-								>
-							</article>
-						{/each}
-					{/if}
-				{/if}
-			</div>
+			<TrainingRecommendations ids={trainingIds} />
 		{/if}
 	</section>
 
@@ -959,7 +848,6 @@
 	}
 
 	.surface-card,
-	.metric-card,
 	.feedback-card,
 	.training-card,
 	.empty-card {
@@ -992,91 +880,6 @@
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 10px;
-	}
-
-	.metric-card {
-		min-height: 307px;
-		padding: 33px 38px 44px 44px;
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 28px;
-	}
-
-	.metric-icon {
-		width: 167px;
-		height: 167px;
-		flex: 0 0 167px;
-		display: grid;
-		place-items: center;
-		background: transparent;
-	}
-
-	.metric-icon img {
-		width: 167px;
-		height: 167px;
-		object-fit: contain;
-	}
-
-	.metric-copy {
-		min-width: 0;
-		display: grid;
-		gap: 8px;
-		width: 210px;
-	}
-
-	.metric-title {
-		display: flex;
-		align-items: flex-start;
-		gap: 6px;
-	}
-
-	.metric-title h3 {
-		font-size: 32px;
-		font-weight: 600;
-	}
-	.metric-title small {
-		display: block;
-		margin-top: 2px;
-		color: #030812;
-		font-size: 20px;
-		font-weight: 400;
-	}
-
-	.metric-number {
-		display: flex;
-		align-items: flex-end;
-		gap: 4px;
-		color: #636363;
-		font-size: 20px;
-	}
-
-	.metric-number strong {
-		margin-right: 2px;
-		color: #111325;
-		font-size: 64px;
-		font-weight: 600;
-	}
-	.metric-number small {
-		padding-bottom: 12px;
-		font-size: 20px;
-	}
-	.metric-number span {
-		align-self: center;
-		margin-left: 8px;
-		padding: 6px 15px;
-		border-radius: 14px;
-		background: #d9e0ff;
-		color: #03f;
-		font-size: 20px;
-		white-space: nowrap;
-	}
-
-	.metric-copy > p:last-child {
-		color: var(--text-secondary);
-		font-size: 20px;
-		line-height: 1.5;
-		word-break: keep-all;
 	}
 
 	.insight-strip {
@@ -1940,10 +1743,6 @@
 
 		.report-tabs {
 			grid-template-columns: 1fr;
-		}
-
-		.metric-card {
-			flex-direction: column;
 		}
 
 		.training-symbol {

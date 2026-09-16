@@ -1,5 +1,6 @@
 <!-- src/routes/odi/+layout.svelte -->
 <script lang="ts">
+	import '$lib/odi/workspace.css';
 	import '$lib/odi/styles/globals.css';
 
 	import type { Snippet } from 'svelte';
@@ -39,7 +40,7 @@
 	let mainAuthName = $state('');
 	let mainAuthEmail = $state('');
 
-	const isAuthExceptionPage = $derived(page.url.pathname.startsWith('/odi/join'));
+	const isAuthExceptionPage = $derived(/^\/odi\/(join|register|login)(\/|$)/.test(page.url.pathname));
 
 	onMount(async () => {
 		sidebarOpen = !window.matchMedia('(max-width: 900px)').matches;
@@ -233,7 +234,7 @@
 	/>
 {/if}
 
-{#if showGuestModal && !checkingAccess}
+{#if showGuestModal && !checkingAccess && !isAuthExceptionPage}
 	<OdiGuestModal onClose={closeGuestModal} onRegister={openRegisterPage} onLogin={openLoginModal} />
 {/if}
 
@@ -249,7 +250,7 @@
 	<ReportSettingsModal onClose={closeReportSettingsModal} />
 {/if}
 
-{#if showJoinRequiredModal && !checkingAccess}
+{#if showJoinRequiredModal && !checkingAccess && !isAuthExceptionPage}
 	<OdiJoinRequiredModal
 		userName={mainAuthName}
 		userEmail={mainAuthEmail}

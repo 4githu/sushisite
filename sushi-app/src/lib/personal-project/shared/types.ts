@@ -5,6 +5,12 @@ export type AttendanceStatus = 'scheduled' | 'completed' | 'cancelled' | 'absent
 export type ReportStatus = 'draft' | 'ready' | 'submitted';
 
 export type CalendarEvent = {
+    location?: string;
+    webUrl?: string;
+    projectId?: number | null;
+    canEdit?: boolean;
+    googleAccount?: string;
+    googleCalendar?: string;
 	id: number;
 	title: string;
 	description: string;

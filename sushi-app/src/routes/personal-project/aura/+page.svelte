@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import AuraWeekScheduler from '$lib/personal-project/aura/components/AuraWeekScheduler.svelte';
+    import CalendarWorkspace from '$lib/personal-project/shared/CalendarWorkspace.svelte';
 	import {
 		availableProgressStages,
 		progressStageLabels,
@@ -297,6 +297,7 @@
 		if (!confirm(`${round.schoolName} ${round.roundLabel}를 삭제할까요?`)) return;
 		try {
 			await personalApi.deleteRound(round.id);
+			showModal = false;
 			await load();
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : '회차를 삭제하지 못했습니다.';
@@ -340,15 +341,7 @@
 	</article>
 </section>
 
-	<AuraWeekScheduler
-		sessions={rounds}
-		onselect={openCreate}
-		onedit={openEdit}
-		ondate={(date) => {
-			roomRequestDate = date;
-			roomRequestNotice = '';
-		}}
-	/>
+    <CalendarWorkspace aura initialView="week" refreshKey={JSON.stringify(rounds.map(r => [r.id,r.startTime,r.endTime]))} onCreate={openCreate} onChanged={() => void load()} onDate={(date) => { roomRequestDate=date; roomRequestNotice=''; }} onAuraEdit={(eventId) => { const round=rounds.find(r=>r.eventId===eventId); if(round) openEdit(round); }} />
 
 <section class="card round-panel">
 	<header>
@@ -553,6 +546,7 @@
 				</div>
 			</div>
 			<div class="modal-actions">
+				{#if selectedRound}<button type="button" class="danger-button" onclick={() => selectedRound && removeRound(selectedRound)}>일정 삭제</button>{/if}
 				<button type="button" class="ghost-button" onclick={() => (showModal = false)}>취소</button
 				><button class="primary-button" disabled={saving}
 					>{saving ? '저장 중…' : selectedRound ? '일정 수정' : '회차 등록'}</button

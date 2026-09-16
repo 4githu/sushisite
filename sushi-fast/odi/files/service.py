@@ -276,7 +276,7 @@ def move_temp_file_to_bundle(
     if target_path.exists():
         target_path.unlink()
 
-    shutil.move(str(source_path), str(target_path))
+    shutil.copy2(source_path, target_path)  # Keep retryable uploads until their normal TTL.
 
     next_ref = {
         **file_ref,
@@ -314,13 +314,17 @@ def write_script_content(bundle_files_dir: Path, script_content: str) -> dict[st
 
 def normalize_files(files: dict[str, Any] | None) -> dict[str, Any]:
     files = files or {}
-
-    return {
-        "slide": files.get("slide"),
-        "paper": files.get("paper"),
-        "script": files.get("script"),
-        "script_content": files.get("script_content"),
-    }
+    def reference(role):
+        if files.get(role):
+            return files[role]
+        path = files.get(f"{role}_path")
+        if not isinstance(path, str) or not path:
+            return None
+        return {"storage_path": path, "original_name": Path(path).name,
+                "status": "temp" if "/temp/" in path else "committed",
+                "mime_type": "text/plain" if role == "script" else "application/pdf"}
+    return {"slide": reference("slide"), "paper": reference("paper"), "script": reference("script"),
+            "script_content": files.get("script_content"), "script_sections": files.get("script_sections")}
 
 
 def commit_template_files(user_id: str, template: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -371,15 +375,13 @@ def commit_template_files(user_id: str, template: dict[str, Any]) -> tuple[dict[
     script_ref = files.get("script")
     script_content = files.get("script_content")
 
-    if script_ref and script_ref.get("storage_path") and script_ref.get("status") == "temp":
+    if isinstance(script_content, str):
+        files["script"] = write_script_content(bundle_files_dir, script_content) if script_content.strip() else None
+    elif script_ref and script_ref.get("storage_path") and script_ref.get("status") == "temp":
         files["script"] = move_temp_file_to_bundle(
-            user_id=user_id,
-            file_ref=script_ref,
-            bundle_files_dir=bundle_files_dir,
+            user_id=user_id, file_ref=script_ref, bundle_files_dir=bundle_files_dir,
             final_name="script.txt",
         )
-    elif isinstance(script_content, str) and script_content.strip():
-        files["script"] = write_script_content(bundle_files_dir, script_content)
 
     next_template["files"] = files
     next_template["file_bundle_id"] = bundle_id
@@ -417,12 +419,16 @@ def cleanup_expired_storage() -> dict[str, Any]:
     if not users_root.exists():
         return {"deleted_count": 0, "deleted_paths": []}
 
+    from odi.db.template_service import protected_storage_paths
+    protected = protected_storage_paths()
     for expires_file in users_root.glob("**/.expires.json"):
         try:
             data = json.loads(expires_file.read_text(encoding="utf-8"))
             expires_at = datetime.fromisoformat(str(data["expires_at"]).replace("Z", "+00:00"))
             target_path = path_from_storage_path(data["target_path"])
 
+            if any(path == target_path or target_path in path.parents for path in protected):
+                continue
             if expires_at <= now and delete_path_if_exists(target_path):
                 deleted_paths.append(as_storage_path(target_path))
         except Exception:

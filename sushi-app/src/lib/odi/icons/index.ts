@@ -108,7 +108,7 @@ export { default as account_circle } from './account_circle.png';
 export { default as account_circleyoo } from './account_circleyoo.svg';
 export { default as dddddddddd } from './dddddddddd.svg';
 export { default as lock } from './lock.png';
-export { default as Seedling } from './home.svg';
+export { default as Seedling } from './profile.png';
 
 // Result report v3 — exported from Figma node 2362:63255 / 260903 confirmed UI.
 export { default as reportEngagement } from './report-v3/engagement.svg';
@@ -160,3 +160,14 @@ export { default as figmaReportDownload } from './figma-ui/download.svg';
 export { default as figmaReportCalendar } from './figma-ui/calendar.svg';
 export { default as figmaReportGroup } from './figma-ui/report-group.svg';
 export { default as figmaReportSchedule } from './figma-ui/report-schedule.svg';
+
+// Authentication — exact Figma exports, UI design 2684:31782 / 2684:31921.
+export { default as authPerson } from './auth/person.svg';
+export { default as authMail } from './auth/mail.svg';
+export { default as authLock } from './auth/lock.svg';
+export { default as authVisibility } from './auth/visibility.svg';
+export { default as authCheckboxUnchecked } from './auth/checkbox-unchecked.svg';
+export { default as authCheckboxChecked } from './auth/checkbox-checked.svg';
+export { default as authChevronDown } from './auth/chevron-down.svg';
+export { default as authCheck } from './auth/check-success.svg';
+export { default as authLogout } from './auth/logout.svg';

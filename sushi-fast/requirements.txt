@@ -18,3 +18,4 @@ google-cloud-speech==2.40.0
 
 azure-cognitiveservices-speech==1.51.2
 httpx==0.28.1
+cryptography==50.0.0

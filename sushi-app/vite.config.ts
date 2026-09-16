@@ -10,8 +10,6 @@ import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 const dirname =
 	typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
-
-
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
 	optimizeDeps: {
@@ -21,6 +19,7 @@ export default defineConfig({
 		allowedHosts: true,
 		host: '0.0.0.0',
 		proxy: {
+			'/odi/coaching': { target: 'http://localhost:8000', changeOrigin: false },
 			'/odi/db': {
 				target: 'http://localhost:8000',
 				changeOrigin: false

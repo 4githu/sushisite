@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/OdiGuestModal.svelte -->
 <script lang="ts">
+    import GoogleLogin from '$lib/personal-project/shared/GoogleLogin.svelte';
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 
     import Lock from "$lib/odi/icons/lock.png";
@@ -89,6 +90,7 @@
 		</div>
 
 		<div class="actions">
+            <GoogleLogin returnTo="/odi" />
 			<button
 				type="button"
 				class="register-button clickable text-button"

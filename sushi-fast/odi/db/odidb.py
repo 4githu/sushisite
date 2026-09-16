@@ -69,6 +69,21 @@ def init_db(schema_path: str | Path = "odi/db/schema.sql", db_path: Path = DB_PA
 
     with get_conn(db_path) as conn:
         conn.executescript(schema)
+        for table, fields in {
+            "templates": {"create_request_hash": "TEXT", "version": "INTEGER NOT NULL DEFAULT 1", "last_used_at": "TEXT", "use_count": "INTEGER NOT NULL DEFAULT 0"},
+            "practice_attempts": {"request_hash": "TEXT"},
+            "pre_sessions": {"template_snapshot": "TEXT", "request_key": "TEXT", "request_hash": "TEXT"},
+        }.items():
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for name, definition in fields.items():
+                if name not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+        conn.execute("UPDATE pre_sessions SET template_snapshot = (SELECT template FROM templates WHERE templates.template_id = pre_sessions.template_id) WHERE template_snapshot IS NULL")
+        conn.execute("""UPDATE templates SET
+            use_count=(SELECT COUNT(*) FROM sessions s WHERE s.template_id=templates.template_id),
+            last_used_at=(SELECT MAX(COALESCE(s.ended_at,s.created_at)) FROM sessions s WHERE s.template_id=templates.template_id)
+            WHERE use_count=0 AND last_used_at IS NULL AND EXISTS(SELECT 1 FROM sessions s WHERE s.template_id=templates.template_id)""")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pre_request ON pre_sessions(request_key) WHERE request_key IS NOT NULL")
 
 
 def ensure_report_schema(db_path: Path = DB_PATH) -> None:
@@ -253,7 +268,7 @@ def get_template(template_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | 
     with get_conn(db_path) as conn:
         row = conn.execute(
             """
-            SELECT template_id, owner_id, template, created_at, updated_at
+            SELECT template_id, owner_id, template, created_at, updated_at, version, last_used_at, use_count
             FROM templates
             WHERE template_id = ?
             """,
@@ -266,7 +281,8 @@ def get_template(template_id: str, db_path: Path = DB_PATH) -> dict[str, Any] | 
     return {
         "template_id": row["template_id"],
         "owner_id": row["owner_id"],
-        "template": json.loads(row["template"]),
+        "template": {**json.loads(row["template"]), "version": row["version"]},
+        "version": row["version"], "last_used_at": row["last_used_at"], "use_count": row["use_count"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -276,7 +292,7 @@ def list_templates_by_owner(owner_id: str, db_path: Path = DB_PATH) -> list[dict
     with get_conn(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT template_id, owner_id, template, created_at, updated_at
+            SELECT template_id, owner_id, template, created_at, updated_at, version, last_used_at, use_count
             FROM templates
             WHERE owner_id = ?
             ORDER BY updated_at DESC
@@ -288,7 +304,8 @@ def list_templates_by_owner(owner_id: str, db_path: Path = DB_PATH) -> list[dict
         {
             "template_id": row["template_id"],
             "owner_id": row["owner_id"],
-            "template": json.loads(row["template"]),
+            "template": {**json.loads(row["template"]), "version": row["version"]},
+        "version": row["version"], "last_used_at": row["last_used_at"], "use_count": row["use_count"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
@@ -409,10 +426,10 @@ def create_pre_session(
     with get_conn(db_path) as conn:
         conn.execute(
             """
-            INSERT INTO pre_sessions (pin_code, template_id, state, expires_at)
-            VALUES (?, ?, 'waiting', ?)
+            INSERT INTO pre_sessions (pin_code, template_id, state, expires_at, template_snapshot)
+            VALUES (?, ?, 'waiting', ?, (SELECT template FROM templates WHERE template_id = ?))
             """,
-            (pin_code, template_id, expires_at),
+            (pin_code, template_id, expires_at, template_id),
         )
 
     pre_session = get_pre_session_by_pin(pin_code, db_path=db_path)
@@ -427,7 +444,7 @@ def get_pre_session_by_pin(pin_code: str, db_path: Path = DB_PATH) -> dict[str, 
     with get_conn(db_path) as conn:
         row = conn.execute(
             """
-            SELECT pin_code, template_id, session_id, state, expires_at, created_at
+            SELECT pin_code, template_id, session_id, state, expires_at, created_at, template_snapshot, request_hash
             FROM pre_sessions
             WHERE pin_code = ?
             """,
@@ -440,6 +457,8 @@ def get_pre_session_by_pin(pin_code: str, db_path: Path = DB_PATH) -> dict[str, 
     report_job = get_report_job_by_pre_session_pin(pin_code, db_path=db_path)
     return {
         "pin_code": row["pin_code"],
+        "template_snapshot": json_loads_or_none(row["template_snapshot"]),
+        "request_hash": row["request_hash"],
         "template_id": row["template_id"],
         "session_id": row["session_id"],
         "state": row["state"],
@@ -506,8 +525,9 @@ def finish_linked_pre_session(
     feedback = bind_feedback_media(feedback, session_id)
     now = utc_now()
     with get_conn(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
         pre_session = conn.execute(
-            "SELECT template_id, session_id, state FROM pre_sessions WHERE pin_code = ?",
+            "SELECT template_id, session_id, state, template_snapshot FROM pre_sessions WHERE pin_code = ?",
             (pin_code,),
         ).fetchone()
         if pre_session is None:
@@ -530,7 +550,7 @@ def finish_linked_pre_session(
                 session_id, user_id, template_id, template, feedback, state, started_at, ended_at
             ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)
             """,
-            (session_id, user_id, template_id, template["template"], json_dumps(feedback), now, now),
+            (session_id, user_id, template_id, pre_session["template_snapshot"] or template["template"], json_dumps(feedback), now, now),
         )
         updated = conn.execute(
             """
@@ -1141,6 +1161,7 @@ def list_sessions_by_user(
     user_id: str,
     limit: int = 20,
     db_path: Path = DB_PATH,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     with get_conn(db_path) as conn:
         rows = conn.execute(
@@ -1148,10 +1169,10 @@ def list_sessions_by_user(
             SELECT session_id, user_id, template_id, template, feedback, state, started_at, ended_at, created_at, updated_at
             FROM sessions
             WHERE user_id = ?
-            ORDER BY created_at DESC
-            LIMIT ?
+            ORDER BY created_at DESC, session_id DESC
+            LIMIT ? OFFSET ?
             """,
-            (user_id, limit),
+            (user_id, limit, offset),
         ).fetchall()
 
     return [
@@ -1200,34 +1221,5 @@ def delete_expired_unlinked_templates(
     max_age_minutes: int = 60,
     db_path: Path = DB_PATH,
 ) -> list[str]:
-    """Remove old template snapshots that were never turned into a session.
-
-    Completed reports always hold their own template snapshot in ``sessions``.
-    Therefore a template that is neither favourited nor referenced by a session
-    is safe to expire after the short grace period.
-    """
-    safe_minutes = max(1, min(max_age_minutes, 24 * 60))
-    with get_conn(db_path) as conn:
-        placeholders = ",".join("?" for _ in favorite_template_ids)
-        excluded = f" AND t.template_id NOT IN ({placeholders})" if placeholders else ""
-        rows = conn.execute(
-            f"""
-            SELECT t.template_id
-            FROM templates t
-            WHERE t.owner_id = ?
-              AND t.created_at <= datetime('now', ?)
-              AND NOT EXISTS (
-                SELECT 1 FROM sessions s WHERE s.template_id = t.template_id
-              )
-              {excluded}
-            """,
-            [owner_id, f"-{safe_minutes} minutes", *favorite_template_ids],
-        ).fetchall()
-        template_ids = [row["template_id"] for row in rows]
-        if template_ids:
-            delete_placeholders = ",".join("?" for _ in template_ids)
-            conn.execute(
-                f"DELETE FROM templates WHERE template_id IN ({delete_placeholders})",
-                template_ids,
-            )
-    return template_ids
+    """Compatibility endpoint: reusable environments persist until explicitly deleted."""
+    return []

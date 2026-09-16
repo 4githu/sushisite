@@ -1,4 +1,5 @@
 <script lang="ts">
+	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -33,7 +34,8 @@
 			return current;
 		}
 
-		return template.loadOrCreate('interview') as InterviewTemplate;
+		template.setDefault('interview');
+		return template.get() as InterviewTemplate;
 	}
 
 	let ready = $state(false);
@@ -54,7 +56,7 @@
 		ready = true;
 	});
 
-	$effect(() => {
+	function syncDraft() {
 		if (!ready) return;
 		template.patchEnvironment({
 			company_name: basicInfo.company,
@@ -67,7 +69,7 @@
 			interviewer_count: Number(basicInfo.interviewerCount),
 			answer_order: basicInfo.answerOrder
 		});
-	});
+	}
 
 	function goPrev() {
 		goto('/odi');
@@ -101,19 +103,74 @@
 			</p>
 		</div>
 	</header>
+	<TemplateSaveBar />
 
 	<ProgressStepper {steps} currentStep={0} />
 
 	<SessionBasicInfoCard
-		bind:company={basicInfo.company}
-		bind:department={basicInfo.department}
-		bind:position={basicInfo.position}
-		bind:jobDetail={basicInfo.jobDetail}
-		bind:interviewTime={basicInfo.interviewTime}
-		bind:interviewSituation={basicInfo.interviewSituation}
-		bind:language={basicInfo.language}
-		bind:interviewerCount={basicInfo.interviewerCount}
-		bind:answerOrder={basicInfo.answerOrder}
+		bind:company={
+			() => basicInfo.company,
+			(value) => {
+				basicInfo.company = value;
+				syncDraft();
+			}
+		}
+		bind:department={
+			() => basicInfo.department,
+			(value) => {
+				basicInfo.department = value;
+				syncDraft();
+			}
+		}
+		bind:position={
+			() => basicInfo.position,
+			(value) => {
+				basicInfo.position = value;
+				syncDraft();
+			}
+		}
+		bind:jobDetail={
+			() => basicInfo.jobDetail,
+			(value) => {
+				basicInfo.jobDetail = value;
+				syncDraft();
+			}
+		}
+		bind:interviewTime={
+			() => basicInfo.interviewTime,
+			(value) => {
+				basicInfo.interviewTime = value;
+				syncDraft();
+			}
+		}
+		bind:interviewSituation={
+			() => basicInfo.interviewSituation,
+			(value) => {
+				basicInfo.interviewSituation = value;
+				syncDraft();
+			}
+		}
+		bind:language={
+			() => basicInfo.language,
+			(value) => {
+				basicInfo.language = value;
+				syncDraft();
+			}
+		}
+		bind:interviewerCount={
+			() => basicInfo.interviewerCount,
+			(value) => {
+				basicInfo.interviewerCount = value;
+				syncDraft();
+			}
+		}
+		bind:answerOrder={
+			() => basicInfo.answerOrder,
+			(value) => {
+				basicInfo.answerOrder = value;
+				syncDraft();
+			}
+		}
 	/>
 
 	<div class="actions">

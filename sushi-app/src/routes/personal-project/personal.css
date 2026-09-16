@@ -1,13 +1,49 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 
+/* Shared service chrome: readable type, quiet surfaces, calendar-first hierarchy. */
+.personal-shell .sidebar { background: #f6f8fb; }
+.personal-shell .brand b, .personal-shell .brand-mark, .personal-shell .page-head h1,
+.personal-shell .stat-card strong, .personal-shell .modal h2 { font-family: 'Noto Sans KR',system-ui,sans-serif; }
+.personal-shell .brand-mark { border-radius: 10px; }
+.personal-shell .personal-main { padding: 28px clamp(16px,2.5vw,40px) 48px; }
+.personal-shell .page-head h1 { font-size: 26px; font-weight: 650; letter-spacing: -.6px; }
+.personal-shell .eyebrow { display: none; }
+.personal-shell .stat-card { background: white; box-shadow: none; border-radius: 9px; }
+.personal-shell .stat-card strong { font-size: 25px; }
+.personal-shell .modal { max-height: 90dvh; overflow-y: auto; }
+.personal-shell .field input, .personal-shell .field textarea, .personal-shell .field select { font-size: 14px; min-height: 40px; }
+.personal-shell .field label { font-size: 13px; }
+.personal-shell .calendar-link { padding: 10px 12px; color: #4e678a; text-decoration: none; font-size: 13px; }
+.personal-shell nav a.active { background: #e8eef9; }
+@media(max-width:700px) {
+ .personal-shell, .personal-shell.aura-system, .personal-shell.aura-system.sidebar-collapsed { display:block; }
+ .personal-shell .sidebar, .personal-shell.aura-system .sidebar { position:relative; width:100%; height:auto; padding:16px; border-right:0; border-bottom:1px solid #e0e6ee; }
+ .personal-shell .brand { padding:0 0 12px; }
+ .personal-shell nav { display:flex; overflow:auto; gap:4px; }
+ .personal-shell nav a { white-space:nowrap; font-size:12px; padding:8px; }
+ .personal-shell .sidebar-toggle { display:none; }
+ .personal-shell .personal-main { padding:20px 10px 36px; }
+ .personal-shell .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+ .personal-shell .sidebar .brand { grid-area:brand; margin:0; padding:0; }
+ .personal-shell .sidebar { display:grid; grid-template-columns:1fr auto; grid-template-areas:'brand account' 'nav nav' 'tasks install'; gap:8px; }
+ .personal-shell .sidebar nav {grid-area:nav;}
+ .personal-shell .sidebar .account {grid-area:account;margin:0;}
+ .personal-shell .sidebar .account-button {width:42px;padding:5px;border:0;background:none;display:block;}
+ .personal-shell .sidebar .account-button>span:nth-child(2), .personal-shell .sidebar .account-button>i {display:none;}
+ .personal-shell .sidebar .account-menu {width:220px;left:auto;right:0;top:48px;bottom:auto;z-index:20;}
+ .personal-shell .sidebar .calendar-link {grid-area:tasks;margin:0;padding:8px;}
+ .personal-shell .sidebar .install-app {grid-area:install;margin:0;padding:6px 10px;}
+ .personal-shell .sidebar .install-hint {grid-column:1/-1;}
+}
+
 :root {
-	--pp-ink: #25302c;
-	--pp-muted: #78817c;
-	--pp-paper: #f6f3ed;
-	--pp-card: #fffefa;
-	--pp-line: #e4e0d8;
-	--pp-sage: #6f887b;
-	--pp-sage-dark: #4d675b;
+	--pp-ink: #253244;
+	--pp-muted: #728096;
+	--pp-paper: #f8fafc;
+	--pp-card: #ffffff;
+	--pp-line: #e0e6ee;
+	--pp-sage: #557cbd;
+	--pp-sage-dark: #245ac7;
 	--pp-peach: #e9a783;
 	--pp-lilac: #9a93b7;
 	--pp-yellow: #e8c56b;

@@ -1,11 +1,13 @@
 // src/lib/odi/stores/template.ts
 
-import { derived, get, writable } from "svelte/store";
-import { odiuser, type JsonObject } from "./odiuser";
+import { withTemplateMutation } from '../domain/templateMutation';
+import { API_BASE } from '$lib/config/api';
+import { derived, get, writable } from 'svelte/store';
+import { odiuser, type JsonObject } from './odiuser';
 
-export type TemplateType = "presentation" | "interview";
+export type TemplateType = 'presentation' | 'interview';
 
-export type OdiFileStatus = "temp" | "committed";
+export type OdiFileStatus = 'temp' | 'committed';
 
 export type OdiFileRef = {
 	storage_path: string | null;
@@ -24,12 +26,14 @@ export type OdiTemplateFiles = {
 	paper: OdiFileRef | null;
 	script: OdiFileRef | null;
 	script_content: string | null;
+	script_sections?: { slide: number | null; text: string }[];
 };
 
 export type PresentationTemplate = {
 	id?: string;
+	version?: number;
 	owner_id?: string;
-	type: "presentation";
+	type: 'presentation';
 	description?: string;
 	created_at?: string;
 	updated_at?: string;
@@ -58,8 +62,9 @@ export type PresentationTemplate = {
 
 export type InterviewTemplate = {
 	id?: string;
+	version?: number;
 	owner_id?: string;
-	type: "interview";
+	type: 'interview';
 	description?: string;
 	created_at?: string;
 	updated_at?: string;
@@ -91,6 +96,7 @@ export type OdiTemplate = PresentationTemplate | InterviewTemplate;
 
 const draftStore = writable<OdiTemplate | null>(null);
 const savedSnapshotStore = writable<string | null>(null);
+let pendingCreateId: string | null = null;
 
 function clone<T>(value: T): T {
 	return value === null ? value : JSON.parse(JSON.stringify(value));
@@ -113,43 +119,56 @@ function migrateFiles(files: any): OdiTemplateFiles {
 	if (!files) return createEmptyFiles();
 
 	return {
-		slide: files.slide ?? (files.slide_path ? {
-			storage_path: files.slide_path,
-			original_name: files.slide_path.split("/").at(-1) ?? "slide.pdf",
-			mime_type: "application/pdf",
-			size_bytes: null,
-			status: "committed",
-			uploaded_at: null,
-			expires_at: null,
-			page_count: null,
-			image_manifest_path: null
-		} : null),
+		slide:
+			files.slide ??
+			(files.slide_path
+				? {
+						storage_path: files.slide_path,
+						original_name: files.slide_path.split('/').at(-1) ?? 'slide.pdf',
+						mime_type: 'application/pdf',
+						size_bytes: null,
+						status: 'committed',
+						uploaded_at: null,
+						expires_at: null,
+						page_count: null,
+						image_manifest_path: null
+					}
+				: null),
 
-		paper: files.paper ?? (files.paper_path ? {
-			storage_path: files.paper_path,
-			original_name: files.paper_path.split("/").at(-1) ?? "paper.pdf",
-			mime_type: "application/pdf",
-			size_bytes: null,
-			status: "committed",
-			uploaded_at: null,
-			expires_at: null,
-			page_count: null,
-			image_manifest_path: null
-		} : null),
+		paper:
+			files.paper ??
+			(files.paper_path
+				? {
+						storage_path: files.paper_path,
+						original_name: files.paper_path.split('/').at(-1) ?? 'paper.pdf',
+						mime_type: 'application/pdf',
+						size_bytes: null,
+						status: 'committed',
+						uploaded_at: null,
+						expires_at: null,
+						page_count: null,
+						image_manifest_path: null
+					}
+				: null),
 
-		script: files.script ?? (files.script_path ? {
-			storage_path: files.script_path,
-			original_name: files.script_path.split("/").at(-1) ?? "script.txt",
-			mime_type: "text/plain",
-			size_bytes: null,
-			status: "committed",
-			uploaded_at: null,
-			expires_at: null,
-			page_count: null,
-			image_manifest_path: null
-		} : null),
+		script:
+			files.script ??
+			(files.script_path
+				? {
+						storage_path: files.script_path,
+						original_name: files.script_path.split('/').at(-1) ?? 'script.txt',
+						mime_type: 'text/plain',
+						size_bytes: null,
+						status: 'committed',
+						uploaded_at: null,
+						expires_at: null,
+						page_count: null,
+						image_manifest_path: null
+					}
+				: null),
 
-		script_content: files.script_content ?? null
+		script_content: files.script_content ?? null,
+		script_sections: files.script_sections
 	};
 }
 
@@ -163,14 +182,14 @@ function migrateTemplate(value: OdiTemplate): OdiTemplate {
 
 export function createDefaultPresentationTemplate(): PresentationTemplate {
 	return {
-		type: "presentation",
-		description: "",
+		type: 'presentation',
+		description: '',
 
 		environment: {
-			title: "",
-			purpose: "프로젝트 목적",
-			language: "한국어",
-			place: "",
+			title: '',
+			purpose: '프로젝트 목적',
+			language: '한국어',
+			place: '',
 			duration_minutes: 2,
 			question_count: 0
 		},
@@ -178,41 +197,75 @@ export function createDefaultPresentationTemplate(): PresentationTemplate {
 		files: createEmptyFiles(),
 
 		audience: {
-			audience_type: "",
+			audience_type: '',
 			audience_count: 6,
-			expertise_level: "중간",
-			interest_level: "중간"
+			expertise_level: '중간',
+			interest_level: '중간'
 		}
 	};
 }
 
 export function createDefaultInterviewTemplate(): InterviewTemplate {
 	return {
-		type: "interview",
-		description: "",
+		type: 'interview',
+		description: '',
 
 		environment: {
-			company_name: "",
-			department: "",
-			position: "",
-			job_detail: "",
-			language: "",
+			company_name: '',
+			department: '',
+			position: '',
+			job_detail: '',
+			language: '',
 			duration_minutes: 0,
-			interview_context: "",
+			interview_context: '',
 			interviewer_count: 0,
-			answer_order: ""
+			answer_order: ''
 		},
 
 		files: createEmptyFiles(),
 
 		audience: {
-			interviewer_persona: "",
-			interview_style: ""
+			interviewer_persona: '',
+			interview_style: ''
 		}
 	};
 }
 
 export const template = {
+	loadSaved(value: OdiTemplate) {
+		const copied = migrateTemplate(value);
+		draftStore.set(copied);
+		savedSnapshotStore.set(stableStringify(copied));
+	},
+	async saveBaseline() {
+		return withTemplateMutation(async () => {
+			const current = get(draftStore);
+			if (!current) throw new Error('저장할 환경이 없습니다.');
+			const user = await odiuser.requireUser();
+			if (!current.id) pendingCreateId ??= `template_${crypto.randomUUID()}`;
+			const response = await fetch(
+				`${API_BASE}/odi/db/templates${current.id ? `/${current.id}` : ''}`,
+				{
+					method: current.id ? 'PUT' : 'POST',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(
+						current.id
+							? { template: current, expected_version: current.version }
+							: { owner_id: user.user_id, template: current, template_id: pendingCreateId }
+					)
+				}
+			);
+			const result = await response.json();
+			if (!response.ok)
+				throw new Error(
+					typeof result.detail === 'string' ? result.detail : '환경을 저장하지 못했습니다.'
+				);
+			this.loadSaved(result.template.template);
+			pendingCreateId = null;
+			return result.template;
+		});
+	},
 	subscribe: draftStore.subscribe,
 
 	get() {
@@ -225,6 +278,7 @@ export const template = {
 	},
 
 	clear() {
+		pendingCreateId = null;
 		draftStore.set(null);
 		savedSnapshotStore.set(null);
 	},
@@ -241,9 +295,11 @@ export const template = {
 	},
 
 	setDefault(type: TemplateType) {
-		const next = type === "presentation"
-			? createDefaultPresentationTemplate()
-			: createDefaultInterviewTemplate();
+		pendingCreateId = null;
+		const next =
+			type === 'presentation'
+				? createDefaultPresentationTemplate()
+				: createDefaultInterviewTemplate();
 
 		draftStore.set(next);
 		savedSnapshotStore.set(stableStringify(next));
@@ -266,16 +322,17 @@ export const template = {
 		return copied;
 	},
 
-	loadOrCreate(type: TemplateType = "presentation") {
+	loadOrCreate(type: TemplateType = 'presentation') {
 		const loaded = this.loadFromRecent();
 
 		if (loaded !== null) {
 			return loaded;
 		}
 
-		const next = type === "presentation"
-			? createDefaultPresentationTemplate()
-			: createDefaultInterviewTemplate();
+		const next =
+			type === 'presentation'
+				? createDefaultPresentationTemplate()
+				: createDefaultInterviewTemplate();
 
 		draftStore.set(next);
 		savedSnapshotStore.set(stableStringify(next));
@@ -287,7 +344,7 @@ export const template = {
 		const current = get(draftStore);
 
 		if (current === null) {
-			throw new Error("수정할 템플릿 draft가 없습니다.");
+			throw new Error('수정할 템플릿 draft가 없습니다.');
 		}
 
 		const next = {
@@ -304,7 +361,7 @@ export const template = {
 		const current = get(draftStore);
 
 		if (current === null) {
-			throw new Error("수정할 템플릿 draft가 없습니다.");
+			throw new Error('수정할 템플릿 draft가 없습니다.');
 		}
 
 		const next = {
@@ -324,7 +381,7 @@ export const template = {
 		const current = get(draftStore);
 
 		if (current === null) {
-			throw new Error("수정할 템플릿 draft가 없습니다.");
+			throw new Error('수정할 템플릿 draft가 없습니다.');
 		}
 
 		const next = {
@@ -344,7 +401,7 @@ export const template = {
 		const current = get(draftStore);
 
 		if (current === null) {
-			throw new Error("수정할 템플릿 draft가 없습니다.");
+			throw new Error('수정할 템플릿 draft가 없습니다.');
 		}
 
 		const next = {
@@ -364,7 +421,7 @@ export const template = {
 		const current = get(draftStore);
 
 		if (current === null) {
-			throw new Error("저장할 템플릿 draft가 없습니다.");
+			throw new Error('저장할 템플릿 draft가 없습니다.');
 		}
 
 		const savedUser = await odiuser.updateRecentTemplate(clone(current));
@@ -379,7 +436,4 @@ export const isTemplateDirty = derived(
 	([$draft, $snapshot]) => stableStringify($draft) !== $snapshot
 );
 
-export const templateType = derived(
-	draftStore,
-	($draft) => $draft?.type ?? null
-);
+export const templateType = derived(draftStore, ($draft) => $draft?.type ?? null);

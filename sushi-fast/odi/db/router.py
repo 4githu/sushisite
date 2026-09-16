@@ -137,7 +137,12 @@ def init_db() -> dict[str, str]:
 def login(
     payload: LoginRequest,
     response: Response,
+    request: Request,
 ) -> dict[str, Any]:
+    # Service login must derive authority from the verified primary session.
+    identity = JMT.check_jwt(request, 'mainauth')
+    if str(payload.auth_id) != str(identity['sub']):
+        raise HTTPException(status_code=403, detail='로그인 계정이 일치하지 않습니다.')
     user = odidb.get_user_by_auth_id(payload.auth_id)
 
     if user is None:
@@ -173,7 +178,11 @@ def logout(response: Response) -> dict[str, str]:
 def join_odi(
     payload: UserCreateRequest,
     response: Response,
+    request: Request,
 ) -> dict[str, Any]:
+    identity = JMT.check_jwt(request, 'mainauth')
+    if str(payload.auth_id) != str(identity['sub']) or str(payload.user_id) != str(identity['sub']):
+        raise HTTPException(status_code=403, detail='로그인 계정이 일치하지 않습니다.')
     try:
         odidb.create_user(
             user_id=payload.user_id,
@@ -298,75 +307,44 @@ def update_recent_template(
     }
 
 
+def owned_template(template_id: str, request: Request):
+    row = odidb.get_template(template_id)
+    if not row or str(row["owner_id"]) != str(get_user_id_from_jwt(request)):
+        raise HTTPException(404, "템플릿을 찾을 수 없습니다.")
+    return row
+
+
 @router.post("/templates")
-def create_template(payload: TemplateCreateRequest) -> dict[str, Any]:
-    try:
-        template_id = odidb.create_template(
-            owner_id=payload.owner_id,
-            template=payload.template,
-            template_id=payload.template_id,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    template = odidb.get_template(template_id)
-
-    return {
-        "message": "template_created",
-        "template": template,
-    }
+def create_template(payload: TemplateCreateRequest, request: Request):
+    from odi.db.template_service import save_baseline
+    user_id = str(get_user_id_from_jwt(request))
+    if str(payload.owner_id) != user_id:
+        raise HTTPException(403, "다른 사용자의 환경을 저장할 수 없습니다.")
+    return {"template": save_baseline(user_id, payload.template, None, None, payload.template_id)}
 
 
 @router.get("/templates/{template_id}")
-def get_template(template_id: str) -> dict[str, Any]:
-    template = odidb.get_template(template_id)
-
-    if template is None:
-        raise_404(f"존재하지 않는 template_id입니다: {template_id}")
-
-    return {
-        "template": template,
-    }
+def get_template(template_id: str, request: Request):
+    return {"template": owned_template(template_id, request)}
 
 
 @router.get("/users/{user_id}/templates")
-def list_user_templates(user_id: str) -> dict[str, Any]:
-    user = odidb.get_user(user_id)
-
-    if user is None:
-        raise_404(f"존재하지 않는 user_id입니다: {user_id}")
-
-    templates = odidb.list_templates_by_owner(user_id)
-
-    return {
-        "user_id": user_id,
-        "templates": templates,
-    }
+def list_user_templates(user_id: str, request: Request):
+    if str(user_id) != str(get_user_id_from_jwt(request)):
+        raise HTTPException(403, "다른 사용자의 환경에는 접근할 수 없습니다.")
+    return {"templates": odidb.list_templates_by_owner(user_id)}
 
 
 @router.put("/templates/{template_id}")
-def update_template(
-    template_id: str,
-    payload: TemplateUpdateRequest,
-) -> dict[str, Any]:
-    try:
-        odidb.update_template(
-            template_id=template_id,
-            template=payload.template,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    template = odidb.get_template(template_id)
-
-    return {
-        "message": "template_updated",
-        "template": template,
-    }
+def update_template(template_id: str, payload: TemplateUpdateRequest, request: Request):
+    from odi.db.template_service import save_baseline
+    row = owned_template(template_id, request)
+    return {"template": save_baseline(str(row["owner_id"]), payload.template, template_id, payload.expected_version)}
 
 
 @router.delete("/templates/{template_id}")
-def delete_template(template_id: str) -> dict[str, str]:
+def delete_template(template_id: str, request: Request) -> dict[str, str]:
+    owned_template(template_id, request)
     try:
         odidb.delete_template(template_id)
     except Exception as e:
@@ -377,67 +355,24 @@ def delete_template(template_id: str) -> dict[str, str]:
     }
 
 
-# odi/db/router.py 안의 기존 start_pre_session_from_recent 함수를 이걸로 교체
-
+@router.post("/pre-sessions/start")
 @router.post("/pre-sessions/start-from-recent")
-def start_pre_session_from_recent(
-    payload: PreSessionStartRequest,
-    request: Request,
-) -> dict[str, Any]:
+def start_pre_session_from_recent(payload: PreSessionStartRequest, request: Request):
+    from odi.db.template_service import prepare
+    user_id = str(get_user_id_from_jwt(request))
+    if str(payload.user_id) != user_id:
+        raise HTTPException(403, "다른 사용자의 세션을 시작할 수 없습니다.")
+    draft = payload.template
+    if draft is None:
+        draft = (odidb.get_user(user_id) or {}).get("recent_template")
+    if draft is None:
+        raise HTTPException(422, "시작할 환경이 없습니다.")
     try:
-        user_id = get_user_id_from_jwt(request)
-        if str(payload.user_id) != str(user_id):
-            raise HTTPException(status_code=403, detail="다른 사용자의 세션을 시작할 수 없습니다.")
+        validate_presentation_template_for_start(draft)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return prepare(user_id, draft, payload.template_id or draft.get("id"), payload.request_id, payload.expires_minutes)
 
-        user = odidb.get_user(user_id)
-
-        if user is None:
-            raise ValueError(f"존재하지 않는 user_id입니다: {payload.user_id}")
-
-        recent_template = user.get("recent_template")
-
-        if recent_template is None:
-            raise ValueError("recent_template이 없습니다.")
-
-        validate_presentation_template_for_start(recent_template)
-
-        committed_template, bundle_info = commit_template_files(
-            user_id=user_id,
-            template=recent_template,
-        )
-
-        template_id = odidb.create_template(
-            owner_id=user_id,
-            template=committed_template,
-        )
-
-        saved_template = odidb.get_template(template_id)
-
-        if saved_template is None:
-            raise ValueError("템플릿 저장 후 조회에 실패했습니다.")
-
-        odidb.update_recent_template(
-            user_id=user_id,
-            template=saved_template["template"],
-        )
-
-        pre_session = odidb.create_pre_session(
-            template_id=template_id,
-            expires_minutes=payload.expires_minutes,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return {
-        "message": "pre_session_created",
-        "pin_code": pre_session["pin_code"],
-        "pre_session": pre_session,
-        "template": saved_template,
-        "file_bundle": bundle_info,
-    }
 
 @router.get("/pre-sessions/{pin_code}")
 def get_pre_session(pin_code: str, request: Request) -> dict[str, Any]:
@@ -486,20 +421,9 @@ def finish_pre_session(
     pre_session = require_pre_session_owner(pin_code, user_id)
 
     try:
-        session_id = odidb.start_session_from_template(
-            user_id=user_id,
-            template_id=pre_session["template_id"],
-        )
-
-        odidb.finish_session(
-            session_id=session_id,
+        session_id = odidb.finish_linked_pre_session(
+            pin_code=pin_code, user_id=str(user_id), template_id=pre_session["template_id"],
             feedback=payload.feedback,
-        )
-
-        odidb.attach_session_to_pre_session(
-            pin_code=pin_code,
-            session_id=session_id,
-            state="finished",
         )
 
     except Exception as e:
@@ -728,6 +652,7 @@ def list_user_sessions(
     user_id: str,
     request: Request,
     limit: int = 20,
+    offset: int = 0,
 ) -> dict[str, Any]:
     if str(user_id) != str(get_user_id_from_jwt(request)):
         raise HTTPException(status_code=403, detail="다른 사용자의 세션에는 접근할 수 없습니다.")
@@ -738,7 +663,8 @@ def list_user_sessions(
 
     sessions = odidb.list_sessions_by_user(
         user_id=user_id,
-        limit=limit,
+        limit=max(1, min(limit, 200)),
+        offset=max(0, offset),
     )
 
     return {

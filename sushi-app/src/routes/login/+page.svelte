@@ -1,5 +1,6 @@
 <!-- src/routes/login/+page.svelte -->
 <script lang="ts">
+    import GoogleLogin from '$lib/personal-project/shared/GoogleLogin.svelte';
 	import { goto } from "$app/navigation";
 
 	import "$lib/odi/styles/globals.css";
@@ -107,6 +108,7 @@
 		</div>
 
 		<div class="actions">
+            <GoogleLogin returnTo="/odi" />
 			<Button variant="primary" width="100%" disabled={!canLogin} onclick={login}>
 				로그인
 			</Button>

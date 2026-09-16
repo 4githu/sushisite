@@ -1,8 +1,8 @@
 <!-- src/lib/odi/components/login/RegisterCompleteStep.svelte -->
 <script lang="ts">
 	import {
-		home as Check,
-		home as Lock
+		authCheck as Check,
+		authLock as Lock
 	} from "$lib/odi/icons";
 
 	let {

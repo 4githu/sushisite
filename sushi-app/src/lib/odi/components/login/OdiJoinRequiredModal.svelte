@@ -2,7 +2,7 @@
 <script lang="ts">
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 	import Button from "$lib/odi/components/common/Button.svelte";
-	import { account_circle as AccountCircle, home as Logout, home as Seedling } from "$lib/odi/icons";
+	import { account_circle as AccountCircle, authLogout as Logout, Seedling as Seedling } from "$lib/odi/icons";
 
 	let {
 		userName = "사용자",
@@ -53,7 +53,7 @@
 			</Button>
 
 			<button type="button" class="logout-button clickable" onclick={onLogout}>
-				<img src={Logout} alt="" />
+				<span class="logout-icon" style:mask-image={`url("${Logout}")`} aria-hidden="true"></span>
 				<span>다른 계정으로 로그인</span>
 			</button>
 		</div>
@@ -185,7 +185,11 @@
 		background: var(--blue-light);
 	}
 
-	.logout-button img {
+	.logout-icon {
+		background: currentColor;
+		mask-size: contain;
+		mask-repeat: no-repeat;
+		mask-position: center;
 		width: 20px;
 		height: 20px;
 	}

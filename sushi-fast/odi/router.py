@@ -13,6 +13,8 @@ router = APIRouter(
 router.include_router(evc_router)
 router.include_router(db_router)
 router.include_router(files_router)
+from odi.coaching.router import router as coaching_router
+router.include_router(coaching_router)
 
 '''
 configs = {}

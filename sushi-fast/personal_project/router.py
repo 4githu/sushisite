@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Stre
 from auth import JMT
 
 from . import ai_report, kakao, native_kakao, repository
+from . import workspace
 from .schemas import (
     ClinicRoundCreate,
     ClinicRoundSeriesCreate,
@@ -114,29 +115,29 @@ def events(
     event_type: str | None = Query(default=None, alias="type"),
     status: str | None = None, user_id: int = Depends(current_user_id),
 ):
-    return repository.list_events(user_id, start, end, event_type, status)
+    return workspace.list_events(user_id, start, end, event_type, status)
 
 
 @router.post("/calendar/events", status_code=201)
 def create_event(data: EventCreate, user_id: int = Depends(current_user_id)):
-    return repository.create_event(user_id, data)
+    return workspace.create_event(user_id, data)
 
 
 @router.post("/calendar/events/series", status_code=201)
 def create_event_series(
     data: EventSeriesCreate, user_id: int = Depends(current_user_id)
 ):
-    return repository.create_event_series(user_id, data)
+    return workspace.create_series(user_id, data)
 
 
 @router.get("/calendar/events/{event_id}")
 def event(event_id: int, user_id: int = Depends(current_user_id)):
-    return repository.get_event(user_id, event_id)
+    return workspace.get_event(user_id, event_id)
 
 
 @router.patch("/calendar/events/{event_id}")
 def update_event(event_id: int, data: EventUpdate, user_id: int = Depends(current_user_id)):
-    return repository.update_event(user_id, event_id, data)
+    return workspace.update_event(user_id, event_id, data)
 
 
 @router.patch("/calendar/events/{event_id}/scope")
@@ -145,12 +146,12 @@ def update_event_scope(
     data: EventScopeUpdate,
     user_id: int = Depends(current_user_id),
 ):
-    return repository.update_event_scope(user_id, event_id, data)
+    return workspace.update_event(user_id, event_id, data)
 
 
 @router.delete("/calendar/events/{event_id}", status_code=204)
 def delete_event(event_id: int, user_id: int = Depends(current_user_id)):
-    repository.delete_event(user_id, event_id)
+    workspace.delete_event(user_id, event_id)
     return Response(status_code=204)
 
 
@@ -160,7 +161,7 @@ def delete_event_scope(
     scope: str = "this",
     user_id: int = Depends(current_user_id),
 ):
-    repository.delete_event_scope(user_id, event_id, scope)
+    workspace.delete_event(user_id, event_id, scope)
     return Response(status_code=204)
 
 

@@ -3,7 +3,9 @@
 
 	import Button from '$lib/odi/components/common/Button.svelte';
 	import ProgressStepper from '$lib/odi/components/session/ProgressStepper.svelte';
-	import InterviewUploadFileCard from '$lib/odi/components/session/InterviewUploadFileCard.svelte';
+	import UploadSection from '$lib/odi/components/session/UploadSection.svelte';
+	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
+	import { template, uploadTempFile } from '$lib/odi/stores';
 	import TipCard from '$lib/odi/components/session/TipCard.svelte';
 
 	const steps = [
@@ -13,13 +15,20 @@
 		{ label: '세션 확인' }
 	];
 
-	let uploadInfo = $state({
-		resumeFile: null as File | null,
-		portfolioFile: null as File | null,
-
-		resumePath: '',
-		portfolioPath: ''
-	});
+	let uploading = $state(''),
+		error = $state('');
+	async function upload(file: File, role: 'paper' | 'slide') {
+		if (uploading) return;
+		uploading = role;
+		error = '';
+		try {
+			template.patchFiles({ [role]: await uploadTempFile(file, role) });
+		} catch (e) {
+			error = e instanceof Error ? e.message : '업로드 실패';
+		} finally {
+			uploading = '';
+		}
+	}
 
 	const uploadTips = [
 		{
@@ -31,7 +40,7 @@
 		{
 			icon: 'document' as const,
 			title: '다양한 형식 지원',
-			description: 'PDF, PPT, DOCX, TXT, 이미지 등 다양한 형식의 파일을 지원합니다.'
+			description: '이력서와 포트폴리오는 PDF 파일로 업로드해 주세요.'
 		}
 	];
 
@@ -40,16 +49,7 @@
 	}
 
 	function goNext() {
-		const sessionDraft = {
-			uploadInfo: {
-				resumePath: uploadInfo.resumePath,
-				portfolioPath: uploadInfo.portfolioPath
-			}
-		};
-
-		console.log(sessionDraft);
-
-		goto('/odi/session/interview/AIsetup');
+		void goto('/odi/session/interview/AIsetup');
 	}
 </script>
 
@@ -69,14 +69,28 @@
 	<ProgressStepper {steps} currentStep={1} />
 
 	<div class="content-row">
-		<InterviewUploadFileCard
-			bind:resumeFile={uploadInfo.resumeFile}
-			bind:portfolioFile={uploadInfo.portfolioFile}
-		/>
+		<SurfaceCard padding="32px">
+			<UploadSection
+				title="이력서 / 자기소개서 PDF"
+				required
+				fileRef={$template?.files.paper}
+				uploading={!!uploading}
+				onFileSelected={(file) => upload(file, 'paper')}
+				onClear={() => template.patchFiles({ paper: null })}
+			/>
+			<UploadSection
+				title="포트폴리오 PDF"
+				fileRef={$template?.files.slide}
+				uploading={!!uploading}
+				onFileSelected={(file) => upload(file, 'slide')}
+				onClear={() => template.patchFiles({ slide: null })}
+			/>
+			{#if error}<p role="alert">{error}</p>{/if}
+		</SurfaceCard>
 
 		<TipCard
 			title="자료 업로드 TIP"
-			description="업로드된 자료는 암호화되어 안전하게 저장되며, 사용자의 동의 없이 외부로 공유되지 않습니다."
+			description="저장한 템플릿에서 자료를 다시 사용할 수 있습니다."
 			tips={uploadTips}
 		/>
 	</div>
@@ -84,7 +98,9 @@
 	<div class="actions">
 		<Button variant="secondary" width="212px" onclick={goPrev}>이전 단계</Button>
 
-		<Button width="212px" onclick={goNext}>다음 단계</Button>
+		<Button width="212px" onclick={goNext} disabled={!!uploading || !$template?.files.paper}
+			>다음 단계</Button
+		>
 	</div>
 </section>
 
