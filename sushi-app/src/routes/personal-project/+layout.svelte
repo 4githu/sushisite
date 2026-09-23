@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import PersonalLogin from '$lib/personal-project/shared/PersonalLogin.svelte';
 	import { checkPersonalAuth, type PersonalUser } from '$lib/personal-project/shared/auth';
-	import { PersonalApiError } from '$lib/personal-project/shared/api';
 
 	let { children } = $props();
 	let authState = $state<'checking' | 'authenticated' | 'guest' | 'offline'>('checking');
@@ -17,10 +16,7 @@
 			authState = user ? 'authenticated' : 'guest';
 		} catch (cause) {
 			user = null;
-			authState =
-				cause instanceof PersonalApiError && cause.code === 'backend_unreachable'
-					? 'offline'
-					: 'guest';
+			authState = 'offline';
 			message =
 				cause instanceof Error
 					? cause.message
@@ -38,9 +34,15 @@
 	</div>
 {:else if authState === 'authenticated' && user}
 	{@render children()}
+{:else if authState === 'offline'}
+	<div class="auth-loading">
+		<strong>로그인 상태를 확인하지 못했습니다.</strong>
+		<p role="alert">{message}</p>
+		<button onclick={check}>다시 연결</button>
+	</div>
 {:else}
 	<PersonalLogin
-		serverMessage={authState === 'offline' ? message : ''}
+		serverMessage={message}
 		onSuccess={(loggedInUser) => {
 			user = loggedInUser;
 			authState = 'authenticated';

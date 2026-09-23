@@ -13,6 +13,7 @@
 	import { odiuser } from "$lib/odi/stores";
 	import { API_BASE as API } from '$lib/config/api';
 
+	let isStudent = $state(false), school = $state(''), department = $state('');
 	const steps = ["기본 정보 입력", "이메일 인증", "계정 생성 완료"];
 
 	let currentStep = $state(0);
@@ -39,7 +40,7 @@
 	const passwordError = $derived(password.length > 0 && !passwordValid ? "영문, 숫자, 특수문자 포함 8자리 이상 입력해주세요" : "");
 	const passwordConfirmError = $derived(passwordConfirm.length > 0 && password !== passwordConfirm ? "비밀번호가 일치하지 않습니다" : "");
 	const requiredAgreementOk = $derived(serviceAgreed && privacyAgreed);
-	const canSendCode = $derived(name.trim().length >= 2 && emailValid && passwordValid && password === passwordConfirm && requiredAgreementOk && !loading);
+	const canSendCode = $derived(name.trim().length >= 2 && emailValid && passwordValid && password === passwordConfirm && requiredAgreementOk && (!isStudent || Boolean(school.trim())) && !loading);
 	const canVerify = $derived(code.trim().length > 0 && !loading);
 
 	onDestroy(() => {
@@ -162,6 +163,18 @@
 	}
 
 	async function finishRegister() {
+        if (loading) return;
+        loading = true;
+        try {
+            const response = await fetch(`${API}/api/personal/student/profile`, { method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({is_student:isStudent,school:school.trim(),department:department.trim()}) });
+            await fetchJson(response);
+        } catch(error) {
+            errorMessage = '계정은 생성되었습니다. 학생 설정 저장에 실패했습니다. 완료 버튼으로 다시 시도해주세요.';
+            loading = false;
+            return;
+        }
+        loading = false;
+
 		const result = await odiuser.checkAccess();
 
 		if (result.status === "odi_authenticated") {
@@ -209,6 +222,7 @@
 				{passwordConfirmError}
 				onOpenTerm={openTerm}
 			/>
+            <fieldset class="student-profile"><legend>학생 서비스</legend><label><input type="checkbox" bind:checked={isStudent} />학생인가요?</label>{#if isStudent}<label>학교<input bind:value={school} placeholder="학교 이름" maxlength="120" required /></label><label>학과<input bind:value={department} placeholder="학과 (선택)" maxlength="120" /></label>{/if}</fieldset>
 		{:else if currentStep === 1}
 			<RegisterVerifyStep
 				{email}
@@ -248,6 +262,7 @@
 </main>
 
 <style>
+ .student-profile {margin-top:20px;padding:16px;border:1px solid #d8dce1;border-radius:8px;} .student-profile label {display:flex;gap:8px;margin:12px 0;align-items:center;} .student-profile input:not([type=checkbox]) {border:1px solid #d8dce1;padding:8px;min-width:0;}
 	.register-page {
 		min-height: 100vh;
 		padding: 36px 48px 40px;

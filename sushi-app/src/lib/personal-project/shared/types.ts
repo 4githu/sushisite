@@ -5,6 +5,9 @@ export type AttendanceStatus = 'scheduled' | 'completed' | 'cancelled' | 'absent
 export type ReportStatus = 'draft' | 'ready' | 'submitted';
 
 export type CalendarEvent = {
+    taskAvailableFrom?: string | null;
+    taskDueAt?: string | null;
+    completionSource?: 'manual' | 'external';
     location?: string;
     webUrl?: string;
     projectId?: number | null;

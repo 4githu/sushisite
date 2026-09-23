@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.sushisite.frontend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec /opt/homebrew/opt/node@22/bin/npm run dev -- --host 127.0.0.1</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/sagi/Documents/sushisite/sushi-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/sagi/Library/Logs/sushisite-frontend.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/sagi/Library/Logs/sushisite-frontend-error.log</string>
+</dict>
+</plist>

@@ -6,14 +6,14 @@ export function GET({ params }) {
 	return json(
 		{
 			id: path,
-			name: aura ? '아우라 클리닉' : '온도 캘린더',
-			short_name: aura ? '아우라' : '온도',
+			name: aura ? '아우라 클리닉' : 'NETAQ',
+			short_name: aura ? '아우라' : 'NETAQ',
 			lang: 'ko',
 			start_url: path,
 			scope: '/personal-project/',
 			display: 'standalone',
 			background_color: '#ffffff',
-			theme_color: '#245ac7',
+			theme_color: aura ? '#484d43' : '#232428',
 			description: '일정과 할 일을 한곳에서 관리하세요.',
 			icons: [
 				{ src: '/ondo-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

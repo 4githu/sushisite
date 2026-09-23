@@ -314,3 +314,11 @@
 		min-height: 560px;
 	}
 }
+
+/* Compact shared editor for daily planning. Keep report sizing unchanged. */
+.text-editor-card.compact .text-editor-surface { height:auto; min-height:180px; max-height:420px; padding:14px 16px 14px 44px; }
+.text-editor-card.compact .question-check { left:calc(-30px - var(--block-indent, 0px)); top:2px; width:20px; height:20px; min-height:20px; border:1px solid #8a929e; border-radius:4px; background:white; }
+.text-editor-card.compact .question-check.checked { background:#353a42; border-color:#353a42; }
+.text-editor-card.compact .question-check.checked::after { content:'✓'; color:white; font-size:14px; line-height:18px; }
+.text-editor-card.compact details { padding:10px 12px; }
+.text-editor-card.compact summary { cursor:pointer; }
