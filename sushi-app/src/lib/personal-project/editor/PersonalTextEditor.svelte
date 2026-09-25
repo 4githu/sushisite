@@ -52,6 +52,8 @@
 	let pendingMarks = $state<TextMarks>({});
 	let lastInitial = untrack(() => initialValue);
 	let isRendering = false;
+	let disposed = false;
+	let renderRevision = 0;
 	let isComposing = false;
 	let savedRange: Range | null = null;
 	let jsonInput: HTMLInputElement;
@@ -82,6 +84,7 @@
 	onMount(() => {
 		renderDocument();
 		emitChange();
+		return () => { disposed = true; };
 	});
 
 	export function getJSON() {
@@ -120,9 +123,12 @@
 
 	function setDocumentInternal(value: unknown, record = true) {
 		if (record) pushUndo();
+		else { undoStack = []; savedRange = null; pendingMarks = {}; }
 		documentValue = normalizeDocument(value);
 		redoStack = [];
+		const revision = ++renderRevision;
 		void tick().then(() => {
+			if (disposed || revision !== renderRevision) return;
 			renderDocument();
 			emitChange();
 		});
@@ -828,9 +834,10 @@
 			(event.ctrlKey || event.metaKey) &&
 			event.altKey &&
 			!event.shiftKey &&
-			event.key.toLowerCase() === 'q'
+			(event.code === 'KeyQ' || event.key.toLowerCase() === 'q')
 		) {
 			event.preventDefault();
+			if (event.repeat) return;
 			toggleQuestionChecks();
 		} else if (
 			(event.ctrlKey || event.metaKey) &&
