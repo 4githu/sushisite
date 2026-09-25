@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AuraReportEditor from '$lib/personal-project/aura/components/AuraReportEditor.svelte';
@@ -19,6 +20,7 @@
 	let sourceNotes = $state('');
 	let questionChecks = $state<Record<string, boolean>>({});
 	let saving = $state(false);
+	let switching = $state(false);
 	let message = $state('');
 	let error = $state('');
 	let autosaveTimer: number | undefined;
@@ -66,6 +68,14 @@
 	let finalControlsCollapsed = $state(false);
 	let noteCollapsed = $state(false);
 	let loadingTargetId = 0;
+	let loadRevision = 0;
+	let savePromise: Promise<boolean> | null = null;
+	let destroyed = false;
+	function cancelAutosave() {
+		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		autosaveTimer = undefined;
+	}
+	onDestroy(() => { destroyed = true; cancelAutosave(); });
 
 	function hasAppendixContent(document: EditorDocument) {
 		return document.blocks.some((block) => {
@@ -123,12 +133,16 @@
 
 	async function load(targetId: number) {
 		loadingTargetId = targetId;
+		const revision = ++loadRevision;
+		cancelAutosave();
+		report = null;
+		message = ''; error = ''; modalStage = 'closed'; aiResults = [];
 		try {
 			const [nextReport, attachments] = await Promise.all([
 				personalApi.targetReport(targetId),
 				personalApi.targetReportAttachments(targetId)
 			]);
-			if (loadingTargetId !== targetId) return;
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 			report = nextReport;
 			const document = normalizeDocument(nextReport.contentJson);
 			initialDocument = document;
@@ -153,12 +167,13 @@
 			problemImages = attachments
 				.filter((item) => item.kind === 'problem_solving')
 				.map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
-			await loadAi(targetId);
+			await loadAi(targetId, revision);
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 			if (page.url.searchParams.get('pdf') === '1') {
 				modalStage = generatedReport ? 'final' : 'generate';
 			}
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
+			if (!destroyed && loadingTargetId === targetId && revision === loadRevision) error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
 		}
 	}
 
@@ -195,12 +210,12 @@
 		assessmentCsv = rows.map((item) => `${item.name},${item.score}`).join('\n');
 	}
 
-	async function loadAi(targetId: number) {
+	async function loadAi(targetId: number, revision: number) {
 		const [options, saved] = await Promise.all([
 			personalApi.aiReportModels(),
 			personalApi.aiReportResults(targetId)
 		]);
-		if (loadingTargetId !== targetId) return;
+		if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 		aiModels = options.models;
 		selectedModel = aiModels.some((item) => item.id === aiModel)
 			? (aiModel as string)
@@ -224,8 +239,22 @@
 		}
 	}
 
-	async function save(submit = false, silent = false) {
+	async function save(submit = false, silent = false): Promise<boolean> {
+		const targetId = report?.targetId;
+		cancelAutosave();
+		while (savePromise) await savePromise;
+		if (destroyed || !targetId || report?.targetId !== targetId) return false;
+		const pending = saveSnapshot(submit, silent);
+		savePromise = pending;
+		try { return await pending; }
+		finally { if (savePromise === pending) savePromise = null; }
+	}
+
+	async function saveSnapshot(submit = false, silent = false) {
 		if (!report) return false;
+		const reportId = report.id;
+		const targetId = report.targetId;
+		const revision = loadRevision;
 		saving = true;
 		if (!silent) {
 			message = '';
@@ -234,7 +263,7 @@
 		try {
 			const assessment = parseAssessmentCsv();
 			draftDocument = editor?.getJSON() ?? draftDocument;
-			report = await personalApi.updateTargetReport(report.id, {
+			let savedReport = await personalApi.updateTargetReport(reportId, {
 				content_json: draftDocument,
 				source_notes: sourceNotes,
 				question_checks: questionChecks,
@@ -247,24 +276,27 @@
 				ai_model: aiModel,
 				status: submit ? 'ready' : report.status === 'submitted' ? 'submitted' : 'draft'
 			});
-			if (submit) report = await personalApi.submitTargetReport(report.id);
+			if (submit) savedReport = await personalApi.submitTargetReport(reportId);
+			if (destroyed || report?.targetId !== targetId || loadingTargetId !== targetId || revision !== loadRevision) return true;
+			report = savedReport;
 			if (!silent) message = submit ? 'PDF 생성용 리포트를 확정했습니다.' : '임시저장했습니다.';
 			return true;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
+			if (!destroyed && report?.targetId === targetId && revision === loadRevision) error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
 			return false;
 		} finally {
 			saving = false;
 		}
 	}
 
-	function queueAutosave(value: EditorDocument) {
+	function queueAutosave(value: EditorDocument, includeSubmitted = false) {
 		draftDocument = value;
-		if (!report || report.status === 'submitted') return;
-		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		if (!report || (report.status === 'submitted' && !includeSubmitted)) return;
+		cancelAutosave();
+		const targetId = report.targetId;
 		autosaveTimer = window.setTimeout(() => {
 			autosaveTimer = undefined;
-			void save(false, true);
+			if (!destroyed && report?.targetId === targetId && loadingTargetId === targetId) void save(false, true);
 		}, 1_500);
 	}
 
@@ -705,13 +737,16 @@
 	}
 
 	async function switchStudent(targetId: number) {
-		if (!report || targetId === report.targetId || saving) return;
-		if (report.status !== 'submitted' && !(await save(false, true))) return;
-		await goto(`/personal-project/aura/reports/${targetId}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		if (!report || targetId === report.targetId || switching) return;
+		switching = true;
+		try {
+			if (!(await save(false, true))) return;
+			await goto(`/personal-project/aura/reports/${targetId}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: false
+			});
+		} finally { switching = false; }
 	}
 
 	async function saveAsTemplate() {
@@ -739,7 +774,7 @@
 
 	$effect(() => {
 		const targetId = Number(page.params.targetId);
-		if (targetId && targetId !== report?.targetId) void load(targetId);
+		if (targetId && targetId !== loadingTargetId) void load(targetId);
 		void checkNativeKakao();
 	});
 </script>
@@ -778,7 +813,7 @@
 					type="button"
 					class:active={target.id === report.targetId}
 					onclick={() => switchStudent(target.id)}
-					disabled={saving}
+					disabled={switching}
 				>
 					{target.studentName}<span
 						>{target.status === 'submitted'
@@ -851,17 +886,21 @@
 				<p class="question-check-guide">
 					Ctrl/Cmd+Alt+Q로 선택한 부분을 ‘물어봤음’으로 저장합니다.
 				</p>
+				{#key report.targetId}
 				<AuraReportEditor
 					bind:this={editor}
 					initialValue={initialDocument}
-					readonly={false}
+					readonly={switching}
 					placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
 					onchange={queueAutosave}
 					{questionChecks}
 					onquestionchange={(blockId, checked) => {
+						if (switching) return;
 						questionChecks = { ...questionChecks, [blockId]: checked };
+						queueAutosave(editor?.getJSON() ?? draftDocument, true);
 					}}
 				/>
+				{/key}
 			</div>
 			<footer>
 				<button

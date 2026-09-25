@@ -1,4 +1,4 @@
-"""Multi-account calendar sync. ETags prevent overwriting simultaneous remote edits."""
+"""One-way Google imports and explicit exports; never automatically push app edits."""
 import hashlib
 import json
 import threading
@@ -109,28 +109,8 @@ def sync_account(user_id,account_id):
         with client(account) as http:
             for cal in selected:
                 path='/calendars/'+quote(cal['calendar_id'],safe='')+'/events'
-                # Push existing local changes first with conditional writes. Tombstones keep deletion retryable.
-                with connection() as db:
-                    links=[dict(r) for r in db.execute('SELECT * FROM google_event_links WHERE account_id=? AND calendar_id=?',(account_id,cal['calendar_id']))]
+                # Import is strictly Google -> app. Exports change only on an explicit request.
                 blocked=set()
-                for link in links:
-                    with connection() as db: local=db.execute('SELECT * FROM events WHERE id=?',(link['event_id'],)).fetchone()
-                    if not cal['writable']: continue
-                    headers={'If-Match':link['etag']} if link['etag'] else {}
-                    if local and fingerprint(local)==link['fingerprint']: continue
-                    target=path+'/'+quote(link['google_id'],safe='')
-                    response=http.patch(target,json=google_body(local),headers=headers) if local else http.delete(target,headers=headers)
-                    if response.status_code==412:
-                        blocked.add(link['google_id']); conflicts.append(local['title'] if local else '삭제된 일정'); remember_conflict(account_id,cal['calendar_id'],link,conflicts[-1]); continue
-                    if local and response.status_code in (404,410):
-                        blocked.add(link['google_id']); conflicts.append(local['title']); remember_conflict(account_id,cal['calendar_id'],link,local['title']); continue
-                    if not local and response.status_code in (404,410,204):
-                        with connection() as db:
-                            db.execute('DELETE FROM google_event_links WHERE account_id=? AND calendar_id=? AND google_id=?',(account_id,cal['calendar_id'],link['google_id'])); db.commit()
-                        continue
-                    updated=checked(response)
-                    with connection() as db:
-                        db.execute('UPDATE google_event_links SET etag=?,fingerprint=? WHERE account_id=? AND calendar_id=? AND google_id=?',(updated.get('etag'),fingerprint(local),account_id,cal['calendar_id'],link['google_id'])); db.commit()
                 page=None
                 while True:
                     now=datetime.now(timezone.utc)
@@ -142,9 +122,10 @@ def sync_account(user_id,account_id):
                         with connection() as db:
                             link=db.execute('SELECT * FROM google_event_links WHERE account_id=? AND calendar_id=? AND google_id=?',(account_id,cal['calendar_id'],remote['id'])).fetchone()
                             local=db.execute('SELECT * FROM events WHERE id=?',(link['event_id'],)).fetchone() if link else None
+                        if link and link['origin']=='local': continue
                         if remote.get('status')=='cancelled':
                             # Clinic/report records are never cascade-deleted by a remote Calendar deletion.
-                            if local and local['type']=='google': workspace.delete_event(user_id,local['id']) if cal['writable'] else _delete_import(local['id'])
+                            if local and local['type']=='google': _delete_import(local['id'])
                             if link:
                                 with connection() as db:
                                     db.execute('DELETE FROM google_event_links WHERE account_id=? AND calendar_id=? AND google_id=?',(account_id,cal['calendar_id'],remote['id'])); db.commit()
@@ -158,7 +139,7 @@ def sync_account(user_id,account_id):
                             try:
                                 if local['type']=='aura':
                                     values={k:v for k,v in values.items() if k in ('start_time','end_time','location','web_url','description')}
-                                workspace.update_event(user_id,local['id'],EventUpdate(**values)) if cal['writable'] else _update_import(local['id'],values)
+                                _update_import(local['id'],values)
                             except HTTPException:
                                 conflicts.append(local['title']); remember_conflict(account_id,cal['calendar_id'],link,local['title']); continue
                             event_id=local['id']
@@ -216,6 +197,7 @@ def resolve_conflict(user_id,account_id,calendar_id,google_id,choice):
             if remote and remote.get('status')=='cancelled': remote=None
             resolved_id=google_id
             if choice=='local':
+                if link['origin']=='google': raise HTTPException(403,'가져온 일정은 Google에서 수정해주세요.')
                 if not cal['writable']: raise HTTPException(403,'읽기 전용 캘린더입니다.')
                 if local and not remote:
                     resolved_id=hashlib.sha256((google_id+fingerprint(local)+'restore').encode()).hexdigest()
@@ -237,8 +219,8 @@ def resolve_conflict(user_id,account_id,calendar_id,google_id,choice):
                             link=dict(link);link['event_id']=cur.lastrowid
                     else:
                         if local['type']=='aura': values={k:v for k,v in values.items() if k in ('start_time','end_time','location','web_url','description')}
-                        if cal['writable']: workspace.update_event(user_id,local['id'],EventUpdate(**values))
-                        else: _update_import(local['id'],values)
+                        if local['type']=='google': _update_import(local['id'],values)
+                        else: workspace.update_event(user_id,local['id'],EventUpdate(**values))
         with connection() as db:
             local=db.execute('SELECT * FROM events WHERE id=?',(link['event_id'],)).fetchone()
             if local and remote: db.execute('UPDATE google_event_links SET google_id=?,etag=?,fingerprint=? WHERE account_id=? AND calendar_id=? AND google_id=?',(resolved_id,remote.get('etag'),fingerprint(local),account_id,calendar_id,google_id))
@@ -255,9 +237,16 @@ def _update_import(event_id,values):
 
 
 def export_event(user_id,account_id,calendar_id,event_id):
+    if not sync_lock.acquire(blocking=False): raise HTTPException(409,'다른 캘린더 작업이 진행 중입니다.')
+    try: return _export_event(user_id,account_id,calendar_id,event_id)
+    finally: sync_lock.release()
+
+
+def _export_event(user_id,account_id,calendar_id,event_id):
     account=account_for(user_id,account_id)
     with connection() as db:
         row=workspace.accessible(db,user_id,event_id)
+        if row['type']=='google': raise HTTPException(400,'Google에서 가져온 일정은 내보내기 대상이 아닙니다.')
         cal=db.execute('SELECT * FROM google_calendars WHERE account_id=? AND calendar_id=? AND writable=1',(account_id,calendar_id)).fetchone()
         if not cal: raise HTTPException(403,'쓰기 가능한 캘린더를 선택해주세요.')
         existing=db.execute('SELECT 1 FROM google_event_links WHERE account_id=? AND calendar_id=? AND event_id=?',(account_id,calendar_id,event_id)).fetchone()
@@ -266,11 +255,11 @@ def export_event(user_id,account_id,calendar_id,event_id):
     remote_id=hashlib.sha256(f'chobab:{user_id}:{account_id}:{event_id}'.encode()).hexdigest()
     with client(account) as http:
         path='/calendars/'+quote(calendar_id,safe='')+'/events'
-        response=http.post(path,json={**google_body(row),'id':remote_id})
+        response=http.post(path,params={'sendUpdates':'none'},json={**google_body(row),'id':remote_id})
         remote=checked(http.get(path+'/'+remote_id)) if response.status_code==409 else checked(response)
     with connection() as db:
         db.execute('INSERT OR IGNORE INTO google_event_links VALUES(?,?,?,?,?,?,?)',(account_id,calendar_id,remote['id'],event_id,remote.get('etag'),fingerprint(row),'local'))
-        db.execute('UPDATE google_calendars SET enabled=1 WHERE account_id=? AND calendar_id=?',(account_id,calendar_id)); db.commit()
+        db.commit()
     return {'exported':True}
 
 

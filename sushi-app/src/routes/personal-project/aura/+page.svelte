@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-    import CalendarWorkspace from '$lib/personal-project/shared/CalendarWorkspace.svelte';
+	import AuraWeekScheduler from '$lib/personal-project/aura/components/AuraWeekScheduler.svelte';
 	import {
 		availableProgressStages,
 		progressStageLabels,
@@ -88,7 +88,9 @@
 	function roomRequestText(date: Date) {
 		const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 		const lines = rounds
-			.filter((round) => round.attendanceStatus !== 'cancelled' && sameLocalDay(round.startTime, date))
+			.filter(
+				(round) => round.attendanceStatus !== 'cancelled' && sameLocalDay(round.startTime, date)
+			)
 			.sort((left, right) => +new Date(left.startTime) - +new Date(right.startTime))
 			.map((round) => {
 				const names = round.targets.map((target) => target.studentName).join(', ');
@@ -201,8 +203,7 @@
 				0,
 				...rounds
 					.filter(
-						(round) =>
-							round.schoolId === selectedSchoolId && round.progressStage === progressStage
+						(round) => round.schoolId === selectedSchoolId && round.progressStage === progressStage
 					)
 					.map((round) => round.roundNumber)
 			) + 1;
@@ -211,7 +212,13 @@
 	}
 
 	function clinicHourlyCost(stage: ProgressStage, names = studentNames) {
-		const count = Math.max(1, names.split(/\n|,/).map((name) => name.trim()).filter(Boolean).length);
+		const count = Math.max(
+			1,
+			names
+				.split(/\n|,/)
+				.map((name) => name.trim())
+				.filter(Boolean).length
+		);
 		if (stage === 'deep') return 40_000;
 		return count <= 3 ? 30_000 : count * 10_000;
 	}
@@ -341,7 +348,15 @@
 	</article>
 </section>
 
-    <CalendarWorkspace aura initialView="week" refreshKey={JSON.stringify(rounds.map(r => [r.id,r.startTime,r.endTime]))} onCreate={openCreate} onChanged={() => void load()} onDate={(date) => { roomRequestDate=date; roomRequestNotice=''; }} onAuraEdit={(eventId) => { const round=rounds.find(r=>r.eventId===eventId); if(round) openEdit(round); }} />
+<AuraWeekScheduler
+	sessions={rounds}
+	onselect={openCreate}
+	onedit={openEdit}
+	ondate={(date) => {
+		roomRequestDate = date;
+		roomRequestNotice = '';
+	}}
+/>
 
 <section class="card round-panel">
 	<header>
@@ -358,9 +373,8 @@
 					<a href={`/personal-project/aura/schools/${round.schoolId}`}>
 						<span class="round-number">{round.roundNumbers.join(',')}</span>
 						<span
-							><strong>{round.schoolName} · {progressStageLabels[round.progressStage]}</strong><small
-								>{formatDate(round.startTime)} · 학생 {round.targets.length}명</small
-							></span
+							><strong>{round.schoolName} · {progressStageLabels[round.progressStage]}</strong
+							><small>{formatDate(round.startTime)} · 학생 {round.targets.length}명</small></span
 						>
 						<span class="status-pill"
 							>{round.targets.filter((target) => target.report?.status === 'submitted')
@@ -426,9 +440,7 @@
 						bind:value={progressStage}
 						onchange={() => !selectedRound && setNextRound()}
 					>
-						{#each availableProgressStages(
-							schools.find((school) => school.id === Number(schoolId))?.currentStage ?? progressStage
-						) as stage}
+						{#each availableProgressStages(schools.find((school) => school.id === Number(schoolId))?.currentStage ?? progressStage) as stage}
 							<option value={stage}>{progressStageLabels[stage]}</option>
 						{/each}
 					</select>
@@ -546,7 +558,11 @@
 				</div>
 			</div>
 			<div class="modal-actions">
-				{#if selectedRound}<button type="button" class="danger-button" onclick={() => selectedRound && removeRound(selectedRound)}>일정 삭제</button>{/if}
+				{#if selectedRound}<button
+						type="button"
+						class="danger-button"
+						onclick={() => selectedRound && removeRound(selectedRound)}>일정 삭제</button
+					>{/if}
 				<button type="button" class="ghost-button" onclick={() => (showModal = false)}>취소</button
 				><button class="primary-button" disabled={saving}
 					>{saving ? '저장 중…' : selectedRound ? '일정 수정' : '회차 등록'}</button
@@ -566,7 +582,8 @@
 			<p class="eyebrow">Classroom request</p>
 			<h2 id="room-request-title">강의실 배정 요청문</h2>
 			<p>선택한 날짜의 취소되지 않은 클리닉 일정만 모았습니다.</p>
-			<textarea readonly value={roomRequestText(roomRequestDate)} aria-label="강의실 배정 요청문"></textarea>
+			<textarea readonly value={roomRequestText(roomRequestDate)} aria-label="강의실 배정 요청문"
+			></textarea>
 			{#if roomRequestNotice}<small class="copy-notice">{roomRequestNotice}</small>{/if}
 			<div class="modal-actions">
 				<button class="ghost-button" onclick={() => (roomRequestDate = null)}>닫기</button>
@@ -585,7 +602,10 @@
 	}
 	.room-request h2 {
 		margin: 0;
-		font: 500 20px Georgia, 'Noto Sans KR', serif;
+		font:
+			500 20px Georgia,
+			'Noto Sans KR',
+			serif;
 	}
 	.room-request > p:not(.eyebrow) {
 		color: var(--pp-muted);
@@ -599,7 +619,9 @@
 		border: 1px solid var(--pp-line);
 		border-radius: 8px;
 		background: #fffefb;
-		font: 12px/1.6 'Noto Sans KR', sans-serif;
+		font:
+			12px/1.6 'Noto Sans KR',
+			sans-serif;
 		resize: vertical;
 	}
 	.copy-notice {
@@ -614,9 +636,9 @@
 		display: grid;
 		grid-template-columns: 145px 1fr;
 		gap: 12px;
-		border: 1px solid #ccd8cf;
+		border: 1px solid #dedbd3;
 		border-radius: 10px;
-		background: #f4f7f3;
+		background: #f7f6f2;
 	}
 	.quick-report-links strong,
 	.quick-report-links small {
@@ -657,7 +679,7 @@
 	.quick-report-students .pdf-link {
 		align-items: center;
 		justify-content: center;
-		background: #eef3ef;
+		background: #f1f0eb;
 		color: var(--pp-sage-dark);
 		white-space: nowrap;
 	}
@@ -754,7 +776,7 @@
 	.stat-card {
 		min-height: 138px;
 		padding: 21px;
-		border-top: 3px solid;
+		border-top: 1px solid var(--pp-line);
 	}
 	.stat-card > span:first-child {
 		color: var(--pp-muted);
@@ -781,16 +803,16 @@
 		text-decoration: none;
 	}
 	.sage {
-		border-color: var(--pp-sage);
+		border-color: var(--pp-line);
 	}
 	.peach {
-		border-color: var(--pp-peach);
+		border-color: var(--pp-line);
 	}
 	.lilac {
-		border-color: var(--pp-lilac);
+		border-color: var(--pp-line);
 	}
 	.yellow {
-		border-color: var(--pp-yellow);
+		border-color: var(--pp-line);
 	}
 	.round-panel {
 		margin-top: 18px;
@@ -842,7 +864,7 @@
 		display: grid;
 		place-items: center;
 		border-radius: 50%;
-		background: #e5ebe5;
+		background: #e8e7e1;
 		color: var(--pp-sage-dark);
 		font:
 			700 14px Georgia,

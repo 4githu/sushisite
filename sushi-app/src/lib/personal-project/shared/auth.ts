@@ -14,6 +14,7 @@ async function fetchAuth(path: string, options: RequestInit = {}) {
 	try {
 		return await fetch(`${API_BASE}${path}`, {
 			...options,
+			signal: options.signal ?? AbortSignal.timeout(10000),
 			credentials: 'include'
 		});
 	} catch (cause) {
@@ -26,17 +27,53 @@ async function fetchAuth(path: string, options: RequestInit = {}) {
 	}
 }
 
+let cachedUser: PersonalUser | null = null;
+let verifiedAt = 0;
+let pending: Promise<PersonalUser | null> | null = null;
+let generation = 0;
+export function invalidatePersonalAuth() {
+	cachedUser = null;
+	verifiedAt = 0;
+	pending = null;
+	generation++;
+}
+if (typeof window !== 'undefined') {
+	window.addEventListener('personal-auth-invalid', invalidatePersonalAuth);
+	window.addEventListener('storage', (event) => {
+		if (event.key === 'personal-auth-reset') invalidatePersonalAuth();
+	});
+}
 export async function checkPersonalAuth(): Promise<PersonalUser | null> {
-	const response = await fetchAuth('/auth/isjwt?key=mainauth');
-	if (response.status === 401 || response.status === 403) return null;
-	if (!response.ok) {
-		throw new PersonalApiError(
-			response.status,
-			`로그인 상태를 확인하지 못했습니다. / Could not verify login. (${response.status})`,
-			'auth_check_failed'
-		);
+	if (typeof window === 'undefined') return null;
+	if (cachedUser && Date.now() - verifiedAt < 30000 && cachedUser.exp * 1000 > Date.now())
+		return cachedUser;
+	if (pending) return pending;
+	const version = generation;
+	const operation = (async () => {
+		const response = await fetchAuth('/auth/isjwt?key=mainauth', { cache: 'no-store' });
+		if (version !== generation) return null;
+		if (response.status === 401 || response.status === 403) {
+			invalidatePersonalAuth();
+			return null;
+		}
+		if (!response.ok)
+			throw new PersonalApiError(
+				response.status,
+				'로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.',
+				'auth_check_failed'
+			);
+		const user: PersonalUser = await response.json();
+		if (version !== generation) return null;
+		cachedUser = user;
+		verifiedAt = Date.now();
+		return user;
+	})();
+	pending = operation;
+	try {
+		return await operation;
+	} finally {
+		if (pending === operation) pending = null;
 	}
-	return response.json();
 }
 
 export async function loginPersonal(email: string, password: string): Promise<PersonalUser> {
@@ -62,6 +99,7 @@ export async function loginPersonal(email: string, password: string): Promise<Pe
 			'invalid_credentials'
 		);
 	}
+	invalidatePersonalAuth();
 	const user = await checkPersonalAuth();
 	if (!user) {
 		throw new PersonalApiError(
@@ -81,5 +119,11 @@ export async function logoutPersonal() {
 			'로그아웃하지 못했습니다. / Could not sign out.',
 			'logout_failed'
 		);
+	}
+	invalidatePersonalAuth();
+	try {
+		localStorage.setItem('personal-auth-reset', String(Date.now()));
+	} catch {
+		/* Storage may be unavailable. */
 	}
 }

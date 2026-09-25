@@ -143,7 +143,7 @@
 			justify-items: center;
 			padding: 8px;
 		}
-		.sidebar-toggle { display: grid; place-items: center; }
+		.sidebar-toggle { display: grid; place-items: center; right: 8px; }
 	}
 
 	.aura-mark {

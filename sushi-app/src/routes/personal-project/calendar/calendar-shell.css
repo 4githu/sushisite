@@ -1,0 +1,351 @@
+/* Calendar owns its visual system; Aura keeps its independent service shell. */
+.ondo-shell {
+	--ondo-ink: #242529;
+	--ondo-muted: #696b73;
+	--ondo-line: #e2e3e7;
+	--ondo-accent: #c4412c;
+	--pp-ink: var(--ondo-ink);
+	--pp-muted: var(--ondo-muted);
+	--pp-line: var(--ondo-line);
+	--pp-sage-dark: var(--ondo-accent);
+	display: grid;
+	grid-template-columns: 232px minmax(0, 1fr);
+	min-height: 100dvh;
+	background: #f4f5f7;
+	color: var(--ondo-ink);
+	font-family:
+		Inter,
+		'Noto Sans KR',
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	transition: grid-template-columns 180ms ease;
+}
+.ondo-shell.rail {
+	grid-template-columns: 72px minmax(0, 1fr);
+}
+.ondo-sidebar {
+	grid-column: 1;
+	grid-row: 1;
+	box-sizing: border-box;
+	position: sticky;
+	top: 0;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	background: #232428;
+	color: #eaebed;
+	padding: 30px 16px 18px;
+	z-index: 15;
+}
+.ondo-brand-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 48px;
+	padding: 0 4px;
+}
+.ondo-brand {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	text-decoration: none;
+	color: inherit;
+	min-width: 0;
+}
+.ondo-symbol {
+	position: relative;
+	display: block;
+	width: 29px;
+	height: 29px;
+	border: 6px solid #f07560;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.ondo-symbol i {
+	position: absolute;
+	width: 6px;
+	height: 6px;
+	background: #f07560;
+	border-radius: 50%;
+	right: -11px;
+	top: -8px;
+}
+.ondo-wordmark {
+	font-size: 23px;
+	font-weight: 700;
+	letter-spacing: -1px;
+	line-height: 1;
+	white-space: nowrap;
+}
+.ondo-wordmark > span {
+	display: block;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 2px;
+	color: #b6b7be;
+	margin-top: 8px;
+}
+.ondo-toggle {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	padding: 0;
+	border: 1px solid #47484e;
+	border-radius: 6px;
+	background: transparent;
+	color: #c7c8cd;
+	cursor: pointer;
+}
+.ondo-toggle:hover {
+	background: #393a40;
+	color: white;
+}
+.ondo-nav-label {
+	color: #9b9da6;
+	font-size: 11px;
+	font-weight: 500;
+	margin: 0 12px 12px;
+}
+.ondo-navigation nav {
+	display: grid;
+	gap: 6px;
+}
+.ondo-navigation nav a {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	padding: 10px 12px;
+	border-radius: 6px;
+	color: #bfc1c9;
+	font-size: 13px;
+	font-weight: 500;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.ondo-navigation nav a:hover {
+	background: #303137;
+	color: #fff;
+}
+.ondo-navigation nav a.active {
+	background: #38383e;
+	color: #fff;
+}
+.ondo-navigation nav a.active::before {
+	content: '';
+	position: absolute;
+	left: -16px;
+	top: 13px;
+	bottom: 13px;
+	width: 3px;
+	background: #f07560;
+	border-radius: 0 2px 2px 0;
+}
+.ondo-navigation nav a.active svg {
+	color: #f28a77;
+}
+.ondo-sidebar-footer {
+	margin-top: auto;
+	padding-top: 32px;
+}
+.ondo-sidebar .account-button {
+	background: transparent;
+	border: 0;
+	border-top: 1px solid #424349;
+	border-radius: 0;
+	padding: 18px 4px 10px;
+	color: #ededf0;
+}
+.ondo-sidebar .account-button > span:first-child {
+	background: #494a52;
+	color: #f4f4f6;
+	font-family: inherit;
+	font-size: 12px;
+}
+.ondo-sidebar .account-button strong {
+	font-size: 12px;
+	font-weight: 550;
+}
+.ondo-sidebar .account-button small {
+	color: #a9abb5;
+	font-size: 10px;
+}
+.ondo-sidebar .account-button i {
+	color: #9c9eaa;
+}
+.ondo-sidebar .account-menu {
+	width: 220px;
+	z-index: 30;
+	color: #242529;
+	border-radius: 8px;
+	box-shadow: 0 8px 30px #0003;
+}
+.ondo-sidebar .account-menu p strong,
+.ondo-sidebar .account-menu p span,
+.ondo-sidebar .account-menu a,
+.ondo-sidebar .account-menu button {
+	font-size: 12px;
+}
+.ondo-sidebar .account-menu a,
+.ondo-sidebar .account-menu button {
+	background: #f1f2f4;
+}
+.ondo-install .install-app {
+	margin: 12px 0 0;
+	padding: 8px 4px;
+	border: 0;
+	background: none;
+	color: #b5b7c1;
+	font-size: 11px;
+	text-align: left;
+}
+.ondo-install .install-app:hover {
+	color: #fff;
+}
+.ondo-install .install-hint {
+	color: #b5b7c1;
+}
+.ondo-main {
+	grid-column: 2;
+	grid-row: 1;
+	padding: 38px clamp(20px, 3vw, 48px) 40px;
+	min-width: 0;
+	outline: none;
+}
+.ondo-shell :focus-visible {
+	outline: 2px solid #ed765f;
+	outline-offset: 4px;
+}
+.ondo-skip {
+	position: fixed;
+	top: 12px;
+	clip-path: inset(100%);
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	left: 80px;
+	z-index: 100;
+	padding: 12px;
+	background: white;
+	color: #242529;
+}
+.ondo-skip:focus {
+	clip-path: none;
+	width: auto;
+	height: auto;
+	overflow: visible;
+	top: 12px;
+}
+@media (min-width: 761px) {
+	.rail .ondo-sidebar {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+	.rail .ondo-brand-row {
+		flex-direction: column;
+		gap: 24px;
+		padding: 0;
+		margin-bottom: 30px;
+	}
+	.rail .ondo-wordmark,
+	.rail .ondo-nav-text,
+	.rail .ondo-nav-label,
+	.rail .ondo-install {
+		display: none;
+	}
+	.rail .ondo-navigation nav a {
+		justify-content: center;
+		padding: 10px;
+	}
+	.rail .ondo-navigation nav a.active::before {
+		left: -12px;
+	}
+	.rail .account-button {
+		display: flex;
+		justify-content: center;
+		padding: 18px 0 0;
+	}
+	.rail .account-button > span:nth-child(2),
+	.rail .account-button > i {
+		display: none;
+	}
+	.rail .account-menu {
+		left: 52px;
+		bottom: 0;
+	}
+}
+@media (max-width: 760px) {
+	.ondo-shell,
+	.ondo-shell.rail {
+		display: block;
+	}
+	.ondo-sidebar {
+		height: auto;
+		position: relative;
+		padding: 16px 20px;
+	}
+	.ondo-brand-row {
+		padding: 0;
+		margin: 0;
+	}
+	.ondo-brand {
+		gap: 10px;
+	}
+	.ondo-symbol {
+		width: 24px;
+		height: 24px;
+		border-width: 5px;
+	}
+	.ondo-symbol i {
+		width: 5px;
+		height: 5px;
+		right: -9px;
+		top: -6px;
+	}
+	.ondo-wordmark {
+		font-size: 19px;
+	}
+	.ondo-wordmark > span {
+		display: none;
+	}
+	.ondo-toggle {
+		width: 36px;
+		height: 36px;
+	}
+	.ondo-navigation,
+	.ondo-sidebar-footer {
+		display: none;
+	}
+	.mobile-open .ondo-navigation {
+		display: block;
+		padding-top: 24px;
+	}
+	.mobile-open .ondo-sidebar-footer {
+		display: block;
+		padding-top: 12px;
+	}
+	.ondo-sidebar .account-menu {
+		bottom: calc(100% + 8px);
+		left: 0;
+	}
+	.ondo-main {
+		padding: 24px 14px 32px;
+	}
+	.ondo-nav-label {
+		margin-left: 12px;
+	}
+	.ondo-install .install-app {
+		margin-top: 6px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ondo-shell {
+		transition: none;
+	}
+}

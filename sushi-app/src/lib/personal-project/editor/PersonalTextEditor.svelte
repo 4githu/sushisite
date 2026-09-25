@@ -25,9 +25,13 @@
 		placeholder = '내용을 입력하세요…',
 		onchange,
 		questionChecks = {},
-		onquestionchange
+		onquestionchange,
+        checkLabel = '물어봤음',
+        compact = false
 	}: {
-		initialValue?: EditorDocument | null;
+		checkLabel?: string;
+        compact?: boolean;
+        initialValue?: EditorDocument | null;
 		readonly?: boolean;
 		placeholder?: string;
 		onchange?: (value: EditorDocument) => void;
@@ -48,6 +52,8 @@
 	let pendingMarks = $state<TextMarks>({});
 	let lastInitial = untrack(() => initialValue);
 	let isRendering = false;
+	let disposed = false;
+	let renderRevision = 0;
 	let isComposing = false;
 	let savedRange: Range | null = null;
 	let jsonInput: HTMLInputElement;
@@ -78,6 +84,7 @@
 	onMount(() => {
 		renderDocument();
 		emitChange();
+		return () => { disposed = true; };
 	});
 
 	export function getJSON() {
@@ -116,9 +123,12 @@
 
 	function setDocumentInternal(value: unknown, record = true) {
 		if (record) pushUndo();
+		else { undoStack = []; savedRange = null; pendingMarks = {}; }
 		documentValue = normalizeDocument(value);
 		redoStack = [];
+		const revision = ++renderRevision;
 		void tick().then(() => {
+			if (disposed || revision !== renderRevision) return;
 			renderDocument();
 			emitChange();
 		});
@@ -209,7 +219,7 @@
 		if (block.depth) element.style.marginLeft = `${block.depth * 24}px`;
 		element.style.setProperty('--block-indent', `${(block.depth ?? 0) * 24}px`);
 		for (const chunk of block.children) element.append(createTextSpan(chunk));
-		if (showQuestionCheck && (!readonly || questionChecks[block.id])) {
+		if (showQuestionCheck && (!readonly || questionChecks[block.id] || checkLabel === '완료')) {
 			element.append(createQuestionCheck(block.id, readonly));
 		}
 		return element;
@@ -223,7 +233,7 @@
 		check.disabled = displayOnly;
 		check.dataset.editorUi = 'true';
 		check.className = `question-check${checked ? ' checked' : ''}`;
-		check.title = checked ? '이 부분은 물어봤음' : '이 부분을 물어봤음으로 표시';
+		check.title = checked ? `${checkLabel} 취소` : `${checkLabel} 표시`;
 		check.setAttribute('aria-label', check.title);
 		check.setAttribute('aria-pressed', String(checked));
 		check.addEventListener('mousedown', (event) => event.preventDefault());
@@ -612,7 +622,8 @@
 	}
 
 	function handleBeforeInput(event: InputEvent) {
-		if (readonly) event.preventDefault();
+		if (readonly) { event.preventDefault(); return; }
+        if (!event.isComposing && !isComposing && event.inputType === 'insertParagraph' && activeBlock()?.dataset.type !== 'codeBlock') { event.preventDefault(); splitCurrentBlock(); }
 	}
 
 	function handleCopy(event: ClipboardEvent) {
@@ -812,7 +823,7 @@
 			if (!check) continue;
 			check.classList.toggle('checked', shouldCheck);
 			check.setAttribute('aria-pressed', String(shouldCheck));
-			check.title = shouldCheck ? '이 부분은 물어봤음' : '이 부분을 물어봤음으로 표시';
+			check.title = shouldCheck ? `${checkLabel} 취소` : `${checkLabel} 표시`;
 			onquestionchange?.(block.dataset.blockId ?? '', shouldCheck);
 		}
 	}
@@ -823,9 +834,10 @@
 			(event.ctrlKey || event.metaKey) &&
 			event.altKey &&
 			!event.shiftKey &&
-			event.key.toLowerCase() === 'q'
+			(event.code === 'KeyQ' || event.key.toLowerCase() === 'q')
 		) {
 			event.preventDefault();
+			if (event.repeat) return;
 			toggleQuestionChecks();
 		} else if (
 			(event.ctrlKey || event.metaKey) &&
@@ -1088,7 +1100,8 @@
 
 <svelte:document onselectionchange={rememberSelection} />
 
-<section class="text-editor-card" aria-label="리치 텍스트 에디터">
+<section class="text-editor-card" class:compact aria-label="리치 텍스트 에디터">
+	<details open={!compact}><summary>텍스트 서식 도구</summary>
 	<div class="text-editor-toolbar" role="toolbar" tabindex="0" aria-label="텍스트 서식">
 		<div class="toolbar-group">
 			<button
@@ -1257,7 +1270,7 @@
 				<span><kbd>Ctrl/Cmd+U</kbd> 밑줄</span>
 				<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
 				<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
-				<strong>아우라 표시</strong>
+				<strong>{checkLabel} 표시</strong>
 				<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음 체크</span>
 				<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
 				<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
@@ -1269,6 +1282,7 @@
 		</details>
 	</div>
 
+    </details>
 	<div
 		class="text-editor-surface"
 		bind:this={surface}
