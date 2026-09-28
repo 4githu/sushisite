@@ -349,3 +349,6 @@
 		transition: none;
 	}
 }
+
+.ondo-navigation { min-height:0; overflow-y:auto; }
+.ondo-navigation > .ondo-nav-label:not(:first-child) { margin-top:24px; }

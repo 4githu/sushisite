@@ -13,7 +13,7 @@ from .schemas import ClinicRoundUpdate, SessionUpdate
 def init_workspace():
     with connection() as db:
         columns = {r[1] for r in db.execute('PRAGMA table_info(events)')}
-        for name, kind in [('location', "TEXT NOT NULL DEFAULT ''"), ('web_url', "TEXT NOT NULL DEFAULT ''"), ('project_id', 'INTEGER'), ('task_available_from', 'TEXT'), ('task_due_at', 'TEXT'), ('completion_source', "TEXT NOT NULL DEFAULT 'manual'")]:
+        for name, kind in [('hide_in_month', 'INTEGER NOT NULL DEFAULT 0'), ('location', "TEXT NOT NULL DEFAULT ''"), ('web_url', "TEXT NOT NULL DEFAULT ''"), ('project_id', 'INTEGER'), ('task_available_from', 'TEXT'), ('task_due_at', 'TEXT'), ('completion_source', "TEXT NOT NULL DEFAULT 'manual'")]:
             if name not in columns:
                 db.execute(f'ALTER TABLE events ADD COLUMN {name} {kind}')
         db.executescript('''
@@ -54,6 +54,10 @@ def init_workspace():
             db.execute("ALTER TABLE calendar_daily_notes ADD COLUMN drawing TEXT NOT NULL DEFAULT ''")
         if 'rich_document' not in note_columns:
             db.execute("ALTER TABLE calendar_daily_notes ADD COLUMN rich_document TEXT NOT NULL DEFAULT ''")
+        if 'hide_in_month' not in columns and db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_timetable_imports'").fetchone():
+            import json
+            for imported in db.execute('SELECT user_id,event_ids FROM student_timetable_imports').fetchall():
+                db.executemany('UPDATE events SET hide_in_month=1 WHERE id=? AND user_id=?',[(i,imported['user_id']) for i in json.loads(imported['event_ids'])])
         from .aura_calendar import install
         install(db)
         db.commit()
@@ -77,6 +81,7 @@ def accessible(db, user_id, event_id):
 
 def event_dict(db, row, viewer):
     result = legacy._event_dict(row)
+    result['hideInMonth'] = bool(row['hide_in_month'])
     result.update(location=row['location'], webUrl=row['web_url'], projectId=row['project_id'], canEdit=row['type'] not in ('integration','google'))
     result.update(taskAvailableFrom=row['task_available_from'], taskDueAt=row['task_due_at'], completionSource=row['completion_source'])
     if row['project_id'] and row['completion_source']=='manual' and row['status'] in ('todo','done'):

@@ -27,10 +27,14 @@
 		questionChecks = {},
 		onquestionchange,
         checkLabel = '물어봤음',
-        compact = false
+        compact = false,
+        allowFolding = false, foldedBlocks = {}, onfoldchange
 	}: {
 		checkLabel?: string;
         compact?: boolean;
+        allowFolding?: boolean;
+        foldedBlocks?: Record<string,boolean>;
+        onfoldchange?: (id:string,closed:boolean)=>void;
         initialValue?: EditorDocument | null;
 		readonly?: boolean;
 		placeholder?: string;
@@ -39,6 +43,7 @@
 		onquestionchange?: (blockId: string, checked: boolean) => void;
 	} = $props();
 
+    let toolbarOpen = $state(!untrack(()=>compact));
 	let documentValue = $state(normalizeDocument(untrack(() => initialValue)));
 	let surface: HTMLElement;
 	let colorPanel = $state<'text' | 'highlight' | null>(null);
@@ -249,6 +254,36 @@
 		return check;
 	}
 
+    function applyFolds() {
+        if (!allowFolding || !surface) return;
+        const headings: {level:number;closed:boolean}[] = [];
+        for (const block of documentValue.blocks) {
+            const element = Array.from(surface.children).find(el=>(el as HTMLElement).dataset.blockId===block.id || (el as HTMLElement).dataset.tableId===block.id) as HTMLElement | undefined;
+            if (!element) continue;
+            const heading=block.type==='heading';
+            const level=heading?(block.level||1):4;
+            if (heading) while(headings.length && headings.at(-1)!.level>=level) headings.pop();
+            element.hidden=headings.some(h=>h.closed);
+            if (heading) {
+                let button=element.querySelector<HTMLButtonElement>('.note-fold');
+                if (!button) {
+                    button=globalThis.document.createElement('button');button.type='button';button.className='note-fold';button.contentEditable='false';button.dataset.editorUi='true';
+                    button.addEventListener('mousedown',e=>e.preventDefault());
+                    button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const closed=button!.getAttribute('aria-expanded')==='true';foldedBlocks={...foldedBlocks,[block.id]:closed};onfoldchange?.(block.id,closed);applyFolds();});element.prepend(button);
+                }
+                const closed=Boolean(foldedBlocks[block.id]);button.textContent=closed?'▸':'▾';button.setAttribute('aria-expanded',String(!closed));button.setAttribute('aria-label',`${block.children.map(c=>c.text).join('')} ${closed?'펼치기':'접기'}`);
+                headings.push({level,closed});
+            } else element.querySelector('.note-fold')?.remove();
+        }
+    }
+    function addToggle() {
+        if(readonly)return;
+        refreshDocumentFromDom();pushUndo();
+        const title:TextBlock={id:createId('block'),type:'heading',level:2,children:[{type:'text',text:'새 토글'}]};
+        const body:TextBlock={id:createId('block'),type:'paragraph',children:[{type:'text',text:'내용을 입력하세요'}]};
+        documentValue={...documentValue,blocks:[...(empty?[]:documentValue.blocks),title,body],updatedAt:new Date().toISOString()};
+        renderDocument();emitChange();
+    }
 	function renderDocument() {
 		if (!surface) return;
 		isRendering = true;
@@ -304,6 +339,7 @@
 			surface.append(wrapper);
 		}
 		/* eslint-enable svelte/no-dom-manipulating */
+		applyFolds();
 		isRendering = false;
 	}
 
@@ -458,6 +494,7 @@
 		if (isRendering || !surface) return;
 		if (record) pushUndo();
 		documentValue = parseSurface();
+        applyFolds();
 		redoStack = [];
 		emitChange();
 	}
@@ -1101,8 +1138,9 @@
 <svelte:document onselectionchange={rememberSelection} />
 
 <section class="text-editor-card" class:compact aria-label="리치 텍스트 에디터">
-	<details open={!compact}><summary>텍스트 서식 도구</summary>
+	<details bind:open={toolbarOpen}><summary>텍스트 서식 도구</summary>
 	<div class="text-editor-toolbar" role="toolbar" tabindex="0" aria-label="텍스트 서식">
+        {#if allowFolding}<button type="button" disabled={readonly} onclick={addToggle}>토글 목록 추가</button>{/if}
 		<div class="toolbar-group">
 			<button
 				aria-label="실행 취소"

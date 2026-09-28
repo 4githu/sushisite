@@ -11,6 +11,7 @@
 		date,
 		tasks,
 		projects,
+		pendingTasks = [],
 		onedit,
 		oncomplete,
 		ondirty
@@ -18,6 +19,7 @@
 		date: string;
 		tasks: CalendarEvent[];
 		projects: CalendarProject[];
+		pendingTasks?: number[];
 		ondirty: (dirty: boolean) => void;
 		onedit: (event: CalendarEvent) => void;
 		oncomplete: (event: CalendarEvent) => void;
@@ -40,8 +42,9 @@
 	onDestroy(() => ondirty(false));
 	let editing = $state(true);
     let richInitial = $state<EditorDocument | null>(null), richLive = $state<EditorDocument | null>(null);
+    let foldedBlocks = $state<Record<string,boolean>>({}), inkOpen = $state(true);
     let richChecks = $state<Record<string,boolean>>({}), savedRich = $state('');
-    const richContent = $derived(richLive ? JSON.stringify({document:{...richLive,updatedAt:richInitial?.updatedAt || richLive.updatedAt},checks:richChecks}) : '');
+    const richContent = $derived(richLive ? JSON.stringify({document:{...richLive,updatedAt:richInitial?.updatedAt || richLive.updatedAt},checks:richChecks,folds:foldedBlocks}) : '');
     function useRich() {
         const doc = createDocument();
         const checks: Record<string,boolean> = {};
@@ -53,7 +56,8 @@
         note = doc.blocks.map(block => block.type === 'table' ? block.rows.map(row => row.map(cell => cell.blocks.map(b=>b.children.map(c=>c.text).join('')).join(' ')).join('\t')).join('\n') : `${richChecks[block.id] ? '- [x] ' : '- [ ] '}${block.children.map(c=>c.text).join('')}`).join('\n');
     }
 	let taskMode = $state<'time' | 'theme'>('time');
-    onMount(() => {taskMode = readTaskMode();});
+    onMount(() => {taskMode = readTaskMode();try{inkOpen=localStorage.getItem('ondo.ink-open')!=='false';}catch{/* optional preference */}});
+	let penOnly = $state(true);
 	let penColor = $state('#25262b');
 	let erasing = $state(false);
 	let hardwareEraser = false;
@@ -111,7 +115,8 @@
                 const richData = data.richDocument ? JSON.parse(data.richDocument) : null;
                 richInitial = richLive = richData ? normalizeDocument(richData.document) : null;
                 richChecks = richData?.checks || {};
-                savedRich = richLive ? JSON.stringify({document:richLive,checks:richChecks}) : '';
+                foldedBlocks = richData?.folds || {};
+                savedRich = richLive ? JSON.stringify({document:richLive,checks:richChecks,folds:foldedBlocks}) : '';
 				note = data.content || '';
 				saved = note;
 				drawing = data.drawing || '';
@@ -165,12 +170,14 @@
 		return { x: (event.clientX - rect.left) * (inkCanvas.width / rect.width), y: (event.clientY - rect.top) * (inkCanvas.height / rect.height) };
 	}
 	function startPen(event: PointerEvent) {
-		if (!inkCanvas || loading || loadedDate !== date || activePointer !== null) return;
+		if (!inkCanvas || loading || loadedDate !== date || activePointer !== null || (penOnly && event.pointerType === 'touch')) return;
+        event.preventDefault();
         activePointer = event.pointerId;
 		hardwareEraser = event.button === 5 || (event.buttons & 32) !== 0 || (event.pointerType === 'pen' && (event.buttons & 2) !== 0);
 		penActive = true;
 		penPoint = point(event);
 		inkCanvas.setPointerCapture(event.pointerId);
+        const ctx=context();if(ctx){ctx.beginPath();ctx.moveTo(penPoint.x,penPoint.y);ctx.lineTo(penPoint.x+.01,penPoint.y+.01);ctx.stroke();}
 	}
 	function drawPen(event: PointerEvent) {
 		if (!penActive || !penPoint || event.pointerId !== activePointer) return;
@@ -190,6 +197,7 @@
 		penActive = false;
 		penPoint = null;
 		hardwareEraser = false;
+        if(inkCanvas.hasPointerCapture(event.pointerId))inkCanvas.releasePointerCapture(event.pointerId);
 		drawing = inkCanvas.toDataURL('image/png');
 	}
 	function clearDrawing() {
@@ -242,10 +250,10 @@
 				disabled={loading}>{editing ? '미리보기' : '메모 편집'}</button
 			>
 		</div>
-		<p>체크박스 버튼으로 할 일을 추가하세요. 줄을 바꾸면 다음 체크박스가 이어집니다.</p>
+		<p>체크박스 버튼으로 할 일을 추가하세요. 서식 편집기의 토글 목록으로 제목 아래 내용을 접고 펼칠 수 있습니다.</p>
 		{#if inheritedFrom}<p class="note-carry">{inheritedFrom} 메모를 이어서 표시 중입니다. 저장하면 오늘 메모가 됩니다.</p>{/if}
 		{#if !richLive}<button disabled={loading || loadedDate !== date} onclick={addCheckbox}>체크박스 추가</button><button disabled={loading || loadedDate !== date} onclick={useRich}>서식 편집기 사용</button>{:else}<button disabled={loading} onclick={()=>{if(confirm('서식을 지우고 텍스트로 편집할까요?')){richInitial=richLive=null;richChecks={};}}}>텍스트로 편집</button>{/if}
-		{#if richLive && richInitial}{#key loadedDate}<PersonalTextEditor initialValue={richInitial} readonly={loading || !editing} compact checkLabel="완료" questionChecks={richChecks} onquestionchange={(id,checked)=>{richChecks={...richChecks,[id]:checked};if(richLive)richChanged(richLive);}} onchange={richChanged} />{/key}
+		{#if richLive && richInitial}{#key loadedDate}<PersonalTextEditor initialValue={richInitial} readonly={loading || !editing} compact allowFolding {foldedBlocks} onfoldchange={(id,closed)=>foldedBlocks={...foldedBlocks,[id]:closed}} checkLabel="완료" questionChecks={richChecks} onquestionchange={(id,checked)=>{richChecks={...richChecks,[id]:checked};if(richLive)richChanged(richLive);}} onchange={richChanged} />{/key}
         {:else if editing}<textarea
                 bind:this={noteInput}
                 onbeforeinput={(e) => noteBeforeInput(e as InputEvent)}
@@ -273,11 +281,11 @@
 				>{saving ? '저장 중…' : '메모 저장'}</button
 			>
 		</div>
-		<div class="ink-note">
+		<details class="ink-note" open={inkOpen} ontoggle={(e)=>{inkOpen=e.currentTarget.open;try{localStorage.setItem('ondo.ink-open',String(inkOpen));}catch{/* optional preference */}}}><summary>펜 메모 · 접기/펼치기</summary>
 			<div class="note-heading"><strong>펜 메모</strong><button type="button" disabled={loading} onclick={() => { if (confirm('펜 메모 전체를 지울까요?')) clearDrawing(); }}>전체 지우기</button></div>
-			<details class="pen-tools"><summary>펜 도구</summary><div class="pen-controls"><label>펜 색 <input type="color" bind:value={penColor} aria-label="펜 색" /></label><button aria-pressed={!erasing} onclick={() => erasing = false}>펜</button><button aria-pressed={erasing} onclick={() => erasing = true}>지우개</button><small>펜 지우개 신호도 지원합니다.</small></div></details>
+			<details class="pen-tools"><summary>펜 도구</summary><div class="pen-controls"><label><input type="checkbox" bind:checked={penOnly} />손가락 그리기 방지</label><label>펜 색 <input type="color" bind:value={penColor} aria-label="펜 색" /></label><button aria-pressed={!erasing} onclick={() => erasing = false}>펜</button><button aria-pressed={erasing} onclick={() => erasing = true}>지우개</button><small>Surface 펜 뒷면·S펜 버튼을 누르면 지우개로 전환됩니다.</small></div></details>
 			<canvas bind:this={inkCanvas} width="640" height="220" aria-label="펜으로 작성하는 메모" onpointerdown={startPen} onpointermove={drawPen} onpointerup={finishPen} onpointercancel={finishPen} onlostpointercapture={finishPen} oncontextmenu={(e)=>e.preventDefault()}></canvas>
-		</div>
+		</details>
 		{#if error}<p role="alert">{error}</p>
 			{#if loadedDate !== date}<button onclick={() => retry++}>메모 다시 불러오기</button>{/if}{/if}
 	</section>
@@ -304,7 +312,7 @@
 				type="checkbox"
 				aria-label={`${event.title} 완료`}
 				checked={event.status === 'done'}
-				disabled={event.canEdit === false || taskWaiting(event)}
+				disabled={pendingTasks.includes(event.id) || event.canEdit === false || taskWaiting(event)}
 				onchange={() => oncomplete(event)}
 			/>{:else}<span aria-label={event.status === 'done' ? '완료' : '연결된 서비스에서 완료'}
 				>{event.status === 'done' ? '✓' : '·'}</span

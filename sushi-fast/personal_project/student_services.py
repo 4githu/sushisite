@@ -62,6 +62,7 @@ def init():
         db.executescript('''
         CREATE TABLE IF NOT EXISTS student_profiles(user_id INTEGER PRIMARY KEY, is_student INTEGER NOT NULL, school TEXT NOT NULL, department TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS student_timetable_imports(user_id INTEGER NOT NULL, fingerprint TEXT NOT NULL, event_ids TEXT NOT NULL, PRIMARY KEY(user_id,fingerprint));
+        CREATE TABLE IF NOT EXISTS student_major_plans(user_id INTEGER PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL);
         ''')
         db.commit()
 
@@ -108,14 +109,110 @@ def import_timetable(user_id,data):
     with connection() as db:
         db.execute('BEGIN IMMEDIATE')
         previous = db.execute('SELECT event_ids FROM student_timetable_imports WHERE user_id=? AND fingerprint=?',(user_id,fingerprint)).fetchone()
-        if previous: return {'created':0,'alreadyImported':True,'eventIds':json.loads(previous['event_ids'])}
+        if previous:
+            ids=json.loads(previous['event_ids'])
+            db.executemany('UPDATE events SET hide_in_month=1 WHERE id=? AND user_id=?',[(i,user_id) for i in ids]);db.commit()
+            return {'created':0,'alreadyImported':True,'eventIds':ids}
         ids=[]
         for event in plan['events']:
-            row = db.execute('''INSERT INTO events(user_id,title,start_time,end_time,status,type,category_name,location,group_name)
-                              VALUES(?,?,?,?,?,?,?,?,?)''',(user_id,event['title'],event['startTime'],event['endTime'],'passive','personal','수업',event['location'],data.name))
+            existing = db.execute("SELECT id FROM events WHERE user_id=? AND title=? AND start_time=? AND end_time=? AND location=? AND category_name='수업'", (user_id,event['title'],event['startTime'],event['endTime'],event['location'])).fetchone()
+            if existing:
+                db.execute('UPDATE events SET hide_in_month=1 WHERE id=?',(existing['id'],))
+                continue
+            row = db.execute('''INSERT INTO events(user_id,title,start_time,end_time,status,type,category_name,location,group_name,hide_in_month)
+                              VALUES(?,?,?,?,?,?,?,?,?,1)''',(user_id,event['title'],event['startTime'],event['endTime'],'passive','personal','수업',event['location'],data.name))
             ids.append(row.lastrowid)
         db.execute('INSERT INTO student_timetable_imports VALUES(?,?,?)',(user_id,fingerprint,json.dumps(ids)))
         db.commit()
     return {'created':len(ids),'alreadyImported':False,'eventIds':ids}
 
 init()
+
+class MajorSelection(BaseModel):
+    rule_id: str = Field(max_length=120)
+    batch: str = Field(max_length=20)
+    track: str = Field(max_length=40)
+
+class MajorPlan(BaseModel):
+    items: list[MajorSelection] = Field(default_factory=list, max_length=8)
+    revision: int = Field(default=0, ge=0)
+
+def major_plan(user_id):
+    with connection() as db:
+        row = db.execute('SELECT data,revision FROM student_major_plans WHERE user_id=?',(user_id,)).fetchone()
+    return {'items': json.loads(row['data']) if row else [], 'revision': row['revision'] if row else 0}
+
+def save_major_plan(user_id, data):
+    from .snu_catalog import curricula, curriculum
+    seen = set()
+    for item in data.items:
+        key = (item.rule_id,item.batch,item.track)
+        rule = curriculum(item.rule_id)
+        if key in seen or not any(e['id']==item.rule_id and e['batch']==item.batch for e in curricula()['index']) or not any(t['key']==item.track for t in rule['tracks']):
+            raise HTTPException(400,'학과·학번·전공 유형을 확인해주세요. 중복 전공은 추가할 수 없습니다.')
+        seen.add(key)
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT revision FROM student_major_plans WHERE user_id=?',(user_id,)).fetchone()
+        revision = row['revision'] if row else 0
+        if revision != data.revision:
+            raise HTTPException(409,'다른 화면에서 전공 목록이 변경되었습니다. 새로고침 후 다시 시도해주세요.')
+        items = [i.model_dump() for i in data.items]
+        db.execute('INSERT INTO student_major_plans VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data,revision=excluded.revision',(user_id,json.dumps(items),revision+1))
+        db.commit()
+    return {'items':items,'revision':revision+1}
+
+class TimetableDraft(BaseModel):
+    course_ids: list[int] = Field(default_factory=list, max_length=60)
+    manual_lessons: list[Lesson] = Field(default_factory=list, max_length=60)
+    starts_on: date
+    ends_on: date
+    skip_holidays: bool = True
+    excluded_dates: list[date] = Field(default_factory=list, max_length=200)
+    revision: int = Field(default=0, ge=0)
+
+    @model_validator(mode='after')
+    def validate_dates(self):
+        if not 0 <= (self.ends_on-self.starts_on).days <= 200:
+            raise ValueError('학기는 1~201일 범위로 입력해주세요.')
+        self.course_ids = list(dict.fromkeys(self.course_ids))
+        return self
+
+with connection() as db:
+    db.execute('CREATE TABLE IF NOT EXISTS student_timetable_drafts(user_id INTEGER NOT NULL, term TEXT NOT NULL, data TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(user_id,term))')
+    db.commit()
+
+def draft(user_id, term):
+    from .snu_catalog import courses
+    catalog = {c['id']:c for c in courses(term)}
+    with connection() as db:
+        row = db.execute('SELECT data,revision FROM student_timetable_drafts WHERE user_id=? AND term=?', (user_id,term)).fetchone()
+    data = json.loads(row['data']) if row else None
+    if data: data['revision'] = row['revision']
+    return {'draft': data, 'courses': [catalog[i] for i in data['course_ids'] if i in catalog] if data else []}
+
+def save_draft(user_id, term, data):
+    from .snu_catalog import courses
+    catalog = {c['id']:c for c in courses(term)}
+    valid_ids = set(catalog)
+    if any(i not in valid_ids for i in data.course_ids):
+        raise HTTPException(400, '선택한 강의가 이 학기의 강의 목록에 없습니다.')
+    # File imports use the same conflict rules as interactive course selection.
+    intervals = [(l.weekday,l.start.strftime('%H:%M'),l.end.strftime('%H:%M'),f'manual-{i}') for i,l in enumerate(data.manual_lessons)]
+    for course_id in data.course_ids:
+        for slot in catalog[course_id].get('slots', []):
+            if slot.get('day_index') is not None and slot.get('start_time') and slot.get('end_time'):
+                intervals.append((slot['day_index'],slot['start_time'],slot['end_time'],course_id))
+    for i, (day,start,end,key) in enumerate(intervals):
+        if any(key != other_key and day == other_day and start < other_end and other_start < end for other_day,other_start,other_end,other_key in intervals[i+1:]):
+            raise HTTPException(400, '시간이 겹치는 수업이 있습니다. 수업 시간을 확인해주세요.')
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT revision FROM student_timetable_drafts WHERE user_id=? AND term=?',(user_id,term)).fetchone()
+        revision = row['revision'] if row else 0
+        if data.revision != revision:
+            raise HTTPException(409, '다른 창에서 시간표가 변경되었습니다. 새로고침 후 다시 확인해주세요.')
+        db.execute('INSERT INTO student_timetable_drafts VALUES(?,?,?,?) ON CONFLICT(user_id,term) DO UPDATE SET data=excluded.data,revision=excluded.revision',
+                   (user_id,term,data.model_dump_json(),revision+1))
+        db.commit()
+    return {'revision': revision+1}

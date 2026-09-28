@@ -31,6 +31,7 @@ final class WebAppLink {
    if(score>bestScore){bestScore=score;best=candidate;}
   }
   if(best!=null)intent.setComponent(new android.content.ComponentName(best.activityInfo.packageName,best.activityInfo.name));
+  else intent=new Intent(context,WebAppActivity.class).setData(uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
   return intent;
  }
 }

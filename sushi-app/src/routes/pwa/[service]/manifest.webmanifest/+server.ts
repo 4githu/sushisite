@@ -10,7 +10,7 @@ export function GET({ params }) {
 			short_name: aura ? '아우라' : 'NETAQ',
 			lang: 'ko',
 			start_url: path,
-			scope: '/personal-project/',
+			scope: path,
 			display: 'standalone',
 			background_color: '#ffffff',
 			theme_color: aura ? '#484d43' : '#232428',

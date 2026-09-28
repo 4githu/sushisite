@@ -1,0 +1,1 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/event" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="26dp" android:paddingTop="4dp" android:paddingBottom="4dp" android:maxLines="1" android:ellipsize="end" android:textSize="12sp" android:textColor="#30425C"/>

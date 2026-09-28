@@ -81,10 +81,11 @@ def test_oauth_state_browser_binding_and_replay(monkeypatch):
     assert c.get('/auth/google/callback',params={'state':state,'error':'access_denied'}).status_code==400
     assert c.get('/auth/google/start?return_to=//evil.example').status_code==400
 
-def test_rehear_google_oauth_is_disabled():
+def test_rehear_google_oauth_is_restored(monkeypatch):
+    monkeypatch.setenv("REHEAR_OATHID","test-client");monkeypatch.setenv("REHEAR_OATHKEY","test-secret")
     app=FastAPI();app.include_router(oauth.router)
     client=TestClient(app,base_url='https://rehear.chobab.app')
-    assert client.get('/auth/google/start?return_to=%2Fodi').status_code==410
+    assert client.get('/auth/google/start?return_to=%2Fodi',follow_redirects=False).status_code==307
 
 def test_readonly_import_cannot_be_edited():
     item=w.create_event(1,event())
@@ -412,3 +413,42 @@ def test_google_transfer_partial_failure_is_retryable_without_duplicates(monkeyp
     transfer.transfer(*args,plan['preview_token'])
     assert len(writes)==len(set(writes))==2
     with connection() as db:assert db.execute('SELECT enabled FROM google_calendars').fetchone()[0]==0
+
+def test_google_login_creates_identity_and_cookie_without_calendar_permissions(monkeypatch,tmp_path):
+    import sqlite3
+    from urllib.parse import urlsplit,parse_qs
+    authdb=tmp_path/'auth.db'
+    with sqlite3.connect(authdb) as db:db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY,email TEXT UNIQUE,password_hash TEXT,name TEXT,created_at TEXT,email_verified INTEGER)')
+    monkeypatch.setattr(oauth.userdb,'DB_PATH',authdb)
+    monkeypatch.setattr(oauth.sushihash,'make_hash',lambda secret:'test-hash')
+    info={'sub':'google-subject','email':'student@gmail.com','email_verified':True,'name':'학생'}
+    first=oauth.google_identity(info)
+    assert oauth.google_identity(info)['id']==first['id']
+    assert first['email_verified']==1
+    with pytest.raises(HTTPException):oauth.google_identity({**info,'email_verified':False})
+    monkeypatch.setenv('CALANDER_OATHID','test-client');monkeypatch.setenv('CLADNDER_OATHKEY','test-secret')
+    monkeypatch.setattr(oauth.JMT,'make_jwt',lambda *args,**kwargs:'signed-test-session')
+    class Response:
+        def __init__(self,data):self.data=data
+        def raise_for_status(self):pass
+        def json(self):return self.data
+    class Client:
+        def __init__(self,**kwargs):pass
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def post(self,url,data):
+            assert data['code_verifier']
+            return Response({'access_token':'test-token'})
+        def get(self,*args,**kwargs):return Response(info)
+    app=FastAPI();app.include_router(oauth.router)
+    c=TestClient(app,base_url='https://chobab.app')
+    start=c.get('/auth/google/start?return_to=/personal-project/calendar',follow_redirects=False)
+    query=parse_qs(urlsplit(start.headers['location']).query)
+    assert 'calendar' not in query['scope'][0]
+    monkeypatch.setattr(oauth.httpx,'Client',Client)
+    response=c.get('/auth/google/callback',params={'state':query['state'][0],'code':'test'},follow_redirects=False)
+    assert response.status_code==303
+    cookie=response.headers['set-cookie']
+    assert 'mainauth=signed-test-session' in cookie and 'HttpOnly' in cookie and 'Secure' in cookie
+    assert 'google=signed_in' in response.headers['location']
+    with sqlite3.connect(authdb) as db:assert db.execute('SELECT count(*) FROM users').fetchone()[0]==1

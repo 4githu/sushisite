@@ -122,7 +122,7 @@ def claim(data: Token):
     return {'token':token}
 
 @router.get('/calendar/widget/feed')
-def feed(request: Request, view: Literal['upcoming','day','week','month','tasks']='upcoming'):
+def feed(request: Request, view: Literal['upcoming','day','week','month','tasks']='upcoming', anchor: date|None=None):
     token=request.headers.get('authorization','').removeprefix('Bearer ')
     with connection() as db:
         row=db.execute('SELECT user_id FROM widget_devices WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
@@ -130,6 +130,8 @@ def feed(request: Request, view: Literal['upcoming','day','week','month','tasks'
     now=datetime.now(timezone.utc)
     local=now.astimezone(ZoneInfo('Asia/Seoul'))
     start=local.replace(hour=0,minute=0,second=0,microsecond=0)
+    if anchor and view in ('day','week','month'):
+        start=start.replace(year=anchor.year,month=anchor.month,day=anchor.day)
     end=start+timedelta(days=7)
     if view=='month':
         start=start.replace(day=1)
@@ -137,17 +139,22 @@ def feed(request: Request, view: Literal['upcoming','day','week','month','tasks'
     elif view=='day': end=start+timedelta(days=1)
     elif view=='week':
         start-=timedelta(days=(start.weekday()+1)%7)
-        end=start+timedelta(days=7)
+        end=start+timedelta(days=7,hours=2)
     elif view=='upcoming': start=now-timedelta(days=1)
     items=workspace.list_events(row['user_id'],tasks=True) if view=='tasks' else workspace.list_events(row['user_id'],start.isoformat(),end.isoformat())
     def include(e):
         if e['status']=='done': return False
+        if view=='month' and e.get('hideInMonth'): return False
         if view!='upcoming': return True
         ending=datetime.fromisoformat((e['endTime'] or e['startTime']).replace('Z','+00:00'))
         if ending.tzinfo is None: ending=ending.replace(tzinfo=ZoneInfo('Asia/Seoul'))
         if not e['endTime']: ending+=timedelta(hours=1)
         return ending>=now
-    return {'events':[{k:e[k] for k in ('id','title','startTime','endTime','isAllDay','status')} for e in items if include(e)][:500], 'timezone':'Asia/Seoul'}
+    keys=('id','title','startTime','endTime','isAllDay','status')
+    result={'events':[{k:e[k] for k in keys} for e in items if include(e)][:500], 'timezone':'Asia/Seoul'}
+    if view=='day':
+        result['tasks']=[{k:e[k] for k in keys} for e in workspace.list_events(row['user_id'],tasks=True) if e['status']!='done'][:100]
+    return result
 
 @router.delete('/calendar/widget/devices',status_code=204)
 def revoke_widgets(user_id: int=Depends(current_user_id)):
@@ -255,3 +262,43 @@ def hide_department_post(post_id:int,user_id:int=Depends(current_user_id)):
 @router.post('/student/board/{post_id}/calendar')
 def add_department_calendar(post_id:int,user_id:int=Depends(current_user_id)):
     return community.add_to_calendar(user_id,post_id)
+
+# Public-source catalog, authenticated personal draft and cached dining information.
+from fastapi import Query
+from . import snu_catalog, student_meals
+
+@router.get('/student/catalog')
+def catalog(user_id: int=Depends(current_user_id)):
+    return snu_catalog.metadata()
+
+@router.get('/student/courses')
+def search_courses(term: str, q: str=Query(default='',max_length=120), department: str='', classification: str='', day: int|None=Query(default=None,ge=0,le=6), offset: int=Query(default=0,ge=0), limit: int=Query(default=40,ge=1,le=100), user_id: int=Depends(current_user_id)):
+    return snu_catalog.search(term,q,department,classification,day,offset,limit)
+
+@router.get('/student/timetable/draft')
+def timetable_draft(term: str, user_id: int=Depends(current_user_id)):
+    return student.draft(user_id,term)
+
+@router.put('/student/timetable/draft')
+def save_timetable_draft(term: str, data: student.TimetableDraft, user_id: int=Depends(current_user_id)):
+    return student.save_draft(user_id,term,data)
+
+@router.get('/student/rules')
+def rule_index(user_id: int=Depends(current_user_id)):
+    return {'index': snu_catalog.curricula()['index'], 'source': snu_catalog.metadata()['source'], 'sourceUpdatedAt': snu_catalog.metadata()['sourceUpdatedAt']}
+
+@router.get('/student/major-plan')
+def major_plan(user_id: int=Depends(current_user_id)):
+    return student.major_plan(user_id)
+
+@router.put('/student/major-plan')
+def save_major_plan(data: student.MajorPlan, user_id: int=Depends(current_user_id)):
+    return student.save_major_plan(user_id,data)
+
+@router.get('/student/rules/{rule_id}')
+def rule_detail(rule_id: str, user_id: int=Depends(current_user_id)):
+    return snu_catalog.curriculum(rule_id)
+
+@router.get('/student/meals')
+def meals(day: date, user_id: int=Depends(current_user_id)):
+    return student_meals.menus(day)

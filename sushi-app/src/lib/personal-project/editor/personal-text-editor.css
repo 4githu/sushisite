@@ -325,3 +325,6 @@
 .text-editor-card.compact .question-check.checked::after { content:'✓'; color:white; font-size:14px; line-height:18px; }
 .text-editor-card.compact details { padding:10px 12px; }
 .text-editor-card.compact summary { cursor:pointer; }
+
+.text-block[hidden], .text-editor-surface > [hidden] { display:none !important; }
+.text-block .note-fold { border:0; background:transparent; color:#696b73; cursor:pointer; margin-right:6px; padding:2px 5px; font-size:16px; }

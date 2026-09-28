@@ -16,20 +16,24 @@ final class WeekTimetable {
   RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.week_block);
   v.setInt(R.id.block,"setHeight",height);v.setTextViewText(R.id.block,text);v.setInt(R.id.block,"setBackgroundColor",color);return v;
  }
- static void render(Context c,RemoteViews root,JSONArray events,String origin,int widgetId)throws Exception{
-  LocalDate today=LocalDate.now(SEOUL),first=today.minusDays(today.getDayOfWeek().getValue()%7);
+ static void render(Context c,RemoteViews root,JSONArray events,String origin,int widgetId,LocalDate anchor)throws Exception{
+  LocalDate today=LocalDate.now(SEOUL),first=anchor.minusDays(anchor.getDayOfWeek().getValue()%7);
   List<List<Entry>> days=new ArrayList<>();List<List<JSONObject>> all=new ArrayList<>();
-  int from=8*60,to=22*60;
+  int from=8*60,to=26*60;
   for(int d=0;d<7;d++){
    LocalDate day=first.plusDays(d);List<Entry> entries=new ArrayList<>();List<JSONObject> allday=new ArrayList<>();
    for(int i=0;i<events.length();i++){
     JSONObject e=events.getJSONObject(i);LocalDateTime s=CalendarWidget.local(e,"startTime"),n=e.isNull("endTime")?s.plusMinutes(30):CalendarWidget.local(e,"endTime");
     if(!n.isAfter(s))n=s.plusMinutes(30);
-    if(!s.isBefore(day.plusDays(1).atStartOfDay())||!n.isAfter(day.atStartOfDay()))continue;
-    if(e.optBoolean("isAllDay")){allday.add(e);continue;}
-    int start=s.isBefore(day.atStartOfDay())?0:s.getHour()*60+s.getMinute();
-    int end=!n.isBefore(day.plusDays(1).atStartOfDay())?1440:n.getHour()*60+n.getMinute();
-    entries.add(new Entry(e,start,end));from=Math.min(from,(start/60)*60);to=Math.max(to,((end+59)/60)*60);
+    if(e.optBoolean("isAllDay")){
+     if(s.isBefore(day.plusDays(1).atStartOfDay())&&n.isAfter(day.atStartOfDay()))allday.add(e);
+     continue;
+    }
+    LocalDateTime windowStart=day.atTime(8,0),windowEnd=day.plusDays(1).atTime(2,0);
+    if(!s.isBefore(windowEnd)||!n.isAfter(windowStart))continue;
+    int start=(int)java.time.Duration.between(day.atStartOfDay(),s.isBefore(windowStart)?windowStart:s).toMinutes();
+    int end=(int)java.time.Duration.between(day.atStartOfDay(),n.isAfter(windowEnd)?windowEnd:n).toMinutes();
+    entries.add(new Entry(e,start,end));
    }
    entries.sort(Comparator.comparingInt(e->e.start));days.add(entries);all.add(allday);
   }
@@ -37,7 +41,7 @@ final class WeekTimetable {
   int gridPx=px(c,Math.max(100,height-144));
   RemoteViews grid=new RemoteViews(c.getPackageName(),R.layout.week_grid);
   grid.addView(R.id.time_axis,block(c,px(c,30),"",0));grid.addView(R.id.time_axis,block(c,px(c,26),"종일",0));
-  for(int minute=from;minute<to;minute+=60){int a=Math.round((minute-from)*(float)gridPx/(to-from)),b=Math.round((minute+60-from)*(float)gridPx/(to-from));grid.addView(R.id.time_axis,block(c,b-a,String.format(Locale.KOREA,"%02d",minute/60),0));}
+  for(int minute=from;minute<to;minute+=60){int a=Math.round((minute-from)*(float)gridPx/(to-from)),b=Math.round((minute+60-from)*(float)gridPx/(to-from));grid.addView(R.id.time_axis,block(c,b-a,String.format(Locale.KOREA,"%02d",(minute/60)%24),0));}
   String[] names={"일","월","화","수","목","금","토"};
   for(int d=0;d<7;d++){
    LocalDate day=first.plusDays(d);RemoteViews column=new RemoteViews(c.getPackageName(),R.layout.week_day);
@@ -53,8 +57,8 @@ final class WeekTimetable {
     for(Entry e:entries){if(e.lane!=lane)continue;
      int top=TimelineLayout.pixelAt(e.start,from,to,gridPx),bottom=TimelineLayout.pixelAt(e.end,from,to,gridPx);
      if(top>cursor)laneView.addView(R.id.lane,block(c,top-cursor,"",0));
-     RemoteViews event=block(c,Math.max(1,bottom-top),e.event.getString("title")+String.format(Locale.KOREA,"\n%02d:%02d",e.start/60,e.start%60),0xffDBE8F4);
-     event.setContentDescription(R.id.block,e.event.getString("title")+" "+String.format(Locale.KOREA,"%02d:%02d",e.start/60,e.start%60));
+     RemoteViews event=block(c,Math.max(1,bottom-top),e.event.getString("title")+String.format(Locale.KOREA,"\n%02d:%02d",(e.start/60)%24,e.start%60),0xffDBE8F4);
+     event.setContentDescription(R.id.block,e.event.getString("title")+" "+String.format(Locale.KOREA,"%02d:%02d",(e.start/60)%24,e.start%60));
      event.setOnClickPendingIntent(R.id.block,CalendarWidget.open(c,dayUrl+"&event="+e.event.getInt("id"),e.event.getInt("id")));
      laneView.addView(R.id.lane,event);cursor=bottom;
     }

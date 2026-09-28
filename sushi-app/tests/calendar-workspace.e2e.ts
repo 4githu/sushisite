@@ -118,7 +118,7 @@ test('아우라 일정 클릭은 편집창이고 카테고리·할 일 필터가
 	await expect(page.locator('.cw-event').filter({ hasText: '스시과 세미나' })).toHaveCount(0);
 	await page.getByLabel('동아리', { exact: true }).check();
 	await page.getByRole('button', { name: '할 일', exact: true }).click();
-	await page.getByRole('checkbox', { name: '스시과 세미나 완료' }).check();
+	await page.getByRole('checkbox', { name: '스시과 세미나 완료' }).click();
 	await expect(page.locator('.cw-task')).toHaveCount(0);
 	await page.getByLabel('완료한 할 일').check();
 	await expect(page.locator('.cw-task')).toHaveCount(1);
@@ -331,37 +331,34 @@ test('체크리스트 줄바꿈·서식 편집기·아우라 분리', async ({pa
  await expect(page.getByRole('button',{name:'지우개',exact:true})).toHaveAttribute('aria-pressed','true');
  const canvas=page.getByLabel('펜으로 작성하는 메모');
  await page.getByRole('button',{name:'펜',exact:true}).click();
- await canvas.scrollIntoViewIfNeeded();const box=(await canvas.boundingBox())!;
- const stroke=async()=>{await page.mouse.move(box.x+40,box.y+50);await page.mouse.down();await page.mouse.move(box.x+120,box.y+50,{steps:12});await page.mouse.up();};
+ const stroke=async(buttons=0)=>{await canvas.scrollIntoViewIfNeeded();const box=(await canvas.boundingBox())!;await page.mouse.move(box.x+40,box.y+50);await page.mouse.down();if(buttons){for(let x=40;x<=120;x+=5)await canvas.dispatchEvent('pointermove',{pointerId:1,pointerType:'pen',buttons,clientX:box.x+x,clientY:box.y+50});}else await page.mouse.move(box.x+120,box.y+50,{steps:12});await page.mouse.up();};
  await stroke();
  const pixels=()=>canvas.evaluate((node:HTMLCanvasElement)=>{const data=node.getContext('2d')!.getImageData(0,0,node.width,node.height).data;return data.filter((v,i)=>i%4===3&&v>0).length;});
  const before=await pixels();expect(before).toBeGreaterThan(0);
  await page.getByRole('button',{name:'지우개',exact:true}).click();await stroke();expect(await pixels()).toBeLessThan(before);
+ await page.getByRole('button',{name:'펜',exact:true}).click();
+ for(const hardwareButtons of [32,2]){await stroke();const ink=await pixels();await stroke(hardwareButtons);expect(await pixels()).toBeLessThan(ink);}
  await page.getByRole('button',{name:'메모 저장',exact:true}).click();
 
  await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:'/private/tmp/ondo-checklist-mobile.png',fullPage:true});
 });
 
-test('학생 설정·학기 미리보기·수정 후 재확인', async ({page}) => {
+test('학교 설정 저장과 학생서비스 바로가기', async ({page}) => {
  await setup(page);
  let profile={is_student:false,school:'',department:''};
- await page.route('**/api/personal/student/**',async r=>{
-  const path=new URL(r.request().url()).pathname;
-  if(path.endsWith('/profile')){if(r.request().method()==='PUT')profile=r.request().postDataJSON();return r.fulfill({json:profile});}
-  if(path.endsWith('/preview'))return r.fulfill({json:{events:[{title:'수학',startTime:'2026-09-21T09:00:00+09:00',endTime:'2026-09-21T10:30:00+09:00',location:'공학관'}],skipped:[]}});
-  return r.fulfill({json:{created:1,alreadyImported:false}});
+ await page.route('**/api/personal/student/profile',async r=>{
+  if(r.request().method()==='PUT')profile=r.request().postDataJSON();
+  return r.fulfill({json:profile});
  });
  await page.goto('/personal-project/calendar/student');
- await page.getByLabel('학생인가요?').check();await page.getByLabel('학교',{exact:true}).fill('다른 대학교');
+ await page.getByLabel('학생서비스 사용',{exact:true}).check();
+ await page.getByLabel('학교',{exact:true}).fill('다른 대학교');
+ await page.getByLabel('학과',{exact:true}).fill('수학과');
  await page.getByRole('button',{name:'설정 저장',exact:true}).click();
- await page.getByLabel('과목명',{exact:true}).fill('수학');await page.getByRole('button',{name:'학기 일정 미리보기',exact:true}).click();
- const add=page.getByRole('button',{name:'내 캘린더에 시간표 추가',exact:true});
- await expect(add).toBeEnabled();await page.getByLabel('종강일').fill('2026-12-15');await expect(add).toBeDisabled();
- await page.getByRole('button',{name:'학기 일정 미리보기',exact:true}).click();await add.click();
- await expect(page.getByRole('status')).toHaveText('1개 수업을 캘린더에 등록했습니다.');
- await page.screenshot({path:'/private/tmp/ondo-student-desktop.png',fullPage:true});
- await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/private/tmp/ondo-student-mobile.png',fullPage:true});
+ await expect(page.getByRole('status')).toContainText('학교 설정을 저장했습니다.');
+ await page.reload();await expect(page.getByLabel('학교',{exact:true})).toHaveValue('다른 대학교');
+ await expect(page.getByRole('navigation',{name:'학생서비스',exact:true}).getByRole('link',{name:'시간표',exact:true})).toHaveAttribute('href','/personal-project/calendar/student/timetable');
 });
 
 test('APK 다운로드 응답은 설치 파일 이름과 타입을 유지한다',async({request})=>{
@@ -381,7 +378,7 @@ test('학과 위키와 게시판을 학교 프로필에 연결한다',async({pag
   if(path.endsWith('/board')){if(r.request().method()==='POST'){const b=r.request().postDataJSON();posts.push({...b,id:1,start_time:b.start,end_time:b.end,canDelete:true});}return r.fulfill({json:posts});}
   return r.fulfill({json:{eventId:77,alreadyAdded:false}});
  });
- await page.goto('/personal-project/calendar/student');
+ await page.goto('/personal-project/calendar/student/board');
  await page.getByRole('button',{name:'학과 자료 불러오기',exact:true}).click();
  await expect(page.getByText('검토된 규정을 아직 제공하지 않습니다.',{exact:true})).toBeVisible();
  await page.getByText('규정 편집',{exact:true}).click();
@@ -424,4 +421,63 @@ test('Google 가져오기와 미리보기 후 내보내기를 분리한다', asy
   await page.getByRole('button',{name:'내보내기 미리보기'}).click();
   await page.getByLabel('종료일',{exact:true}).fill('2026-10-31');
   await expect(page.getByRole('button',{name:'확인한 내용으로 Google에 반영'})).toHaveCount(0);
+});
+
+test('빠른 할 일 입력, 날짜 필터, 완료 취소와 저장 실패 복구', async ({ page }) => {
+ await setup(page);
+ await page.goto('/personal-project/calendar');
+ await page.getByRole('button', {name:'할 일',exact:true}).click();
+ await page.getByLabel('새 할 일', {exact:true}).fill('도서관 책 반납');
+ await page.getByLabel('할 일 날짜', {exact:true}).fill('2026-09-18');
+ await page.getByLabel('새 할 일', {exact:true}).press('Enter');
+ await expect(page.locator('.cw-task').filter({hasText:'도서관 책 반납'})).toBeVisible();
+ await page.getByRole('button',{name:'오늘',exact:true}).last().click();
+ await expect(page.locator('.cw-task').filter({hasText:'도서관 책 반납'})).toHaveCount(0);
+ await page.getByRole('button',{name:'예정',exact:true}).click();
+ await page.getByRole('checkbox',{name:'도서관 책 반납 완료'}).click();
+ await page.getByRole('button',{name:'완료 취소',exact:true}).click();
+ await expect(page.getByRole('checkbox',{name:'도서관 책 반납 완료'})).not.toBeChecked();
+ await page.route('**/calendar/events/*', async route => {
+   if(route.request().method()==='PATCH') await route.fulfill({status:503,json:{detail:'저장 연결을 확인해주세요'}});
+   else await route.fallback();
+ });
+ await page.getByRole('checkbox',{name:'도서관 책 반납 완료'}).click();
+ await expect(page.getByText('저장 연결을 확인해주세요')).toBeVisible();
+ await expect(page.getByRole('checkbox',{name:'도서관 책 반납 완료'})).not.toBeChecked();
+ await page.getByRole('button',{name:'전체',exact:true}).click();
+ await page.screenshot({path:'/private/tmp/todos-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'/private/tmp/todos-mobile.png',fullPage:true});
+ await expect(page.locator('body')).toHaveJSProperty('scrollWidth',390);
+});
+
+test('weekly starts at 08 with overnight events, hides classes in month, reserves Zoom links',async({page})=>{
+ await setup(page);
+ const sample={id:77,title:'수업 테스트',description:'',startTime:'2026-09-16T09:00:00+09:00',endTime:'2026-09-16T10:00:00+09:00',isAllDay:false,status:'passive',type:'personal',hideInMonth:true};
+ await page.route('**/api/personal/calendar/events?**',r=>r.fulfill({json:[sample,{...sample,id:78,title:'새벽 테스트',startTime:'2026-09-16T00:30:00+09:00',endTime:'2026-09-16T01:30:00+09:00',hideInMonth:false}]}));
+ await page.goto('/personal-project/calendar/week?date=2026-09-16');
+ await expect(page.getByRole('grid',{name:'08시부터 익일 02시까지 일정 시간표'})).toBeVisible();
+ await expect(page.locator('.cw-timed').filter({hasText:'새벽 테스트'})).toBeVisible();
+ expect(await page.locator('.cw-week-scroll').evaluate(e=>e.scrollTop)).toBe(0);
+ await page.locator('.cw-week-scroll').evaluate(e=>e.scrollTop=600);
+ await page.getByRole('button',{name:'오늘',exact:true}).click();
+ await expect.poll(()=>page.locator('.cw-week-scroll').evaluate(e=>e.scrollTop)).toBe(0);
+ await page.goto('/personal-project/calendar?date=2026-09-16');
+ await expect(page.locator('.cw-month')).not.toContainText('수업 테스트');
+ await page.getByRole('button',{name:'Zoom 예약',exact:true}).click();
+ await page.getByLabel('Zoom 회의 링크',{exact:true}).fill('https://zoom.us.evil.example/j/123');
+ await page.getByRole('button',{name:'저장',exact:true}).click();
+ await expect(page.getByRole('dialog')).toContainText('Zoom 회의 링크를 입력해주세요');
+ await page.getByLabel('Zoom 회의 링크',{exact:true}).fill('https://us02web.zoom.us/j/123456789');
+ const posted=page.waitForRequest(r=>r.url().endsWith('/calendar/events') && r.method()==='POST');
+ await page.getByRole('button',{name:'저장',exact:true}).click();
+ expect((await posted).postDataJSON().web_url).toBe('https://us02web.zoom.us/j/123456789');
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+test('Google login and signup entry points use login-only OAuth',async({page})=>{
+ await page.goto('/login');
+ await expect(page.getByRole('link',{name:'Google로 로그인',exact:true})).toHaveAttribute('href',/purpose=login/);
+ await page.goto('/register');
+ await expect(page.getByRole('link',{name:'Google로 가입 \/ 로그인',exact:true})).toHaveAttribute('href',/purpose=login/);
 });

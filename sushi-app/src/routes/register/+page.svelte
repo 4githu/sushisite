@@ -1,5 +1,6 @@
 <!-- src/routes/register/+page.svelte -->
 <script lang="ts">
+ import GoogleAuthButton from '$lib/personal-project/shared/GoogleAuthButton.svelte';
 	import { goto } from "$app/navigation";
 	import { onDestroy } from "svelte";
 
@@ -200,6 +201,7 @@
 		</div>
 	</header>
 
+<GoogleAuthButton signup />
 	<AuthStepper steps={steps} currentStep={currentStep} />
 
 	{#if errorMessage}

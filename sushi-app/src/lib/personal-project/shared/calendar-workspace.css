@@ -1231,3 +1231,16 @@
 .cw-tasks > details {border-top:1px solid var(--cw-line);padding:16px 0;}
 .cw-tasks > details > summary {cursor:pointer;font-weight:650;}
 .cw-tasks > label select,.daily-plan select {border:1px solid var(--cw-line);border-radius:6px;background:white;padding:8px;color:inherit;}
+
+/* Fast task capture and reachable touch controls. */
+.cw-quick-task { display:flex; gap:8px; margin-bottom:20px; }
+.cw-quick-task input { min-width:0; min-height:44px; border:1px solid var(--cw-line); border-radius:8px; padding:10px 12px; background:white; color:inherit; }
+.cw-quick-task input:first-child { flex:1; }
+.cw-quick-task button { background:#ce5345; color:white; border:0; border-radius:8px; padding:10px 18px; font-weight:650; }
+.cw-quick-task button:disabled { opacity:.5; }
+.cw-task-filters { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.cw-task-filters button { min-height:40px; border:1px solid var(--cw-line); background:transparent; color:inherit; border-radius:20px; padding:8px 16px; }
+.cw-task-filters button[aria-pressed='true'] { background:#27272d; color:white; border-color:#27272d; }
+.cw-task input[type='checkbox'] { width:28px; height:28px; flex:0 0 28px; cursor:pointer; }
+.cw-task input[type='checkbox']:disabled { cursor:default; }
+@media(max-width:600px) { .cw-quick-task { flex-wrap:wrap; } .cw-quick-task input:first-child { flex-basis:100%; } .cw-quick-task input[type='date'] { flex:1; } }
