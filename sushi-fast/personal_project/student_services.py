@@ -1,6 +1,7 @@
 """Opt-in university profile and semester timetable imports; no provider credentials."""
 import hashlib
 import json
+import re
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -179,19 +180,26 @@ class TimetableDraft(BaseModel):
         return self
 
 with connection() as db:
+    db.execute('CREATE TABLE IF NOT EXISTS student_completed_courses(user_id INTEGER NOT NULL, code TEXT NOT NULL, PRIMARY KEY(user_id,code))')
     db.execute('CREATE TABLE IF NOT EXISTS student_timetable_drafts(user_id INTEGER NOT NULL, term TEXT NOT NULL, data TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(user_id,term))')
     db.commit()
 
-def draft(user_id, term):
+def draft_key(term, slot):
+    if slot and not re.fullmatch(r'[1-6]-[12]',slot):
+        raise HTTPException(400,'학년·학기는 1-1부터 6-2까지 지정해주세요.')
+    return term + ('::'+slot if slot else '')
+
+def draft(user_id, term, slot=''):
     from .snu_catalog import courses
     catalog = {c['id']:c for c in courses(term)}
     with connection() as db:
-        row = db.execute('SELECT data,revision FROM student_timetable_drafts WHERE user_id=? AND term=?', (user_id,term)).fetchone()
+        row = db.execute('SELECT data,revision FROM student_timetable_drafts WHERE user_id=? AND term=?', (user_id,draft_key(term,slot))).fetchone()
     data = json.loads(row['data']) if row else None
     if data: data['revision'] = row['revision']
     return {'draft': data, 'courses': [catalog[i] for i in data['course_ids'] if i in catalog] if data else []}
 
-def save_draft(user_id, term, data):
+def save_draft(user_id, term, data, slot=''):
+    storage_key=draft_key(term,slot)
     from .snu_catalog import courses
     catalog = {c['id']:c for c in courses(term)}
     valid_ids = set(catalog)
@@ -208,11 +216,38 @@ def save_draft(user_id, term, data):
             raise HTTPException(400, '시간이 겹치는 수업이 있습니다. 수업 시간을 확인해주세요.')
     with connection() as db:
         db.execute('BEGIN IMMEDIATE')
-        row = db.execute('SELECT revision FROM student_timetable_drafts WHERE user_id=? AND term=?',(user_id,term)).fetchone()
+        row = db.execute('SELECT revision FROM student_timetable_drafts WHERE user_id=? AND term=?',(user_id,storage_key)).fetchone()
         revision = row['revision'] if row else 0
         if data.revision != revision:
             raise HTTPException(409, '다른 창에서 시간표가 변경되었습니다. 새로고침 후 다시 확인해주세요.')
         db.execute('INSERT INTO student_timetable_drafts VALUES(?,?,?,?) ON CONFLICT(user_id,term) DO UPDATE SET data=excluded.data,revision=excluded.revision',
-                   (user_id,term,data.model_dump_json(),revision+1))
+                   (user_id,storage_key,data.model_dump_json(),revision+1))
         db.commit()
     return {'revision': revision+1}
+
+
+class CourseCompletion(BaseModel):
+    completed: bool
+
+def course_progress(user_id):
+    from .snu_catalog import courses
+    with connection() as db:
+        completed=[r['code'] for r in db.execute('SELECT code FROM student_completed_courses WHERE user_id=?',(user_id,))]
+        drafts=db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=?',(user_id,)).fetchall()
+    planned=set()
+    for row in drafts:
+        ids=set(json.loads(row['data'])['course_ids'])
+        if ids:
+            planned.update(c['sbjt_cd'].strip().upper() for c in courses(row['term'].split('::')[0]) if c['id'] in ids and c.get('sbjt_cd'))
+    return {'completed':sorted(completed),'planned':sorted(planned)}
+
+def set_course_completion(user_id,code,data):
+    code=code.strip().upper()
+    if not re.fullmatch(r'[A-Z0-9][A-Z0-9._-]{0,49}',code):
+        raise HTTPException(400,'과목코드를 확인해주세요.')
+    with connection() as db:
+        if data.completed:
+            db.execute('INSERT OR IGNORE INTO student_completed_courses VALUES(?,?)',(user_id,code))
+        else: db.execute('DELETE FROM student_completed_courses WHERE user_id=? AND code=?',(user_id,code))
+        db.commit()
+    return course_progress(user_id)

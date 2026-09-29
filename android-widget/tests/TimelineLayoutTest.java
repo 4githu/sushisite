@@ -8,6 +8,11 @@ public class TimelineLayoutTest {
   if(TimelineLayout.pixelAt(570,480,1320,420)!=45)throw new AssertionError("Half-hour position");
   if(TimelineLayout.pixelAt(1440,0,1440,480)!=480)throw new AssertionError("Midnight exclusive end");
   if(TimelineLayout.assignLanes(new ArrayList<>())!=1)throw new AssertionError("Empty day");
-  System.out.println("4 timeline geometry checks passed");
+  TimelineLayout.Span overnight=new TimelineLayout.Span(1470,1560);
+  if(TimelineLayout.pixelAt(overnight.end,480,1560,540)!=540)throw new AssertionError("Next-day 02:00 boundary");
+  if(TimelineLayout.pixelAt(overnight.start,480,1560,540)!=495)throw new AssertionError("Next-day 00:30 position");
+  try{new TimelineLayout.Span(1500,1561);throw new AssertionError("Out of range accepted");}catch(IllegalArgumentException expected){}
+  try{new TimelineLayout.Span(900,900);throw new AssertionError("Empty span accepted");}catch(IllegalArgumentException expected){}
+  System.out.println("8 timeline geometry checks passed");
  }
 }

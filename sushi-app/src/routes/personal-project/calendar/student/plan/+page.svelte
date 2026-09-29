@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
+	import RuleText from '$lib/personal-project/student/RuleText.svelte';
+	import { type CourseProgress, courseKey } from '$lib/personal-project/student/progress';
 	import RuleTree from '$lib/personal-project/student/RuleTree.svelte';
 	import '$lib/personal-project/student/student.css';
 	type Entry = { id: string; major: string; batch: string };
@@ -8,6 +10,8 @@
 		major: string;
 		college: string;
 		source: string;
+		source_links?: string[];
+		major_required_known?: unknown;
 		total_credits: number;
 		notes: string[];
 		raw_notes?: string[];
@@ -16,6 +20,23 @@
 		external_recognition?: unknown;
 		dept_required_general?: unknown;
 	};
+	let progress = $state<CourseProgress>({ planned: [], completed: [] }),
+		progressBusy = $state(false);
+	async function completeCourse(code: string) {
+		if (progressBusy) return;
+		progressBusy = true;
+		try {
+			progress = await request(`/student/course-progress/${encodeURIComponent(code)}`, {
+				method: 'PUT',
+				body: { completed: !progress.completed.includes(courseKey(code)) }
+			});
+		} catch (e) {
+			error = e instanceof Error ? e.message : '이수 상태 저장 실패';
+		} finally {
+			progressBusy = false;
+		}
+	}
+
 	let entries = $state<Entry[]>([]),
 		major = $state(''),
 		batch = $state(''),
@@ -72,6 +93,27 @@
 		[...new Set(entries.filter((e) => e.major === major).map((e) => e.batch))].sort().reverse()
 	);
 	const current = $derived(rule?.tracks.find((t) => t.key === track));
+	function containsCourse(value: unknown, code: string): boolean {
+		if (Array.isArray(value)) return value.some((v) => containsCourse(v, code));
+		if (value && typeof value === 'object')
+			return (
+				('code' in value && String(value.code) === code) ||
+				Object.values(value).some((v) => containsCourse(v, code))
+			);
+		return false;
+	}
+	const extraKnown = $derived(
+		Array.isArray(rule?.major_required_known)
+			? rule.major_required_known.filter(
+					(item) =>
+						item &&
+						typeof item === 'object' &&
+						'code' in item &&
+						!containsCourse(current, String(item.code))
+				)
+			: []
+	);
+
 	async function load() {
 		const n = ++version;
 		loading = true;
@@ -100,6 +142,7 @@
 				.sort()
 				.reverse()[0];
 			plan = await request('/student/major-plan');
+			progress = await request('/student/course-progress');
 			const details = await Promise.all(
 				[...new Set(plan.items.map((i) => i.rule_id))].map(
 					async (id) =>
@@ -233,7 +276,15 @@
 					학과 사무실에서 확인하세요.
 				</p>
 				<details open>
-					<summary>이수 조건과 필수 과목</summary>{#if current}<RuleTree
+					<summary>이수 조건과 필수 과목</summary>
+					<p class="muted">
+						노란색: 저장한 시간표의 수강 예정 과목 · 초록색: 직접 체크한 이수 완료 과목. 과목코드로
+						연결하며 졸업 판정은 아닙니다.
+					</p>
+					{#if current}<RuleTree
+							{progress}
+							oncomplete={completeCourse}
+							busy={progressBusy}
 							value={Object.fromEntries(
 								Object.entries(current).filter(
 									([k]) => !['key', 'name', 'major_min_credits'].includes(k)
@@ -241,24 +292,49 @@
 							)}
 						/>{:else}<p>선택한 유형의 자료가 없습니다.</p>{/if}
 				</details>
+				{#if extraKnown.length}<details open>
+						<summary>학과 전공필수 참고 목록</summary>
+						<p class="muted">
+							현재 전공 유형의 조건에 없는 학과 참고 과목입니다. 복수·부전공 적용 여부는 학과에
+							확인해주세요.
+						</p>
+						<RuleTree
+							{progress}
+							oncomplete={completeCourse}
+							busy={progressBusy}
+							value={extraKnown}
+						/>
+					</details>{/if}
 				{#if rule.external_recognition}<details>
-						<summary>타 전공 학점 인정</summary><RuleTree value={rule.external_recognition} />
+						<summary>타 전공 학점 인정</summary><RuleTree
+							{progress}
+							oncomplete={completeCourse}
+							busy={progressBusy}
+							value={rule.external_recognition}
+						/>
 					</details>{/if}
 				{#if rule.dept_required_general}<details>
-						<summary>학과 지정 교양</summary><RuleTree value={rule.dept_required_general} />
+						<summary>학과 지정 교양</summary><RuleTree
+							{progress}
+							oncomplete={completeCourse}
+							busy={progressBusy}
+							value={rule.dept_required_general}
+						/>
 					</details>{/if}
 				<details open>
 					<summary>세부 규정·예외</summary>
 					<ul>
-						{#each rule.notes as note}<li>{note}</li>{/each}
+						{#each rule.notes as note}<li><RuleText text={note} /></li>{/each}
 					</ul>
 				</details>
 				<details>
-					<summary>원문 출처와 수집 메모</summary>
+					<summary>자료 출처</summary>
 					<p class="source">{rule.source}</p>
-					<ul>
-						{#each rule.raw_notes || [] as note}<li>{note}</li>{/each}
-					</ul>
+					{#each rule.source_links || [] as link}<p>
+							<a href={link} target="_blank" rel="noopener noreferrer"
+								>학과 안내 · {new URL(link).hostname} ↗</a
+							>
+						</p>{/each}
 					<a href="https://github.com/Rekhet/class-checker" target="_blank" rel="noreferrer"
 						>Class Checker 이수규정 데이터 보기 ↗</a
 					>

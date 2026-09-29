@@ -6,7 +6,7 @@ import java.util.*;
 final class TimelineLayout {
  static class Span {
   final int start,end;int lane;
-  Span(int start,int end){if(start<0||end>1440||end<=start)throw new IllegalArgumentException("Invalid day span");this.start=start;this.end=end;}
+  Span(int start,int end){if(start<0||end>26*60||end<=start)throw new IllegalArgumentException("Invalid day span");this.start=start;this.end=end;}
  }
  static int assignLanes(List<? extends Span> spans){
   spans.sort(Comparator.comparingInt(e->e.start));List<Integer> ends=new ArrayList<>();

@@ -276,12 +276,12 @@ def search_courses(term: str, q: str=Query(default='',max_length=120), departmen
     return snu_catalog.search(term,q,department,classification,day,offset,limit)
 
 @router.get('/student/timetable/draft')
-def timetable_draft(term: str, user_id: int=Depends(current_user_id)):
-    return student.draft(user_id,term)
+def timetable_draft(term: str, slot: str=Query(default='',max_length=3), user_id: int=Depends(current_user_id)):
+    return student.draft(user_id,term,slot)
 
 @router.put('/student/timetable/draft')
-def save_timetable_draft(term: str, data: student.TimetableDraft, user_id: int=Depends(current_user_id)):
-    return student.save_draft(user_id,term,data)
+def save_timetable_draft(term: str, data: student.TimetableDraft, slot: str=Query(default='',max_length=3), user_id: int=Depends(current_user_id)):
+    return student.save_draft(user_id,term,data,slot)
 
 @router.get('/student/rules')
 def rule_index(user_id: int=Depends(current_user_id)):
@@ -302,3 +302,11 @@ def rule_detail(rule_id: str, user_id: int=Depends(current_user_id)):
 @router.get('/student/meals')
 def meals(day: date, user_id: int=Depends(current_user_id)):
     return student_meals.menus(day)
+
+@router.get('/student/course-progress')
+def course_progress(user_id:int=Depends(current_user_id)):
+    return student.course_progress(user_id)
+
+@router.put('/student/course-progress/{code}')
+def set_course_completion(code:str,data:student.CourseCompletion,user_id:int=Depends(current_user_id)):
+    return student.set_course_completion(user_id,code,data)

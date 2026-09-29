@@ -11,6 +11,7 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 
 public class CalendarWidget extends AppWidgetProvider {
+ static final java.util.concurrent.ConcurrentHashMap<Integer,java.util.concurrent.atomic.AtomicLong> updates=new java.util.concurrent.ConcurrentHashMap<>();
  static final String NAVIGATE="app.chobab.widget.NAVIGATE";
  static final String REFRESH="app.chobab.widget.REFRESH";
  static final Class<?>[] PROVIDERS={CalendarWidget.class,DayWidget.class,WeekWidget.class,MonthWidget.class,TodoWidget.class};
@@ -40,6 +41,8 @@ public class CalendarWidget extends AppWidgetProvider {
   if(ids.length==0)return;
   for(int widgetId:ids){
   if(onlyId!=-1&&onlyId!=widgetId)continue;
+  java.util.concurrent.atomic.AtomicLong sequence=updates.computeIfAbsent(widgetId,id->new java.util.concurrent.atomic.AtomicLong());
+  long request=sequence.incrementAndGet();
   RemoteViews views=new RemoteViews(context.getPackageName(),R.layout.widget);
   String origin=Api.origin(context),mode=mode();
   int offset=context.getSharedPreferences("widget",0).getInt("offset-"+widgetId,0);
@@ -54,6 +57,9 @@ public class CalendarWidget extends AppWidgetProvider {
   views.setOnClickPendingIntent(R.id.refresh,PendingIntent.getBroadcast(context,0,new Intent(context,getClass()).setAction(REFRESH),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
   views.setOnClickPendingIntent(R.id.title,open(context,origin+"/personal-project/calendar"+(mode.equals("upcoming")||mode.equals("month")?"":"/"+mode)+"?date="+anchor,widgetId));
   views.removeAllViews(R.id.events);
+  views.setViewVisibility(R.id.loading,android.view.View.VISIBLE);
+  views.setTextViewText(R.id.status,"일정을 불러오는 중…");
+  manager.updateAppWidget(widgetId,views);
   try{
    String token=Api.token(context);if(token.isEmpty())throw new Exception("온도 위젯 앱에서 계정을 연결하세요");
    JSONObject feed=Api.call(origin,"feed?view="+mode+"&anchor="+anchor,token,null);
@@ -72,9 +78,10 @@ public class CalendarWidget extends AppWidgetProvider {
     row.setOnClickPendingIntent(R.id.event,open(context,origin+"/personal-project/calendar?event="+e.getInt("id"),e.getInt("id")));
     views.addView(R.id.events,row);
    }
-   views.setTextViewText(R.id.status,events.length()+"개 · "+LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))+" 갱신 · 제목을 눌러 전체 보기");
-  }catch(Exception e){views.setTextViewText(R.id.status,e.getMessage());views.setOnClickPendingIntent(R.id.events,PendingIntent.getActivity(context,99,new Intent(context,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));}
-  manager.updateAppWidget(widgetId,views);
+   views.setTextViewText(R.id.status,(events.length()==0?"표시할 일정이 없습니다":events.length()+"개")+" · "+LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))+" 갱신 · 제목을 눌러 전체 보기");
+  }catch(Exception e){views.removeAllViews(R.id.events);String message=e.getMessage();views.setTextViewText(R.id.status,"불러오기 실패 · "+(message!=null && message.matches("(?s).*[가-힣].*")?message:"새로고침을 눌러 다시 시도해주세요."));views.setOnClickPendingIntent(R.id.events,PendingIntent.getActivity(context,99,new Intent(context,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));}
+  views.setViewVisibility(R.id.loading,android.view.View.GONE);
+  if(sequence.get()==request)manager.updateAppWidget(widgetId,views);
   }
  }
  void renderRows(Context c,RemoteViews views,JSONArray events,String origin,String label,int limit)throws Exception{

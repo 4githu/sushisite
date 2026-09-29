@@ -2,6 +2,12 @@
 	import { onMount } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { request } from '$lib/personal-project/shared/api';
+	import CourseCompletion from '$lib/personal-project/student/CourseCompletion.svelte';
+	import {
+		courseState,
+		courseKey,
+		type CourseProgress
+	} from '$lib/personal-project/student/progress';
 	import TimetableGrid from '$lib/personal-project/student/TimetableGrid.svelte';
 	import {
 		courseLessons,
@@ -15,6 +21,25 @@
 		type Lesson
 	} from '$lib/personal-project/student/catalog';
 	import '$lib/personal-project/student/student.css';
+	let slot = $state(''),
+		progress = $state<CourseProgress>({ planned: [], completed: [] }),
+		progressBusy = $state(false);
+	const slots = Array.from({ length: 12 }, (_, i) => `${Math.floor(i / 2) + 1}-${(i % 2) + 1}`);
+	async function completeCourse(code: string) {
+		if (progressBusy) return;
+		progressBusy = true;
+		try {
+			progress = await request(`/student/course-progress/${encodeURIComponent(code)}`, {
+				method: 'PUT',
+				body: { completed: !progress.completed.includes(courseKey(code)) }
+			});
+		} catch (e) {
+			error = e instanceof Error ? e.message : '이수 상태 저장 실패';
+		} finally {
+			progressBusy = false;
+		}
+	}
+
 	let catalog = $state<Catalog | null>(null),
 		term = $state(''),
 		q = $state(''),
@@ -66,7 +91,7 @@
 	const dirty = $derived(initialized && snapshot !== saved);
 	const termInfo = $derived(catalog?.terms.find((t) => t.id === term));
 	const payload = $derived({
-		name: termInfo?.label || '내 시간표',
+		name: `${slot ? slot + ' · ' : ''}${termInfo?.label || '내 시간표'}`,
 		starts_on: starts,
 		ends_on: ends,
 		skip_holidays: skip,
@@ -124,17 +149,23 @@
 			if (current === searchVersion) searching = false;
 		}
 	}
-	async function loadTerm(next: string) {
+	async function loadTerm(next: string, nextSlot = slot) {
 		loading = true;
 		initialized = false;
 		preview = null;
 		error = '';
 		try {
 			const data = await request<{ draft: Draft | null; courses: Course[] }>(
-				`/student/timetable/draft?term=${encodeURIComponent(next)}`
+				`/student/timetable/draft?term=${encodeURIComponent(next)}&slot=${encodeURIComponent(nextSlot)}`
 			);
 			const info = catalog!.terms.find((t) => t.id === next)!;
 			term = next;
+			slot = nextSlot;
+			const url = new URL(location.href);
+			url.searchParams.set('term', term);
+			if (slot) url.searchParams.set('slot', slot);
+			else url.searchParams.delete('slot');
+			window.history.replaceState(window.history.state, '', url);
 			const dates = termDates(info);
 			selected = data.courses;
 			manual = data.draft?.manual_lessons || [];
@@ -173,7 +204,16 @@
 			const available = data.terms
 				.filter((t) => termDates(t).starts_on <= new Date().toISOString().slice(0, 10))
 				.sort((a, b) => termDates(b).starts_on.localeCompare(termDates(a).starts_on));
-			await loadTerm((available[0] || data.terms[0]).id);
+			const params = new URLSearchParams(location.search),
+				chosenTerm = params.get('term'),
+				chosenSlot = params.get('slot') || '';
+			progress = await request('/student/course-progress');
+			await loadTerm(
+				data.terms.some((t) => t.id === chosenTerm)
+					? chosenTerm!
+					: (available[0] || data.terms[0]).id,
+				slots.includes(chosenSlot) ? chosenSlot : ''
+			);
 		} catch (e) {
 			error = e instanceof Error ? e.message : '불러오기 실패';
 			loading = false;
@@ -199,12 +239,13 @@
 	async function save() {
 		const input = snapshot;
 		const result = await request<{ revision: number }>(
-			`/student/timetable/draft?term=${encodeURIComponent(term)}`,
+			`/student/timetable/draft?term=${encodeURIComponent(term)}&slot=${encodeURIComponent(slot)}`,
 			{ method: 'PUT', body: { ...JSON.parse(input), revision } }
 		);
 		saved = input;
 		revision = result.revision;
 		notice = '시간표를 저장했습니다.';
+		progress = await request('/student/course-progress');
 	}
 	function addManual() {
 		error = '';
@@ -257,10 +298,13 @@
 			if (data.format !== 'netaq-timetable-v1' || data.term !== term)
 				throw Error('같은 학기의 NETAQ 시간표 내보내기 파일을 선택해주세요.');
 			if (dirty && !confirm('작성 중인 시간표를 파일 내용으로 바꿀까요?')) return;
-			await request(`/student/timetable/draft?term=${encodeURIComponent(term)}`, {
-				method: 'PUT',
-				body: { ...data, revision }
-			});
+			await request(
+				`/student/timetable/draft?term=${encodeURIComponent(term)}&slot=${encodeURIComponent(slot)}`,
+				{
+					method: 'PUT',
+					body: { ...data, revision }
+				}
+			);
 			await loadTerm(term);
 			notice = '파일의 시간표를 가져왔습니다.';
 		});
@@ -281,6 +325,24 @@
 			<p class="muted">강의를 검색하고, 이번 학기를 한눈에 계획하세요.</p>
 		</div>
 		<div class="fields">
+			<label
+				>학년·학기 시간표<select
+					aria-label="학년·학기 시간표"
+					value={slot}
+					disabled={loading || busy}
+					onchange={(e) => {
+						const next = e.currentTarget.value;
+						if (dirty && !confirm('저장하지 않은 시간표가 있습니다. 다른 시간표로 이동할까요?')) {
+							e.currentTarget.value = slot;
+							return;
+						}
+						void loadTerm(term, next);
+					}}
+					><option value="">기본 시간표</option>{#each slots as item}<option value={item}
+							>{item} 시간표</option
+						>{/each}</select
+				></label
+			>
 			<a class="button" href="/personal-project/calendar/student">{school} · 학교 설정</a><label
 				>학기<select
 					aria-label="학기"
@@ -410,12 +472,22 @@
 						직접 수업을 입력해주세요.
 					</p>{/if}
 				<details class="panel selected" open>
-					<summary>담은 강의 {selected.length + manual.length}개</summary
-					>{#each selected as course}<div class="chosen">
+					<summary>{slot ? slot + ' · ' : ''}담은 강의 {selected.length + manual.length}개</summary
+					>{#each selected as course}<div
+							class="chosen"
+							class:completed={courseState(progress, course.sbjt_cd) === 'completed'}
+							class:planned={courseState(progress, course.sbjt_cd) === 'planned'}
+						>
 							<span
-								><strong>{course.name}</strong><small>{times(course)} · {course.professor}</small
+								><strong>{course.name}</strong><small
+									>{course.sbjt_cd} · {times(course)} · {course.professor}</small
 								></span
-							><button
+							><CourseCompletion
+								code={course.sbjt_cd}
+								{progress}
+								onchange={completeCourse}
+								busy={progressBusy}
+							/><button
 								disabled={busy}
 								aria-label={`${course.name} 빼기`}
 								onclick={() => (selected = selected.filter((c) => c.id !== course.id))}>빼기</button
@@ -470,15 +542,19 @@
 				<section class="panel import">
 					<h2>나의 시간표 가져오기</h2>
 					<p class="muted">
-						담은 수업을 학기 동안 반복되는 주간·일간 일정으로 추가합니다. 월간 캘린더에는 표시하지 않습니다. 이미 가져온 동일 수업은
-						중복 추가하지 않습니다. 시간표에서 빼도 가져온 일정은 유지됩니다.
+						담은 수업을 학기 동안 반복되는 주간·일간 일정으로 추가합니다. 월간 캘린더에는 표시하지
+						않습니다. 이미 가져온 동일 수업은 중복 추가하지 않습니다. 시간표에서 빼도 가져온 일정은
+						유지됩니다.
 					</p>
 					<div class="fields">
 						<label>개강<input type="date" bind:value={starts} required /></label><label
 							>종강<input type="date" bind:value={ends} min={starts} required /></label
 						>
 					</div>
-					<p class="muted">기본 1학기는 3월 1일~6월 30일, 2학기는 9월 1일~12월 31일입니다. 학교 학사일정에 맞게 날짜를 바꾸고 시간표를 저장하면 다음에도 유지됩니다.</p>
+					<p class="muted">
+						기본 1학기는 3월 1일~6월 30일, 2학기는 9월 1일~12월 31일입니다. 학교 학사일정에 맞게
+						날짜를 바꾸고 시간표를 저장하면 다음에도 유지됩니다.
+					</p>
 					<label><input type="checkbox" bind:checked={skip} />공휴일 제외</label><label
 						class="exclusions"
 						>추가 휴강일<input
@@ -551,6 +627,17 @@
 </div>
 
 <style>
+	.chosen.completed {
+		background: #edf8f2;
+		border-color: #77b69a;
+	}
+	.chosen.planned {
+		background: #fffae9;
+		border-color: #d9bf71;
+	}
+	.chosen {
+		flex-wrap: wrap;
+	}
 	.schedule {
 		min-width: 0;
 	}

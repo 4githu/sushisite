@@ -131,3 +131,41 @@ def test_imported_classes_hidden_in_month_but_visible_in_week():
     headers={'Authorization':'Bearer '+token}
     assert c.get('/api/personal/calendar/widget/feed?view=month&anchor=2026-09-07',headers=headers).json()['events']==[]
     assert len(c.get('/api/personal/calendar/widget/feed?view=week&anchor=2026-09-07',headers=headers).json()['events'])==1
+
+def test_academic_semesters_and_course_completion_are_separate_and_private():
+    users=(7951,7952)
+    with connection() as db:
+        for user in users:
+            db.execute('DELETE FROM student_timetable_drafts WHERE user_id=?',(user,))
+            db.execute('DELETE FROM student_completed_courses WHERE user_id=?',(user,))
+        db.commit()
+    c=catalog.search(TERM,'자료구조 강유')['courses'][0]
+    d=student.TimetableDraft(course_ids=[c['id']],starts_on='2026-09-01',ends_on='2026-12-31')
+    student.save_draft(7951,TERM,d,'1-1')
+    assert student.draft(7951,TERM,'1-1')['courses'][0]['id']==c['id']
+    assert student.draft(7951,TERM,'1-2')['draft'] is None
+    assert student.draft(7951,TERM)['draft'] is None
+    assert student.draft(7952,TERM,'1-1')['draft'] is None
+    assert c['sbjt_cd'] in student.course_progress(7951)['planned']
+    assert student.course_progress(7951)['completed']==[]
+    student.set_course_completion(7951,c['sbjt_cd'],student.CourseCompletion(completed=True))
+    assert student.course_progress(7951)['completed']==[c['sbjt_cd']]
+    assert student.course_progress(7952)=={'planned':[],'completed':[]}
+    student.set_course_completion(7951,c['sbjt_cd'].lower(),student.CourseCompletion(completed=False))
+    assert student.course_progress(7951)['completed']==[]
+    with pytest.raises(HTTPException): student.save_draft(7951,TERM,d,'1-1')
+    with pytest.raises(HTTPException): student.draft(7951,TERM,'../')
+    with pytest.raises(HTTPException): student.set_course_completion(7951,'<script>',student.CourseCompletion(completed=True))
+
+def test_curriculum_display_removes_transport_diagnostics_and_keeps_codes():
+    import json
+    from personal_project.curriculum_display import text
+    rule=catalog.curriculum('smsys_2026')
+    rendered=json.dumps(rule,ensure_ascii=False)
+    assert 'HTTP 200' not in rendered and '-k는' not in rendered and '인증서 무효' not in rendered
+    assert rule['needs_verification'] and '임시' in rendered
+    assert rule['source_links']
+    math=catalog.curriculum('math_2026')
+    assert math['general']=='자연과학대학 교양 기준(2025년)'
+    assert math['major_required_known'][0]['code']=='M1407.000600'
+    assert text('math / science / general')=='수학 / 과학 / 교양'

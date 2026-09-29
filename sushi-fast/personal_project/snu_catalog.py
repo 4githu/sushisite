@@ -63,4 +63,10 @@ def curriculum(rule_id):
             note=note.replace(old,new)
         notes.append(note)
     result['notes']=notes
+    from .curriculum_display import present, source_links
+    links=source_links(result['source']) if result.get('source') else []
+    result.pop('raw_notes',None)
+    result=present(result)
+    result['source']='Class Checker 가공 자료 · 학과별 공식 안내를 함께 확인해주세요.'
+    result['source_links']=links
     return result

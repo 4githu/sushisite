@@ -197,3 +197,45 @@ test('current majors persist and compare; philosophy notes remain readable', asy
  await expect(page.locator('.rule details[open]').last()).not.toContainText('SPA-blocked');
  await expect(page.locator('.rule details[open]').last()).toContainText('임시 기준');
 });
+
+test('academic slots save independently and code-matched course chips reflect completion',async({page})=>{
+ await setup(page);
+ const course=(await (await page.request.get(`${api}/api/personal/student/courses?term=${term}&q=자료구조%20강유`)).json()).courses[0];
+ await page.request.put(`${api}/api/personal/student/course-progress/${course.sbjt_cd}`,{data:{completed:false}});
+ for(const slot of ['1-1','1-2']){
+  const old=(await (await page.request.get(`${api}/api/personal/student/timetable/draft?term=${term}&slot=${slot}`)).json()).draft;
+  await page.request.put(`${api}/api/personal/student/timetable/draft?term=${term}&slot=${slot}`,{data:{course_ids:[],manual_lessons:[],starts_on:'2026-09-01',ends_on:'2026-12-31',skip_holidays:true,excluded_dates:[],revision:old?.revision||0}});
+ }
+ await page.goto(`/personal-project/calendar/student/timetable?term=${term}&slot=1-1`);
+ await expect(page.getByLabel('학년·학기 시간표')).toHaveValue('1-1');
+ await page.getByLabel('강의 검색어').fill('자료구조 강유');
+ await page.getByRole('button',{name:'검색',exact:true}).click();
+ await page.getByRole('button',{name:'자료구조 001 담기',exact:true}).click();
+ await page.getByRole('button',{name:'시간표 저장',exact:true}).click();
+ await expect(page.locator('.chosen.planned')).toContainText('자료구조');
+ await page.getByLabel('학년·학기 시간표').selectOption('1-2');
+ await expect(page.locator('.class-block')).toHaveCount(0);
+ await page.getByLabel('학년·학기 시간표').selectOption('1-1');
+ await expect(page.locator('.class-block')).toHaveCount(2);
+ await page.reload();
+ await expect(page.getByLabel('학년·학기 시간표')).toHaveValue('1-1');
+ await expect(page.locator('.class-block')).toHaveCount(2);
+ await page.getByRole('button',{name:`${course.sbjt_cd} 이수 완료`,exact:true}).click();
+ await expect(page.locator('.chosen.completed')).toContainText('자료구조');
+ await page.goto('/personal-project/calendar/student/plan');
+ await page.getByRole('button',{name:'전공 탐색',exact:true}).click();
+ await expect(page.locator('.rule-course.completed').filter({hasText:'자료구조'}).first()).toBeVisible();
+ await page.setViewportSize({width:1440,height:1000});
+ await page.screenshot({path:`${artifacts}/course-progress-desktop.png`,fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:`${artifacts}/course-progress-mobile.png`,fullPage:true});
+ await page.getByRole('button',{name:`${course.sbjt_cd} 이수 완료`,exact:true}).first().click();
+ await expect(page.locator('.rule-course.planned').filter({hasText:'자료구조'}).first()).toBeVisible();
+ await page.getByRole('combobox',{name:'학과',exact:true}).selectOption('스마트시스템과학과');
+ await expect(page.locator('.rule')).toContainText('농업생명과학대학 공통 기준');
+ await page.getByText('자료 출처',{exact:true}).click();
+ await expect(page.locator('.rule')).not.toContainText('HTTP 200');
+ await expect(page.locator('.rule')).not.toContainText('인증서 무효');
+ await expect(page.locator('.rule')).not.toContainText('-k는');
+});

@@ -1,7 +1,42 @@
 <script lang="ts">
 	import RuleTree from './RuleTree.svelte';
-	let { value }: { value: unknown } = $props();
+	import RuleText from './RuleText.svelte';
+	import CourseCompletion from './CourseCompletion.svelte';
+	import { courseState, type CourseProgress } from './progress';
+	let {
+		value,
+		progress = { planned: [], completed: [] },
+		oncomplete,
+		busy = false
+	}: {
+		value: unknown;
+		progress?: CourseProgress;
+		oncomplete?: (code: string) => void;
+		busy?: boolean;
+	} = $props();
 	const labels: Record<string, string> = {
+		math: '수학',
+		science: '과학',
+		msc: '수학·과학·컴퓨팅',
+		suri: '수학·과학·컴퓨팅',
+		suri_sub: '수학·과학·컴퓨팅 세부 조건',
+		dept: '학과',
+		colleges: '단과대학',
+		label: '구분',
+		note: '참고',
+		area: '영역',
+		code_prefixes: '과목번호 시작값',
+		codes: '과목번호',
+		baseline_assumed: '임시 기준',
+		recog_max_courses: '최대 인정 과목 수',
+		any_dept: '학과 제한 없음',
+		major_select_min_courses: '전공선택 최소 과목 수',
+		seq: '순서',
+		combined: '합산 조건',
+		select_required: '선택필수',
+		min_slots: '최소 선택 수',
+		slots: '선택 항목',
+		english_min_courses: '외국어 강의 최소 과목 수',
 		all: '모두 이수',
 		any: '선택 이수',
 		pool: '선택 대상 과목',
@@ -32,30 +67,31 @@
 </script>
 
 {#if Array.isArray(value)}<ul>
-		{#each value as item}<li><RuleTree value={item} /></li>{/each}
+		{#each value as item}<li><RuleTree value={item} {progress} {oncomplete} {busy} /></li>{/each}
 	</ul>
 {:else if value !== null && typeof value === 'object' && 'name' in value && 'code' in value}<div
 		class="rule-course"
+		class:completed={courseState(progress, String(value.code)) === 'completed'}
+		class:planned={courseState(progress, String(value.code)) === 'planned'}
 	>
 		<div><strong>{String(value.name)}</strong><small>{String(value.code)}</small></div>
 		{#if 'credits' in value}<span>{String(value.credits)}학점</span>{/if}
+		<CourseCompletion code={String(value.code)} {progress} onchange={oncomplete} {busy} />
 	</div>
 {:else if value !== null && typeof value === 'object'}<dl>
 		{#each Object.entries(value) as [key, item]}<div
 				class:nested={item !== null && typeof item === 'object'}
 			>
-				<dt>{labels[key] || key}</dt>
-				<dd><RuleTree value={item} /></dd>
+				<dt>{labels[key] || '추가 조건'}</dt>
+				<dd><RuleTree value={item} {progress} {oncomplete} {busy} /></dd>
 			</div>{/each}
 	</dl>
 {:else}<span
-		>{typeof value === 'boolean'
-			? value
+		>{#if typeof value === 'boolean'}{value
 				? '적용'
-				: '미적용'
-			: value === null
-				? '미지정'
-				: String(value)}</span
+				: '미적용'}{:else if value === null}미지정{:else}<RuleText
+				text={String(value)}
+			/>{/if}</span
 	>{/if}
 
 <style>
@@ -110,6 +146,18 @@
 		border: 1px solid #e5e6eb;
 		border-radius: 8px;
 		padding: 12px;
+	}
+	.rule-course.completed {
+		background: #edf8f2;
+		border-color: #77b69a;
+	}
+	.rule-course.planned {
+		background: #fffae9;
+		border-color: #d9bf71;
+	}
+	.rule-course {
+		flex-wrap: wrap;
+		align-items: center;
 	}
 	.rule-course strong {
 		font-size: 13px;
