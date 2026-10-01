@@ -103,8 +103,8 @@ Mac 브리지는 공식 카카오 API가 아니라 로그인된 Mac 앱의 보�
 
 관리자 전용 세션 API:
 
-- `GET /api/personal/admin/workspace?q=이름또는이메일`: 회원 검색, 게시판 공개 범위, ACL, 최근 관리 기록. 검색하지 않으면 회원 목록은 비어 있습니다.
+- `GET /api/personal/admin/workspace?q=이름또는이메일&page=1`: 회원 검색, 게시판 공개 범위, ACL, 최근 관리 기록. 공란이면 전체 회원을 30명씩 조회합니다. `users`, `total`, `page`로 페이지를 확인합니다. 계정 메뉴의 관리자 페이지에서 사용할 수 있으며 서버의 관리자 검사를 거칩니다.
 - `PUT /api/personal/admin/boards/{board_id}/restriction`: `{"restricted": true}`로 제한 게시판으로 변경합니다.
 - `PUT /api/personal/boards/permissions`: `{"user_id": 123, "scope": "board:4", "action": "read", "allowed": true}`. `allowed: false`는 거부, `null`은 개별 설정 해제입니다. 실제 게시판 ID는 목록에서 조회하세요.
 
-게시글 목록의 `thumbnail`은 접근 제어되는 첫 이미지 URL 또는 null입니다. 게시판 문서의 이미지·첨부파일은 같은 게시판에 먼저 업로드해야 합니다. 간단한 메모는 문서의 인용 블록으로 저장되므로 일반 본문과 함께 편집하고 API로도 작성할 수 있습니다.
+게시글 목록의 `thumbnail`은 접근 제어되는 첫 이미지 URL 또는 null입니다. 게시판 문서의 이미지·첨부파일은 같은 게시판에 먼저 업로드해야 합니다. 그림 메모는 PNG 이미지와 원본 획을 함께 저장하는 이미지 객체입니다. 문서 JSON의 `image.attrs`는 `src`, `alt`, `widthPct`(15~100), `objectAlign`(left/center/right), 선택적인 `drawing` 획 배열을 지원합니다. `drawing`은 공통 필기 모델의 `Stroke[]`이며 PNG를 다시 만들 때 사용합니다. 일반 API 클라이언트는 이미지 업로드 후 `src`만 지정해도 됩니다. 편집기에서 그림 수정·문서 내 이동·크기 조절·정렬을 지원하며 인용 블록과는 별개입니다.

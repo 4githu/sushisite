@@ -4,6 +4,8 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { request, PersonalApiError } from '../shared/api';
 	import { privateCacheUser } from '../shared/auth';
+	import type { CalendarEvent } from '../shared/types';
+	import { dailyEventLayout } from './daily-events';
 	import {
 		erase,
 		exportPdf,
@@ -16,8 +18,28 @@
 		resourceId,
 		url,
 		name,
-		daily = false
-	}: { resourceId: string; url: string; name: string; daily?: boolean } = $props();
+		daily = false,
+		events = [],
+		date = '',
+		onevent
+	}: {
+		resourceId: string;
+		url: string;
+		name: string;
+		daily?: boolean;
+		events?: CalendarEvent[];
+		date?: string;
+		onevent?: (e: CalendarEvent) => void;
+	} = $props();
+	const eventBoxes = $derived(daily && date ? dailyEventLayout(events, date) : []);
+	const allDayEvents = $derived(
+		events.filter(
+			(e) =>
+				e.isAllDay &&
+				e.startTime.slice(0, 10) <= date &&
+				(e.endTime ? e.endTime.slice(0, 10) > date : e.startTime.slice(0, 10) === date)
+		)
+	);
 	let notebook = $state<PdfNotebook>({ version: 1, pages: [] }),
 		selected = $state(0),
 		zoom = $state(1),
@@ -468,7 +490,45 @@
 	}
 	async function download() {
 		try {
-			const bytes = await exportPdf(original, $state.snapshot(notebook));
+			let background = original;
+			if (daily && (eventBoxes.length || allDayEvents.length)) {
+				const { PDFDocument, rgb } = await import('pdf-lib');
+				const doc = await PDFDocument.load(original);
+				doc.registerFontkit((await import('@pdf-lib/fontkit')).default);
+				const response = await fetch('/fonts/NanumGothic-Regular.ttf');
+				if (!response.ok) throw Error('일정 출력 글꼴을 불러오지 못했습니다.');
+				const font = await doc.embedFont(await response.arrayBuffer(), { subset: true }),
+					p = doc.getPage(0);
+				for (const box of eventBoxes) {
+					p.drawRectangle({
+						x: box.x,
+						y: 760 - box.y - box.height,
+						width: box.width,
+						height: box.height,
+						color: rgb(0.84, 0.9, 0.95),
+						opacity: 0.6
+					});
+					let title = box.event.title;
+					while (title.length && font.widthOfTextAtSize(title, 8) > box.width - 8)
+						title = title.slice(0, -1);
+					p.drawText(title, {
+						x: box.x + 4,
+						y: 760 - box.y - 10,
+						size: 8,
+						font,
+						color: rgb(0.2, 0.3, 0.4)
+					});
+				}
+				if (allDayEvents.length)
+					p.drawText(('종일 · ' + allDayEvents.map((e) => e.title).join(' · ')).slice(0, 45), {
+						x: 44,
+						y: 746,
+						size: 8,
+						font
+					});
+				background = await doc.save();
+			}
+			const bytes = await exportPdf(background, $state.snapshot(notebook));
 			const link = document.createElement('a');
 			link.href = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
 			link.download = name.replace(/\.pdf$/i, '') + '-필기.pdf';
@@ -573,6 +633,25 @@
 		aria-label="필기 작업 공간"
 	>
 		<div class="paper" style:width={`${viewWidth}px`} style:height={`${viewHeight}px`}>
+			{#if daily}<div class="event-underlay" class:interactive={tool === 'pan'}>
+					{#if allDayEvents.length}<div class="all-day-ink">
+							종일 · {allDayEvents.map((e) => e.title).join(' · ')}
+						</div>{/if}
+					{#each eventBoxes as box}<button
+							type="button"
+							tabindex={tool === 'pan' ? 0 : -1}
+							aria-label={`${box.event.title} 일정 열기`}
+							onclick={() => onevent?.(box.event)}
+							style={`left:${(box.x / 420) * 100}%;top:${(box.y / 760) * 100}%;width:${(box.width / 420) * 100}%;height:${(box.height / 760) * 100}%`}
+							><strong>{box.event.title}</strong><small
+								>{new Date(box.event.startTime).toLocaleTimeString('ko-KR', {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: false
+								})}</small
+							></button
+						>{/each}
+				</div>{/if}
 			<canvas bind:this={canvas}></canvas>{#if current && !loading}<svg
 					viewBox={`0 0 ${viewWidth} ${viewHeight}`}
 					role="img"
@@ -584,6 +663,7 @@
 					onlostpointercapture={finish}
 					oncontextmenu={(e) => e.preventDefault()}
 					style:touch-action={tool === 'pan' ? 'pan-x pan-y pinch-zoom' : 'none'}
+					style:pointer-events={daily && tool === 'pan' ? 'none' : 'auto'}
 					>{#if lasso.length}<path
 							d={path({ id: 'lasso', kind: 'pen', width: 1, color: '#666', points: lasso })}
 							fill="#8882"
@@ -609,6 +689,49 @@
 </section>
 
 <style>
+	.event-underlay {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		pointer-events: none;
+	}
+	.pdf-editor .event-underlay button {
+		position: absolute;
+		min-height: 0;
+		overflow: hidden;
+		padding: 2px 5px;
+		text-align: left;
+		border: 0;
+		border-left: 2px solid #688eae;
+		border-radius: 3px;
+		background: #d7e7f280;
+		color: #354d60;
+		font-size: 10px;
+		line-height: 1.2;
+	}
+	.event-underlay strong,
+	.event-underlay small {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.event-underlay.interactive {
+		pointer-events: auto;
+	}
+	.all-day-ink {
+		position: absolute;
+		top: 0;
+		left: 44px;
+		right: 8px;
+		font-size: 10px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.paper svg {
+		z-index: 2;
+	}
 	.pdf-editor button,
 	.pdf-editor select {
 		font: inherit;

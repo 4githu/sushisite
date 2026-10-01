@@ -788,23 +788,11 @@
 						ondirty={(value) => (noteDirty = value)}
 					/>{/if}
 				{#if view === 'day'}<section class="day-agenda">
-						<h2>오늘 일정</h2>
-						{#each visible
-							.filter((e) => onDay(e, cursor))
-							.sort((a, b) => a.startTime.localeCompare(b.startTime)) as event}<button
-								class="day-agenda-event"
-								onclick={() => edit(event)}
-								><time
-									>{event.isAllDay
-										? '종일'
-										: new Date(event.startTime).toLocaleTimeString('ko-KR', {
-												hour: '2-digit',
-												minute: '2-digit',
-												hour12: false
-											})}</time
-								><strong>{event.title}</strong></button
-							>{:else}<p>등록된 일정이 없습니다.</p>{/each}{#key dayKey(cursor)}<PdfEditor
+						{#key dayKey(cursor)}<PdfEditor
 								daily={true}
+								events={visible}
+								date={dayKey(cursor)}
+								onevent={edit}
 								resourceId={`day-ink:${dayKey(cursor)}`}
 								url=""
 								name="하루 일정 필기"

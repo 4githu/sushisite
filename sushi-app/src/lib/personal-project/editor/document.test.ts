@@ -1,6 +1,36 @@
 import { expect, it } from 'vitest';
 import { createDocument, createTextBlock } from '$lib/textediter/model';
 import { toRich, fromRich } from './document';
+it('keeps editable drawing strokes, image size and alignment through saved JSON', () => {
+	const rich = {
+		type: 'doc',
+		content: [
+			{
+				type: 'image',
+				attrs: {
+					src: '/api/personal/resources/example',
+					alt: '그림 메모',
+					widthPct: 45,
+					objectAlign: 'right',
+					drawing: [
+						{
+							id: 'stroke-a',
+							kind: 'pen',
+							color: '#25262b',
+							width: 3,
+							points: [
+								{ x: 20, y: 30, pressure: 0.5 },
+								{ x: 80, y: 60, pressure: 0.7 }
+							]
+						}
+					]
+				}
+			}
+		]
+	};
+	const stored = JSON.parse(JSON.stringify(fromRich(rich, createDocument())));
+	expect(toRich(stored)).toEqual(rich);
+});
 it('preserves Aura identities across conversion and student swaps', () => {
 	const a = createDocument();
 	a.blocks = [{ ...createTextBlock('paragraph', '학생 가 질문'), id: 'shared-question' }];

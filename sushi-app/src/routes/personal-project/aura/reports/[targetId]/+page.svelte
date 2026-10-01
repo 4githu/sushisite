@@ -853,7 +853,7 @@
 						<span><kbd>Ctrl/Cmd+B</kbd> 굵게</span>
 						<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
 						<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
-						<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음</span>
+						<span><kbd>Ctrl/Cmd+Shift+B</kbd> 인용 전환</span>
 						<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
 						<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
 						<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
@@ -884,7 +884,7 @@
 			</header>
 			<div class="editor-wrap">
 				<p class="question-check-guide">
-					Ctrl/Cmd+Alt+Q로 선택한 부분을 ‘물어봤음’으로 저장합니다.
+					질문이나 참고 문구는 인용으로 구분하세요. Ctrl/Cmd+Shift+B로 전환합니다.
 				</p>
 				{#key report.targetId}
 				<AuraReportEditor
@@ -993,7 +993,7 @@
 							>
 							<label class="question-rule"
 								><input type="checkbox" bind:checked={includeQuestionChecks} />
-								<span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label
+								<span>과거 리포트의 질문 표시도 AI에 전달</span></label
 							>
 						</section>
 						<div class="rating-grid">

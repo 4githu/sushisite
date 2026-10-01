@@ -3,12 +3,15 @@
 	import { request } from '$lib/personal-project/shared/api';
 	import '$lib/personal-project/student/student.css';
 	type Data = {
+		total: number;
+		page: number;
 		users: { id: number; name: string; email: string }[];
 		boards: { id: number; name: string; restricted: number }[];
 		permissions: { user_id: number; scope: string; action: string; allowed: number }[];
 		audit: { id: number; actor: number; action: string; target: string; created_at: string }[];
 	};
 	let data = $state<Data | null>(null),
+		memberPage = $state(1),
 		q = $state(''),
 		error = $state(''),
 		busy = $state(false),
@@ -17,7 +20,7 @@
 		action = $state('read'),
 		allowed = $state('allow');
 	async function load() {
-		data = await request<Data>(`/admin/workspace?q=${encodeURIComponent(q)}`);
+		data = await request<Data>(`/admin/workspace?q=${encodeURIComponent(q)}&page=${memberPage}`);
 		boardId ??= data.boards[0]?.id;
 	}
 	async function run(fn: () => Promise<void>) {
@@ -72,20 +75,36 @@
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
+					memberPage = 1;
 					void run(load);
 				}}
 			>
 				<input
 					aria-label="회원 검색"
 					bind:value={q}
-					placeholder="가입 이메일 또는 이름"
-					required
+					placeholder="공란으로 검색하면 전체 회원"
 				/><button disabled={busy}>회원 검색</button>
 			</form>
 			{#each data.users as u}<button
 					class:selected={selected === u.id}
 					onclick={() => (selected = u.id)}>{u.name} · {u.email}</button
 				>{/each}
+			<nav aria-label="회원 목록 페이지">
+				<button
+					disabled={busy || memberPage === 1}
+					onclick={() => {
+						memberPage--;
+						void run(load);
+					}}>이전</button
+				><span>{memberPage} / {Math.max(1, Math.ceil(data.total / 30))} · {data.total}명</span
+				><button
+					disabled={busy || memberPage * 30 >= data.total}
+					onclick={() => {
+						memberPage++;
+						void run(load);
+					}}>다음</button
+				>
+			</nav>
 			{#if selected}<form
 					onsubmit={(e) => {
 						e.preventDefault();

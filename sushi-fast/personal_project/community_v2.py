@@ -322,12 +322,14 @@ def document_copies(uid:int=Depends(current_user_id)):
     with connection() as db:return [dict(r) for r in db.execute("SELECT document_key,revision,updated_at FROM personal_documents WHERE user_id=? AND document_key LIKE '%conflict:%' ORDER BY updated_at DESC LIMIT 100",(uid,))]
 
 @router.get('/admin/workspace')
-def admin_workspace(q:str=Query('',max_length=120),uid:int=Depends(current_user_id)):
+def admin_workspace(q:str=Query('',max_length=120),page:int=Query(1,ge=1),uid:int=Depends(current_user_id)):
     if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
     from auth.userdb import get_connection
     with get_connection() as users:
-        rows=[dict(r) for r in users.execute('SELECT id,name,email FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id LIMIT 30',('%'+q+'%','%'+q+'%'))] if q.strip() else []
-    with connection() as db:return {'users':rows,'boards':[dict(b) for b in db.execute('SELECT id,name,restricted FROM community_boards')],'permissions':[dict(a) for a in db.execute('SELECT * FROM community_acl')],'audit':[dict(a) for a in db.execute('SELECT * FROM community_audit ORDER BY id DESC LIMIT 50')]}
+        args=('%'+q.strip()+'%','%'+q.strip()+'%')
+        total=users.execute('SELECT count(*) FROM users WHERE email LIKE ? OR name LIKE ?',args).fetchone()[0]
+        rows=[dict(r) for r in users.execute('SELECT id,name,email FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id LIMIT 30 OFFSET ?',(*args,(page-1)*30))]
+    with connection() as db:return {'users':rows,'total':total,'page':page,'boards':[dict(b) for b in db.execute('SELECT id,name,restricted FROM community_boards')],'permissions':[dict(a) for a in db.execute('SELECT * FROM community_acl')],'audit':[dict(a) for a in db.execute('SELECT * FROM community_audit ORDER BY id DESC LIMIT 50')]}
 
 class BoardRestriction(BaseModel):
     restricted:bool

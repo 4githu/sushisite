@@ -12,12 +12,14 @@
 	import { TextStyleKit } from '@tiptap/extension-text-style';
 	import Placeholder from '@tiptap/extension-placeholder';
 	import UniqueID from '@tiptap/extension-unique-id';
-	import { Plugin, PluginKey } from '@tiptap/pm/state';
+	import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state';
 	import { Decoration, DecorationSet } from '@tiptap/pm/view';
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
 	import { toRich, fromRich } from './document';
-	import PersonalColorPicker from './PersonalColorPicker.svelte';
+	import EditorToolbar from './EditorToolbar.svelte';
+	import DrawingMemo from './DrawingMemo.svelte';
+	import type { Stroke } from '../pdf/model';
 	import { uploadResource } from '../resources/api';
 	let {
 		initialValue = null,
@@ -48,16 +50,111 @@
 	} = $props();
 	let surface: HTMLDivElement;
 	let editor = $state.raw<Editor>();
-	let expanded = $state(!untrack(() => compact));
+
 	let inTable = $state(false);
-	let palette = $state<'text' | 'highlight' | null>(null);
-	let markerEnabled = $state(
-		untrack(
-			() =>
-				Object.values(questionChecks).some(Boolean) ||
-				JSON.stringify(initialValue?.richContent || {}).includes('\"questionMarked\":true')
-		)
-	);
+
+	let imageSelected = $state(false),
+		imageAttrs = $state<Record<string, any>>({});
+	let drawingOpen = $state(false),
+		drawingInitial = $state<Stroke[]>([]),
+		drawingPosition: number | null = null;
+	let drawingGeneration = 0;
+	const ObjectImage = Image.extend({
+		draggable: true,
+		addAttributes() {
+			return {
+				...this.parent?.(),
+				widthPct: {
+					default: 100,
+					parseHTML: (el) => Number(el.dataset.widthPct) || 100,
+					renderHTML: (attrs) => ({
+						'data-width-pct': attrs.widthPct,
+						style:
+							'width:' +
+							Math.max(15, Math.min(100, Number(attrs.widthPct) || 100)) +
+							'%;height:auto;'
+					})
+				},
+				objectAlign: {
+					default: 'left',
+					parseHTML: (el) => el.dataset.objectAlign || 'left',
+					renderHTML: (attrs) => ({
+						'data-object-align': attrs.objectAlign,
+						style:
+							attrs.objectAlign === 'right'
+								? 'margin-left:auto;margin-right:0;'
+								: attrs.objectAlign === 'center'
+									? 'margin-left:auto;margin-right:auto;'
+									: 'margin-left:0;margin-right:auto;'
+					})
+				},
+				drawing: { default: null, renderHTML: () => ({}) }
+			};
+		}
+	});
+	function syncSelection(e: Editor) {
+		inTable = e.isActive('table');
+		imageSelected =
+			e.state.selection instanceof NodeSelection && e.state.selection.node.type.name === 'image';
+		imageAttrs = imageSelected ? e.getAttributes('image') : {};
+	}
+	function moveImage(direction: number) {
+		if (!editor || !(editor.state.selection instanceof NodeSelection)) return;
+		const sel = editor.state.selection;
+		if (sel.node.type.name !== 'image') return;
+		const index = sel.$from.index(),
+			parent = sel.$from.parent,
+			next = index + direction;
+		if (next < 0 || next >= parent.childCount) return;
+		const target =
+			direction < 0
+				? sel.from - parent.child(next).nodeSize
+				: sel.from + parent.child(next).nodeSize;
+		const tr = editor.state.tr.delete(sel.from, sel.to).insert(target, sel.node);
+		tr.setSelection(NodeSelection.create(tr.doc, target));
+		editor.view.dispatch(tr.scrollIntoView());
+		editor.commands.focus();
+	}
+	function openDrawing(edit = false) {
+		drawingGeneration = generation;
+		drawingPosition = edit && editor ? editor.state.selection.from : null;
+		drawingInitial =
+			edit && Array.isArray(imageAttrs.drawing)
+				? structuredClone($state.snapshot(imageAttrs.drawing))
+				: [];
+		drawingOpen = true;
+	}
+	export function openDrawingMemo() {
+		openDrawing();
+	}
+	async function saveDrawing(file: File, strokes: Stroke[]) {
+		const scope = drawingGeneration;
+		if (scope !== generation || !editor)
+			throw Error('문서가 바뀌었습니다. 현재 문서에 다시 첨부해주세요.');
+		const asset = await uploadResource(file, boardId);
+		if (scope !== generation || !editor)
+			throw Error('문서가 바뀌었습니다. 현재 문서에 다시 첨부해주세요.');
+		const attrs = { src: asset.url, alt: '그림 메모', drawing: strokes };
+		if (
+			drawingPosition !== null &&
+			editor.state.doc.nodeAt(drawingPosition)?.type.name === 'image'
+		) {
+			const node = editor.state.doc.nodeAt(drawingPosition)!;
+			editor.view.dispatch(
+				editor.state.tr.setNodeMarkup(drawingPosition, undefined, { ...node.attrs, ...attrs })
+			);
+		} else
+			editor
+				.chain()
+				.focus()
+				.insertContentAt(editor.state.selection.to, [
+					{ type: 'image', attrs },
+					{ type: 'paragraph' }
+				])
+				.run();
+		drawingOpen = false;
+	}
+
 	const BlockLayout = Extension.create({
 		name: 'blockLayout',
 		addGlobalAttributes() {
@@ -134,17 +231,7 @@
 				.run();
 		else editor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run();
 	}
-	export function attachMemo(text: string) {
-		if (!editor) return;
-		editor
-			.chain()
-			.focus()
-			.insertContentAt(editor.state.selection.to, [
-				{ type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] },
-				{ type: 'paragraph' }
-			])
-			.run();
-	}
+
 	let error = $state('');
 	let uploadProgress = $state<number | null>(null);
 	let failedFile = $state<File | null>(null);
@@ -178,23 +265,7 @@
 			];
 		}
 	});
-	function toggleQuestion() {
-		if (!editor || readonly) return;
-		markerEnabled = true;
-		const from = editor.state.selection.$from;
-		for (let d = from.depth; d > 0; d--) {
-			const id = from.node(d).attrs.id;
-			if (id) {
-				if (onquestionchange) onquestionchange(id, !questionChecks[id]);
-				else
-					editor.commands.updateAttributes(from.node(d).type.name, {
-						questionMarked: !from.node(d).attrs.questionMarked
-					});
-				refreshChecks();
-				return;
-			}
-		}
-	}
+
 	function refreshChecks() {
 		if (editor && !editor.isDestroyed)
 			editor.view.dispatch(editor.state.tr.setMeta(checksKey, true));
@@ -247,16 +318,7 @@
 							}
 						});
 					}
-					if (markerEnabled)
-						state.doc.descendants((node, pos) => {
-							if (node.isTextblock && (questionChecks[node.attrs.id] || node.attrs.questionMarked))
-								dec.push(
-									Decoration.node(pos, pos + node.nodeSize, {
-										class: 'question-marked',
-										'data-question-marked': 'true'
-									})
-								);
-						});
+
 					return DecorationSet.create(state.doc, dec);
 				}
 			}
@@ -273,7 +335,7 @@
 				Details.configure({ persist: true }),
 				DetailsContent,
 				DetailsSummary,
-				Image,
+				ObjectImage,
 				Highlight.configure({ multicolor: true }),
 				TextStyleKit,
 				Placeholder.configure({ placeholder }),
@@ -316,11 +378,7 @@
 						indentBlock(event.shiftKey);
 						return true;
 					}
-					if ((event.ctrlKey || event.metaKey) && event.altKey && event.code === 'KeyQ') {
-						event.preventDefault();
-						toggleQuestion();
-						return true;
-					}
+
 					if (
 						(event.ctrlKey || event.metaKey) &&
 						event.altKey &&
@@ -371,10 +429,10 @@
 				}
 			},
 			onSelectionUpdate: ({ editor: e }) => {
-				inTable = e.isActive('table');
+				syncSelection(e);
 			},
 			onTransaction: ({ editor: e }) => {
-				inTable = e.isActive('table');
+				syncSelection(e);
 			},
 			onUpdate: ({ editor: e }) => {
 				base = fromRich(e.getJSON(), base);
@@ -399,7 +457,6 @@
 	$effect(() => {
 		questionChecks;
 		foldedBlocks;
-		markerEnabled;
 		allowFolding;
 		refreshChecks();
 	});
@@ -449,113 +506,24 @@
 	}
 </script>
 
-<div class="personal-editor" class:compact class:markers={markerEnabled}>
-	{#if !readonly}<div class="tools" role="toolbar" aria-label="문서 편집 도구">
-			<button type="button" onclick={() => (expanded = !expanded)} aria-expanded={expanded}
-				>서식 {expanded ? '접기' : '열기'}</button
-			>
-			<button type="button" onclick={() => editor?.chain().focus().toggleTaskList().run()}
-				>☑ 체크리스트</button
-			>
-			<button
-				type="button"
-				onclick={() => editor?.chain().focus().undo().run()}
-				aria-label="실행 취소">↶</button
-			><button
-				type="button"
-				onclick={() => editor?.chain().focus().redo().run()}
-				aria-label="다시 실행">↷</button
-			>
-			{#if expanded}<button type="button" onclick={() => editor?.chain().focus().toggleBold().run()}
-					><b>굵게</b></button
-				><button type="button" onclick={() => editor?.chain().focus().toggleItalic().run()}
-					><i>기울임</i></button
-				><button
-					type="button"
-					onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>제목</button
-				><button type="button" onclick={() => editor?.chain().focus().toggleBulletList().run()}
-					>목록</button
-				><button type="button" onclick={() => editor?.chain().focus().toggleOrderedList().run()}
-					>번호</button
-				><button
-					type="button"
-					title="인용 전환 · Ctrl/Cmd+Shift+B"
-					onclick={() => editor?.chain().focus().toggleBlockquote().run()}>인용</button
-				><button type="button" onclick={() => editor?.chain().focus().setDetails().run()}
-					>토글</button
-				>
-				<button type="button" onclick={() => (palette = palette === 'text' ? null : 'text')}
-					>글자색</button
-				>
-				<button
-					type="button"
-					onclick={() => (palette = palette === 'highlight' ? null : 'highlight')}>형광펜 색</button
-				>
-				<button type="button" onclick={() => editor?.chain().focus().unsetHighlight().run()}
-					>형광 제거</button
-				>
-				<button type="button" onclick={link} title="선택한 글자에 링크를 연결하거나 수정합니다."
-					>링크 연결</button
-				>
-				<button
-					type="button"
-					onclick={() => {
-						editor?.commands.focus();
-						indentBlock();
-					}}>들여쓰기</button
-				>
-				<button
-					type="button"
-					onclick={() => {
-						editor?.commands.focus();
-						indentBlock(true);
-					}}>내어쓰기</button
-				>
-				<button type="button" onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
-					>코드 블록</button
-				>
-				<button
-					type="button"
-					aria-pressed={markerEnabled}
-					onclick={() => (markerEnabled = !markerEnabled)}
-					>질문 표시 {markerEnabled ? '켜짐' : '꺼짐'}</button
-				>
-				{#if markerEnabled}<button type="button" onclick={toggleQuestion} title="Ctrl/Cmd+Alt+Q"
-						>왼쪽 표시 전환</button
-					>{/if}
-				{#if palette}<PersonalColorPicker
-						kind={palette}
-						onclose={() => (palette = null)}
-						onselect={(color) => {
-							if (palette === 'text') {
-								if (color) editor?.chain().focus().setColor(color).run();
-								else editor?.chain().focus().unsetColor().run();
-							} else {
-								if (color) editor?.chain().focus().setHighlight({ color }).run();
-								else editor?.chain().focus().unsetHighlight().run();
-							}
-							palette = null;
-						}}
-					/>{/if}
-				<button type="button" onclick={() => input.click()}>사진·파일</button><button
-					type="button"
-					onclick={() =>
-						editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-					>표</button
-				>
-				{#if inTable}<button
-						type="button"
-						onclick={() => editor?.chain().focus().addRowAfter().run()}>행 추가</button
-					><button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()}
-						>열 추가</button
-					><button type="button" onclick={() => editor?.chain().focus().deleteRow().run()}
-						>행 삭제</button
-					><button type="button" onclick={() => editor?.chain().focus().deleteColumn().run()}
-						>열 삭제</button
-					><button type="button" onclick={() => editor?.chain().focus().deleteTable().run()}
-						>표 삭제</button
-					>{/if}{/if}
-		</div>{/if}
+<div class="personal-editor" class:compact>
+	{#if !readonly}<EditorToolbar
+			{editor}
+			{inTable}
+			{imageSelected}
+			imageWidth={imageAttrs.widthPct || 100}
+			isDrawing={Array.isArray(imageAttrs.drawing)}
+			indent={indentBlock}
+			{link}
+			attach={() => input.click()}
+			draw={() => openDrawing()}
+			editDrawing={() => openDrawing(true)}
+			{moveImage}
+			sizeImage={(widthPct) =>
+				editor?.chain().focus().updateAttributes('image', { widthPct }).run()}
+			alignImage={(objectAlign) =>
+				editor?.chain().focus().updateAttributes('image', { objectAlign }).run()}
+		/>{/if}
 	<input
 		hidden
 		type="file"
@@ -577,30 +545,16 @@
 	<div bind:this={surface}></div>
 </div>
 
+{#if drawingOpen}<DrawingMemo
+		initial={drawingInitial}
+		onsave={saveDrawing}
+		oncancel={() => (drawingOpen = false)}
+	/>{/if}
+
 <style>
-	.markers :global(.question-marked),
-	.markers :global([data-question-marked='true']) {
-		border-left: 4px solid #e59639;
-		padding-left: 10px;
-	}
-	.tools :global(.color-popover) {
-		flex-basis: 100%;
-		padding: 12px;
-		background: var(--surface, #fff);
-		border: 1px solid #aaa5;
-		border-radius: 8px;
-	}
-	.tools :global(.swatches) {
-		display: flex;
-		gap: 7px;
-		margin: 6px 0;
-	}
-	.tools :global(.swatch) {
-		background: var(--swatch);
-		width: 28px;
-		height: 28px;
-		border: 1px solid #8886;
-		border-radius: 50%;
+	.personal-editor :global(img.ProseMirror-selectednode) {
+		outline: 2px solid #6686a1;
+		outline-offset: 3px;
 	}
 
 	.personal-editor {
@@ -608,37 +562,7 @@
 		border-radius: 10px;
 		background: var(--surface, #fff);
 		color: var(--text, #25262b);
-		overflow: hidden;
-	}
-	.tools {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 5px;
-		padding: 8px;
-		border-bottom: 1px solid var(--border, #ddd);
-		align-items: center;
-	}
-	.tools button {
-		font-size: 14px;
-		min-height: 32px;
-		padding: 4px 9px;
-		border: 1px solid var(--border, #ddd);
-		border-radius: 5px;
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-	}
-	.tools :global(label) {
-		display: flex;
-		gap: 4px;
-		align-items: center;
-		font-size: 14px;
-	}
-	.tools :global(input) {
-		width: 26px;
-		height: 26px;
-		padding: 0;
-		border: 0;
+		overflow: visible;
 	}
 	.personal-editor :global(.tiptap) {
 		min-height: 160px;
@@ -683,6 +607,8 @@
 		background: #8566cc;
 	}
 	.personal-editor :global(.tiptap img) {
+		display: block;
+		cursor: grab;
 		max-width: 100%;
 		height: auto;
 	}
@@ -718,10 +644,17 @@
 		background: transparent;
 	}
 	.personal-editor :global([data-type='details'] > button:before) {
-		content: '▸';
+		content: '';
+		display: inline-block;
+		width: 0;
+		height: 0;
+		border-top: 5px solid transparent;
+		border-bottom: 5px solid transparent;
+		border-left: 7px solid currentColor;
+		transition: transform 0.12s;
 	}
 	.personal-editor :global([data-type='details'].is-open > button:before) {
-		content: '▾';
+		transform: rotate(90deg);
 	}
 	.personal-editor :global(blockquote) {
 		border-left: 3px solid #989aa9;

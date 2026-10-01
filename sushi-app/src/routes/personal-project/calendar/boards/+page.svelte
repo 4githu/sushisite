@@ -73,7 +73,6 @@
 	const pid = $derived(Number(page.url.searchParams.get('post') || 0));
 	const currentPage = $derived(Number(page.url.searchParams.get('page') || 1));
 	const board = $derived(boards.find((b) => b.id === bid));
-	let memo = $state('');
 	let composer = $state<PersonalTextEditor>();
 	let generation = 0;
 	beforeNavigate(({ cancel }) => {
@@ -217,22 +216,9 @@
 						oninput={() => (changed = true)}
 					/></label
 				>
-				<details>
-					<summary>간단한 메모 첨부</summary><textarea
-						aria-label="첨부할 메모"
-						bind:value={memo}
-						placeholder="짧은 설명이나 전달사항"
-						rows="3"
-					></textarea><button
-						type="button"
-						disabled={!memo.trim()}
-						onclick={() => {
-							composer?.attachMemo(memo.trim());
-							memo = '';
-						}}>메모를 본문에 첨부</button
-					>
-				</details>
-				<p class="attachment-help">사진은 붙여넣기·드래그하거나 ‘사진·파일’에서 첨부하세요.</p>
+				<p class="attachment-help">
+					‘그림 메모’로 그려서 첨부하세요. 사진·그림을 선택하면 위치와 크기를 바꿀 수 있습니다.
+				</p>
 				<PersonalTextEditor
 					bind:this={composer}
 					initialValue={initial}

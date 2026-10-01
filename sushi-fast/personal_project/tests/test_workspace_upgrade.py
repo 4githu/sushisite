@@ -14,6 +14,25 @@ client=TestClient(app)
 BASE='/api/personal'
 TERM='2026_U000200002U000300001'
 
+def test_admin_blank_search_paginates_and_rejects_non_admin(monkeypatch, tmp_path):
+    import sqlite3
+    from auth import userdb
+    path=tmp_path/'members.sqlite'
+    def connect():
+        db=sqlite3.connect(path);db.row_factory=sqlite3.Row;return db
+    with connect() as db:
+        db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT,email TEXT)')
+        db.executemany('INSERT INTO users VALUES(?,?,?)',[(i,f'Member {i}',f'member{i}@example.test') for i in range(1,36)])
+    monkeypatch.setattr(userdb,'get_connection',connect)
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(user))
+    first=client.get(BASE+'/admin/workspace',params={'q':' '}).json()
+    second=client.get(BASE+'/admin/workspace',params={'page':2}).json()
+    assert first['total']==35 and len(first['users'])==30
+    assert [r['id'] for r in second['users']]==[31,32,33,34,35]
+    assert client.get(BASE+'/admin/workspace',params={'q':'member35@'}).json()['total']==1
+    monkeypatch.setenv('COMMUNITY_ADMINS','999999')
+    assert client.get(BASE+'/admin/workspace').status_code==403
+
 def test_calendar_reconciles_only_owned_occurrences_atomically():
     student.save_profile(user,student.Profile(is_student=True,school='서울대학교'))
     c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
