@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, getContext } from 'svelte';
+	import PdfEditor from '../pdf/PdfEditor.svelte';
 	import DailyPlan from './DailyPlan.svelte';
 	import CalendarIcon from './CalendarIcon.svelte';
 	import { readTaskMode, saveTaskMode, inProject, taskGroups, type CalendarProject, categoryPaths, eventCategories, categoryHidden, safeEventUrl, taskTiming, taskWaiting, taskDeadline } from './planner';
@@ -599,9 +600,9 @@
 					if (noteDirty && !confirm('저장하지 않은 메모가 있습니다. 이동할까요?')) return;
 					showConnections = !showConnections;
 				}}>연결·공유</button
-			>{#if !aura}<button onclick={reserveZoom}>Zoom 예약</button>{/if}<button class="cw-primary" onclick={() => create(cursor)}
+			>{#if !aura}<button onclick={reserveZoom}>Zoom 예약</button>{/if}{#if view !== 'day'}<button class="cw-primary" onclick={() => create(cursor)}
 				><CalendarIcon name="plus" size={16} />{aura ? '새 회차' : '일정 만들기'}</button
-			>
+			>{/if}
 		</div>
 	</header>
 	{#if error}<p role="alert" class="cw-feedback cw-error">
@@ -685,10 +686,7 @@
 					</div>{/each}
 			</div>
 		{:else if view === 'week' || view === 'day'}
-			{#if view === 'day'}<nav class="cw-mobile-panes" aria-label="일별 화면">
-				<button aria-pressed={mobilePane === 'plan'} onclick={() => mobilePane = 'plan'}>할 일·메모</button>
-				<button aria-pressed={mobilePane === 'schedule'} onclick={() => mobilePane = 'schedule'}>시간표</button>
-			</nav>{/if}
+
 			<div class:daily-workspace={view === 'day'} class:mobile-schedule={mobilePane === 'schedule'}>
 				{#if view === 'day'}<DailyPlan
 						date={dayKey(cursor)}
@@ -699,8 +697,8 @@
 						oncomplete={complete}
 						ondirty={(value) => (noteDirty = value)}
 					/>{/if}
-				<div class="cw-week-scroll" bind:this={weekScroll} aria-busy={loading}>
-					<div class="cw-week" class:cw-day-grid={view === 'day'} role="grid" tabindex="0" aria-label="08시부터 익일 02시까지 일정 시간표" onmouseup={finishSlot} onmouseleave={finishSlot}>
+				{#if view === 'day'}{#key dayKey(cursor)}<PdfEditor daily={true} resourceId={`day-ink:${dayKey(cursor)}`} url="" name="하루 일정" />{/key}{:else}<div class="cw-week-scroll" bind:this={weekScroll} aria-busy={loading}>
+					<div class="cw-week"  role="grid" tabindex="0" aria-label="08시부터 익일 02시까지 일정 시간표" onmouseup={finishSlot} onmouseleave={finishSlot}>
 						<div class="cw-corner"></div>
 						{#each days as day}<div
 								class="cw-week-heading"
@@ -753,7 +751,7 @@
 									>{/each}
 							</div>{/each}
 					</div>
-				</div>
+				</div>{/if}
 			</div>
 		{:else}<div class="cw-tasks">
 				{#if !aura}<form class="cw-quick-task" onsubmit={addQuickTask}>

@@ -4,6 +4,12 @@
 		size = 20
 	}: {
 		name:
+			| 'boards'
+			| 'files'
+			| 'school'
+			| 'meals'
+			| 'plan'
+			| 'projects'
 			| 'panel'
 			| 'day'
 			| 'week'
@@ -17,6 +23,12 @@
 		size?: number;
 	} = $props();
 	const paths = {
+		boards: 'M3 4h18v12H9l-5 4v-4H3z M7 8h10 M7 12h6',
+		files: 'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h6',
+		school: 'M3 9l9-6 9 6-9 6z M6 11v7q6 5 12 0v-7',
+		meals: 'M5 3v7 M8 3v7 M3 3v7h7 M6 10v11 M18 3v18 M18 3q-6 6 0 10',
+		plan: 'M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h4',
+		projects: 'M4 5h6l2 3h8v12H4z M8 13h8 M12 10v6',
 		panel: 'M4 4h16v16H4z M9 4v16 M14 9l3 3-3 3',
 		day: 'M5 4h14v16H5z M9 4v16 M12 8h4 M12 12h4 M12 16h4',
 		week: 'M4 5h16v15H4z M4 9h16 M9 9v11 M15 9v11 M8 3v4 M16 3v4',

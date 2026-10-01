@@ -73,7 +73,7 @@
 			}
 		} else if (!dirty) firstDirtyAt = 0;
 	});
-	let inkCanvas: HTMLCanvasElement;
+
 	let penActive = false;
 	let activePointer: number | null = null;
 	let penPoint: { x: number; y: number } | null = null;
@@ -252,7 +252,6 @@
 					/* Ignore an invalid local recovery record. */
 				}
 				editing = true;
-				requestAnimationFrame(restoreDrawing);
 			})
 			.catch((e) => {
 				if (current === revision) error = e.message;
@@ -312,94 +311,6 @@
 		} catch (e) {
 			error = String(e);
 		}
-	}
-	function context() {
-		const ctx = inkCanvas?.getContext('2d');
-		if (!ctx) return null;
-		ctx.lineCap = 'round';
-		ctx.lineJoin = 'round';
-		ctx.lineWidth = erasing || hardwareEraser ? 20 : 2.5;
-		ctx.strokeStyle = penColor;
-		ctx.globalCompositeOperation = erasing || hardwareEraser ? 'destination-out' : 'source-over';
-		return ctx;
-	}
-	function point(event: PointerEvent) {
-		const rect = inkCanvas.getBoundingClientRect();
-		return {
-			x: (event.clientX - rect.left) * (inkCanvas.width / rect.width),
-			y: (event.clientY - rect.top) * (inkCanvas.height / rect.height)
-		};
-	}
-	function startPen(event: PointerEvent) {
-		if (
-			!inkCanvas ||
-			loading ||
-			loadedDate !== date ||
-			activePointer !== null ||
-			(penOnly && event.pointerType === 'touch')
-		)
-			return;
-		event.preventDefault();
-		activePointer = event.pointerId;
-		hardwareEraser =
-			event.button === 5 ||
-			(event.buttons & 32) !== 0 ||
-			(event.pointerType === 'pen' && (event.buttons & 2) !== 0);
-		penActive = true;
-		penPoint = point(event);
-		inkCanvas.setPointerCapture(event.pointerId);
-		const ctx = context();
-		if (ctx) {
-			ctx.beginPath();
-			ctx.moveTo(penPoint.x, penPoint.y);
-			ctx.lineTo(penPoint.x + 0.01, penPoint.y + 0.01);
-			ctx.stroke();
-		}
-	}
-	function drawPen(event: PointerEvent) {
-		if (!penActive || !penPoint || event.pointerId !== activePointer) return;
-		hardwareEraser =
-			(event.buttons & 32) !== 0 || (event.pointerType === 'pen' && (event.buttons & 2) !== 0);
-		const next = point(event);
-		const ctx = context();
-		if (!ctx) return;
-		ctx.beginPath();
-		ctx.moveTo(penPoint.x, penPoint.y);
-		ctx.lineTo(next.x, next.y);
-		ctx.stroke();
-		penPoint = next;
-	}
-	function finishPen(event: PointerEvent) {
-		if (!penActive || event.pointerId !== activePointer) return;
-		activePointer = null;
-		penActive = false;
-		penPoint = null;
-		hardwareEraser = false;
-		if (inkCanvas.hasPointerCapture(event.pointerId))
-			inkCanvas.releasePointerCapture(event.pointerId);
-		drawing = inkCanvas.toDataURL('image/png');
-	}
-	function clearDrawing() {
-		const ctx = context();
-		if (!ctx) return;
-		ctx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-		drawing = '';
-	}
-	function restoreDrawing() {
-		const ctx = context();
-		if (!ctx) return;
-		ctx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-		if (!drawing) return;
-		const image = new Image();
-		const current = revision;
-		image.onload = () => {
-			if (current !== revision) return;
-			ctx.save();
-			ctx.globalCompositeOperation = 'source-over';
-			ctx.drawImage(image, 0, 0, inkCanvas.width, inkCanvas.height);
-			ctx.restore();
-		};
-		image.src = drawing;
 	}
 	function checkLine(index: number) {
 		note = note
@@ -503,52 +414,14 @@
 				>{saving ? '저장 중…' : '지금 저장'}</button
 			>
 		</div>
-		<details
-			class="ink-note"
-			open={inkOpen}
-			ontoggle={(e) => {
-				inkOpen = e.currentTarget.open;
-				try {
-					localStorage.setItem('ondo.ink-open', String(inkOpen));
-				} catch {
-					/* optional preference */
-				}
-			}}
-		>
-			<summary>펜 메모 · 접기/펼치기</summary>
-			<div class="note-heading">
-				<strong>펜 메모</strong><button
-					type="button"
-					disabled={loading}
-					onclick={() => {
-						if (confirm('펜 메모 전체를 지울까요?')) clearDrawing();
-					}}>전체 지우기</button
-				>
-			</div>
-			<details class="pen-tools">
-				<summary>펜 도구</summary>
-				<div class="pen-controls">
-					<label><input type="checkbox" bind:checked={penOnly} />손가락 그리기 방지</label><label
-						>펜 색 <input type="color" bind:value={penColor} aria-label="펜 색" /></label
-					><button aria-pressed={!erasing} onclick={() => (erasing = false)}>펜</button><button
-						aria-pressed={erasing}
-						onclick={() => (erasing = true)}>지우개</button
-					><small>Surface 펜 뒷면·S펜 버튼을 누르면 지우개로 전환됩니다.</small>
-				</div>
-			</details>
-			<canvas
-				bind:this={inkCanvas}
-				width="640"
-				height="220"
-				aria-label="펜으로 작성하는 메모"
-				onpointerdown={startPen}
-				onpointermove={drawPen}
-				onpointerup={finishPen}
-				onpointercancel={finishPen}
-				onlostpointercapture={finishPen}
-				oncontextmenu={(e) => e.preventDefault()}
-			></canvas>
-		</details>
+		{#if drawing}<details>
+				<summary>이전 펜 메모 보기</summary><img
+					src={drawing}
+					alt="이전 버전에서 저장한 펜 메모"
+					style="max-width:100%"
+				/>
+			</details>{/if}
+
 		{#if error}<p role="alert">{error}</p>
 			{#if conflict}<button onclick={preserveConflict}
 					>복구본을 별도 보존하고 최신 메모 불러오기</button

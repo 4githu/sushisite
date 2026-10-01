@@ -63,6 +63,7 @@ class Timetable(BaseModel):
 def init():
     with connection() as db:
         db.executescript('''
+        CREATE TABLE IF NOT EXISTS student_course_exclusions(user_id INTEGER NOT NULL,code TEXT NOT NULL,PRIMARY KEY(user_id,code));
         CREATE TABLE IF NOT EXISTS student_profiles(user_id INTEGER PRIMARY KEY, is_student INTEGER NOT NULL, school TEXT NOT NULL, department TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS student_timetable_imports(user_id INTEGER NOT NULL, fingerprint TEXT NOT NULL, event_ids TEXT NOT NULL, PRIMARY KEY(user_id,fingerprint));
         CREATE TABLE IF NOT EXISTS student_major_plans(user_id INTEGER PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL);
@@ -246,18 +247,34 @@ def save_draft(user_id, term, data, slot=''):
 class CourseCompletion(BaseModel):
     completed: bool
 
-def course_progress(user_id):
-    from .snu_catalog import courses
+def course_history(user_id):
+    from .snu_catalog import courses, metadata, supplements
+    today=datetime.now(ZoneInfo('Asia/Seoul')).date()
+    terms={t['id']:t for t in metadata()['terms']}
+    canon=supplements().get('code_equiv',{}).get('canon',{})
     with connection() as db:
-        completed=[r['code'] for r in db.execute('SELECT code FROM student_completed_courses WHERE user_id=?',(user_id,))]
-        drafts=db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=?',(user_id,)).fetchall()
-    planned=set()
+        excluded={r[0] for r in db.execute('SELECT code FROM student_course_exclusions WHERE user_id=?',(user_id,))}
+        drafts=db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=? ORDER BY term',(user_id,)).fetchall()
+    history=[];completed={};planned={}
     for row in drafts:
-        if '::explore-' in row['term']:continue
-        ids=set(json.loads(row['data'])['course_ids'])
-        if ids:
-            planned.update(c['sbjt_cd'].strip().upper() for c in courses(row['term'].split('::')[0]) if c['id'] in ids and c.get('sbjt_cd'))
-    return {'completed':sorted(completed),'planned':sorted(planned)}
+        if '::' in row['term']:continue
+        info=terms.get(row['term'])
+        if not info:continue
+        data=json.loads(row['data']);ids=set(data.get('course_ids',[]))
+        rows=[c for c in courses(row['term']) if c['id'] in ids]
+        end=data.get('ends_on')
+        finished=bool(end and date.fromisoformat(end)<today)
+        for c in rows:
+            code=c.get('sbjt_cd','').strip().upper()
+            if code and canon.get(code,code) not in excluded:(completed if finished else planned)[canon.get(code,code)]=c
+        history.append({'term':row['term'],'label':info['label'],'ends_on':end,'finished':finished,'courses':rows})
+    return {'semesters':history,'completed':list(completed.values()),'planned':list(planned.values()),'excluded':sorted(excluded | {c['sbjt_cd'] for h in history for c in h['courses'] if canon.get(c['sbjt_cd'],c['sbjt_cd']) in excluded})}
+
+def course_progress(user_id):
+    history=course_history(user_id)
+    return {'completed':sorted({c['sbjt_cd'].strip().upper() for c in history['completed']}),
+            'planned':sorted({c['sbjt_cd'].strip().upper() for c in history['planned']}),
+            'basis':'past_timetables'}
 
 def set_course_completion(user_id,code,data):
     code=code.strip().upper()

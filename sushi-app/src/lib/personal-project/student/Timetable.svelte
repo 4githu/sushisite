@@ -2,12 +2,8 @@
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { request } from '$lib/personal-project/shared/api';
-	import CourseCompletion from '$lib/personal-project/student/CourseCompletion.svelte';
-	import {
-		courseState,
-		courseKey,
-		type CourseProgress
-	} from '$lib/personal-project/student/progress';
+
+
 	import TimetableGrid from '$lib/personal-project/student/TimetableGrid.svelte';
 	import {
 		courseLessons,
@@ -36,24 +32,8 @@
 		history = $state<{ term: string; courses: Course[] }[]>([]),
 		detail = $state<Course | null>(null);
 	let alternatives = $state<{ slot: string; courses: number }[]>([]);
-	let slot = $state(''),
-		progress = $state<CourseProgress>({ planned: [], completed: [] }),
-		progressBusy = $state(false);
+	let slot = $state('');
 	const slots = Array.from({ length: 12 }, (_, i) => `${Math.floor(i / 2) + 1}-${(i % 2) + 1}`);
-	async function completeCourse(code: string) {
-		if (progressBusy) return;
-		progressBusy = true;
-		try {
-			progress = await request(`/student/course-progress/${encodeURIComponent(code)}`, {
-				method: 'PUT',
-				body: { completed: !progress.completed.includes(courseKey(code)) }
-			});
-		} catch (e) {
-			error = e instanceof Error ? e.message : '이수 상태 저장 실패';
-		} finally {
-			progressBusy = false;
-		}
-	}
 
 	let catalog = $state<Catalog | null>(null),
 		term = $state(''),
@@ -279,17 +259,15 @@
 	onMount(async () => {
 		try {
 			engine = new CourseSearch();
-			const [data, profile, initialProgress] = await Promise.all([
+			const [data, profile] = await Promise.all([
 				request<Catalog>('/student/catalog'),
 				request<{ school: string; admission_year: number | null; academic_offset: number }>(
 					'/student/profile'
-				),
-				request<CourseProgress>('/student/course-progress')
+				)
 			]);
 			catalog = data;
 			admissionYear = profile.admission_year;
 			academicOffset = profile.academic_offset || 0;
-			progress = initialProgress;
 			school = profile.school || '서울대학교';
 			const available = data.terms
 				.filter((t) => termDates(t).starts_on <= new Date().toISOString().slice(0, 10))
@@ -339,7 +317,6 @@
 		saved = input;
 		revision = result.revision;
 		notice = exploration ? '탐색 초안을 저장했습니다.' : '저장됨 · 캘린더 자동 반영 완료';
-		progress = await request('/student/course-progress');
 	}
 	function addManual() {
 		error = '';
@@ -446,7 +423,7 @@
 					></label
 				>{:else if academicLabel}<span>{academicLabel} · {termInfo?.label}</span>{/if}
 			<a class="button" href="/personal-project/calendar/student">{school} · 학교 설정</a><label
-				>학기<select
+				>{exploration ? '개설 학기' : '학년·학기'}<select
 					aria-label="학기"
 					value={term}
 					disabled={loading || busy}
@@ -459,14 +436,26 @@
 						void loadTerm(next);
 					}}
 					>{#each catalog?.terms || [] as item}<option value={item.id}
-							>{academicSlot(item, admissionYear, academicOffset)
-								? academicSlot(item, admissionYear, academicOffset) + ' · '
-								: ''}{item.label}</option
+							>{academicSlot(item, admissionYear, academicOffset) || item.label} · {item.label}</option
 						>{/each}</select
 				></label
 			>
 		</div>
 	</header>
+	{#if !exploration && admissionYear}<nav class="semester-nav" aria-label="내 학년별 시간표">
+			{#each (catalog?.terms || [])
+				.filter((t) => academicSlot(t, admissionYear, academicOffset))
+				.sort((a, b) => termDates(a).starts_on.localeCompare(termDates(b).starts_on)) as t}<button
+					class:active={term === t.id}
+					disabled={loading || busy}
+					onclick={async () => {
+						if (dirty) await run(save);
+						if (!dirty) await loadTerm(t.id, '');
+					}}>{academicSlot(t, admissionYear, academicOffset)}</button
+				>{/each}
+		</nav>{:else if !exploration}<p>
+			학교 설정에서 입학 연도를 입력하면 1-1·1-2·계절학기로 표시됩니다.
+		</p>{/if}
 	{#if error}<p class="error" role="alert">{error}</p>{/if}{#if notice}<p
 			class="notice"
 			role="status"
@@ -622,21 +611,12 @@
 					</p>{/if}
 				<details class="panel selected" open>
 					<summary>{slot ? slot + ' · ' : ''}담은 강의 {selected.length + manual.length}개</summary
-					>{#each selected as course}<div
-							class="chosen"
-							class:completed={courseState(progress, course.sbjt_cd) === 'completed'}
-							class:planned={courseState(progress, course.sbjt_cd) === 'planned'}
-						>
+					>{#each selected as course}<div class="chosen">
 							<span
 								><strong>{course.name}</strong><small
 									>{course.sbjt_cd} · {times(course)} · {course.professor}</small
 								></span
-							><CourseCompletion
-								code={course.sbjt_cd}
-								{progress}
-								onchange={completeCourse}
-								busy={progressBusy}
-							/><button
+							><button
 								disabled={busy}
 								aria-label={`${course.name} 빼기`}
 								onclick={() => (selected = selected.filter((c) => c.id !== course.id))}>빼기</button
@@ -757,13 +737,15 @@
 </div>
 
 <style>
-	.chosen.completed {
-		background: #edf8f2;
-		border-color: #77b69a;
+	.semester-nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 12px 0;
 	}
-	.chosen.planned {
-		background: #fffae9;
-		border-color: #d9bf71;
+	.semester-nav .active {
+		background: var(--cw-accent, #ba4329);
+		color: white;
 	}
 	.chosen {
 		flex-wrap: wrap;
@@ -795,9 +777,23 @@
 		gap: 8px;
 		margin-top: 10px;
 	}
-	.filters label{display:flex;flex-direction:column;gap:5px;align-items:stretch;min-width:0;white-space:nowrap;}
-	.filters label:has(input[type=checkbox]){flex-direction:row;align-items:center;}
-	.filters input[type=time],.filters input[type=number]{width:100%;min-width:0;}
+	.filters label {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		align-items: stretch;
+		min-width: 0;
+		white-space: nowrap;
+	}
+	.filters label:has(input[type='checkbox']) {
+		flex-direction: row;
+		align-items: center;
+	}
+	.filters input[type='time'],
+	.filters input[type='number'] {
+		width: 100%;
+		min-width: 0;
+	}
 	.filters select:first-child {
 		grid-column: 1/-1;
 	}

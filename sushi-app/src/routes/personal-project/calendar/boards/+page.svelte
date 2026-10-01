@@ -8,7 +8,7 @@
 	import { createDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
 	import '$lib/personal-project/student/student.css';
-	type Board = { id: number; name: string; realm: string; permissions: Record<string, boolean> };
+	type Board = { id: number; name: string; realm: string; post_count?: number; last_title?: string; permissions: Record<string, boolean> };
 	type Post = {
 		id: number;
 		title: string;
@@ -61,7 +61,7 @@
 		action = $state('read'),
 		permission = $state('allow'),
 		acl = $state<{ user_id: number; scope: string; action: string; allowed: number }[]>([]);
-	const bid = $derived(Number(page.url.searchParams.get('board') || 1));
+	const bid = $derived(Number(page.url.searchParams.get('board') || 0));
 	const pid = $derived(Number(page.url.searchParams.get('post') || 0));
 	const currentPage = $derived(Number(page.url.searchParams.get('page') || 1));
 	const board = $derived(boards.find((b) => b.id === bid));
@@ -110,7 +110,7 @@
 			if (pid) {
 				const data = await request<Detail>(`/boards/posts/${pid}`);
 				if (version === generation) detail = data;
-			} else {
+			} else if (bid) {
 				const data = await request<{ posts: Post[]; total: number }>(
 					`/boards/${bid}/posts?${new URLSearchParams({ page: String(currentPage), q, deleted: String(trash) })}`
 				);
@@ -157,7 +157,7 @@
 <svelte:head><title>게시판 · NETAQ</title></svelte:head>
 <div class="student-page board-page">
 	<header class="board-heading">
-		<h1>게시판</h1>
+		<h1>{board?.name || '게시판'}</h1>
 		{#if canCreate}<button
 				onclick={() =>
 					run(async () => {
@@ -170,164 +170,176 @@
 					})}>게시판 만들기</button
 			>{/if}
 	</header>
-	{#if board}<ApiKeys boardId={bid} boardName={board.name} />{/if}
-	<nav class="board-tabs" aria-label="게시판 목록">
-		{#each boards as b}<a class:active={bid === b.id} href={`?board=${b.id}`}>{b.name}</a>{/each}
-	</nav>
+	{#if board}<a href="/personal-project/calendar/boards">← 전체 게시판</a>{/if}
+	{#if bid}<nav class="board-tabs" aria-label="게시판 목록">
+			{#each boards as b}<a class:active={bid === b.id} href={`?board=${b.id}`}>{b.name}</a>{/each}
+		</nav>{/if}
+	{#if !bid}<section class="board-directory">
+			<h2>전체 게시판</h2>
+			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards as b}<a href={`?board=${b.id}`}
+					><div><strong>{b.name}</strong><p>{b.last_title || '첫 글을 남겨보세요.'}</p></div><span>{b.post_count || 0}개 글 · 목록 보기 →</span></a
+				>{/each}
+		</section>{/if}
 	{#if error}<p class="error" role="alert">
 			{error}<button onclick={load}>다시 불러오기</button>
 		</p>{/if}
-	{#if composing}<section class="composer">
-			<div class="heading">
-				<h2>{editId ? '글 수정' : '새 글'}</h2>
-				<button
-					onclick={() => {
-						if (!changed || confirm('작성 중인 글을 닫을까요?')) {
-							composing = false;
-							changed = false;
-						}
-					}}>닫기</button
-				>
-			</div>
-			<label
-				>제목<input
-					aria-label="글 제목"
-					bind:value={title}
-					maxlength="160"
-					oninput={() => (changed = true)}
-				/></label
-			><PersonalTextEditor
-				initialValue={initial}
-				boardId={bid}
-				onchange={(value) => {
-					document = value;
-					changed = true;
-				}}
-			/>
-			<div class="actions">
-				<button class="primary" disabled={busy || !title.trim()} onclick={() => run(save)}
-					>{busy ? '저장 중…' : editId ? '수정 저장' : '게시하기'}</button
-				>
-			</div>
-		</section>
-	{:else if loading}<p role="status" class="list-status">불러오는 중…</p>
-	{:else if detail}<article class="post-detail">
-			<a href={`?board=${detail.board_id}`}>← 목록</a>
-			<header>
-				<h2>{detail.title}</h2>
-				<p class="muted">
-					{detail.author_name} · {new Date(detail.created_at + 'Z').toLocaleString('ko-KR')}
-				</p>
-			</header>
-			<PersonalTextEditor initialValue={detail.document} readonly />
-			<div class="actions">
-				{#if detail.canEdit}<button onclick={() => compose(true)}>수정</button><button
-						onclick={() =>
-							run(async () => {
-								await request(`/boards/posts/${pid}`, { method: 'PATCH', body: { deleted: true } });
-								await navigate(detail!.board_id);
-							})}>삭제</button
-					>{/if}{#if detail.canManage}<button
-						onclick={() =>
-							run(async () => {
-								await request(`/boards/posts/${pid}`, {
-									method: 'PATCH',
-									body: { pinned: !detail!.pinned }
+	{#if bid}{#if composing}<section class="composer">
+				<div class="heading">
+					<h2>{editId ? '글 수정' : '새 글'}</h2>
+					<button
+						onclick={() => {
+							if (!changed || confirm('작성 중인 글을 닫을까요?')) {
+								composing = false;
+								changed = false;
+							}
+						}}>닫기</button
+					>
+				</div>
+				<label
+					>제목<input
+						aria-label="글 제목"
+						bind:value={title}
+						maxlength="160"
+						oninput={() => (changed = true)}
+					/></label
+				><PersonalTextEditor
+					initialValue={initial}
+					boardId={bid}
+					onchange={(value) => {
+						document = value;
+						changed = true;
+					}}
+				/>
+				<div class="actions">
+					<button class="primary" disabled={busy || !title.trim()} onclick={() => run(save)}
+						>{busy ? '저장 중…' : editId ? '수정 저장' : '게시하기'}</button
+					>
+				</div>
+			</section>
+		{:else if loading}<p role="status" class="list-status">불러오는 중…</p>
+		{:else if detail}<article class="post-detail">
+				<a href={`?board=${detail.board_id}`}>← 목록</a>
+				<header>
+					<h2>{detail.title}</h2>
+					<p class="muted">
+						{detail.author_name} · {new Date(detail.created_at + 'Z').toLocaleString('ko-KR')}
+					</p>
+				</header>
+				<PersonalTextEditor initialValue={detail.document} readonly />
+				<div class="actions">
+					{#if detail.canEdit}<button onclick={() => compose(true)}>수정</button><button
+							onclick={() =>
+								run(async () => {
+									await request(`/boards/posts/${pid}`, {
+										method: 'PATCH',
+										body: { deleted: true }
+									});
+									await navigate(detail!.board_id);
+								})}>삭제</button
+						>{/if}{#if detail.canManage}<button
+							onclick={() =>
+								run(async () => {
+									await request(`/boards/posts/${pid}`, {
+										method: 'PATCH',
+										body: { pinned: !detail!.pinned }
+									});
+									await load();
+								})}>{detail.pinned ? '공지 해제' : '공지로 고정'}</button
+						>{/if}
+				</div>
+				<section class="comments">
+					<h3>댓글 {detail.comments.filter((c) => !c.deleted).length}</h3>
+					{#each detail.comments as c}<article class:reply={!!c.parent_id}>
+							<small>{c.author_name}{c.parent_id ? ` · 댓글 #${c.parent_id}에 답글` : ''}</small>
+							<p>{c.content}</p>
+							{#if !c.deleted}<button onclick={() => (reply = c.id)}>답글</button
+								>{#if c.canDelete}<button
+										onclick={() =>
+											run(async () => {
+												await request(`/boards/comments/${c.id}`, { method: 'DELETE' });
+												await load();
+											})}>삭제</button
+									>{/if}{/if}
+						</article>{/each}
+					{#if detail.canComment}<form
+							onsubmit={(e) => {
+								e.preventDefault();
+								void run(async () => {
+									detail = await request(`/boards/posts/${pid}/comments`, {
+										method: 'POST',
+										body: { content: comment, parent_id: reply }
+									});
+									comment = '';
+									reply = null;
 								});
-								await load();
-							})}>{detail.pinned ? '공지 해제' : '공지로 고정'}</button
-					>{/if}
-			</div>
-			<section class="comments">
-				<h3>댓글 {detail.comments.filter((c) => !c.deleted).length}</h3>
-				{#each detail.comments as c}<article class:reply={!!c.parent_id}>
-						<small>{c.author_name}{c.parent_id ? ` · 댓글 #${c.parent_id}에 답글` : ''}</small>
-						<p>{c.content}</p>
-						{#if !c.deleted}<button onclick={() => (reply = c.id)}>답글</button
-							>{#if c.canDelete}<button
-									onclick={() =>
-										run(async () => {
-											await request(`/boards/comments/${c.id}`, { method: 'DELETE' });
-											await load();
-										})}>삭제</button
-								>{/if}{/if}
-					</article>{/each}
-				{#if detail.canComment}<form
+							}}
+						>
+							{#if reply}<p>
+									댓글 #{reply}에 답글
+									<button type="button" onclick={() => (reply = null)}>취소</button>
+								</p>{/if}<textarea
+								aria-label="댓글 내용"
+								placeholder="댓글을 남겨보세요"
+								bind:value={comment}
+								required
+								maxlength="10000"
+								rows="3"
+							></textarea><button class="primary" disabled={busy || !comment.trim()}
+								>댓글 등록</button
+							>
+						</form>{/if}
+				</section>
+			</article>
+		{:else}<section>
+				<div class="list-toolbar">
+					<h2>{board?.name || '게시판'}</h2>
+					<form
 						onsubmit={(e) => {
 							e.preventDefault();
-							void run(async () => {
-								detail = await request(`/boards/posts/${pid}/comments`, {
-									method: 'POST',
-									body: { content: comment, parent_id: reply }
-								});
-								comment = '';
-								reply = null;
-							});
+							void load();
 						}}
 					>
-						{#if reply}<p>
-								댓글 #{reply}에 답글
-								<button type="button" onclick={() => (reply = null)}>취소</button>
-							</p>{/if}<textarea
-							aria-label="댓글 내용"
-							placeholder="댓글을 남겨보세요"
-							bind:value={comment}
-							required
-							maxlength="10000"
-							rows="3"
-						></textarea><button class="primary" disabled={busy || !comment.trim()}>댓글 등록</button
+						<input aria-label="게시글 검색" placeholder="제목·본문 검색" bind:value={q} /><button
+							>검색</button
 						>
-					</form>{/if}
-			</section>
-		</article>
-	{:else}<section>
-			<div class="list-toolbar">
-				<h2>{board?.name || '게시판'}</h2>
-				<form
-					onsubmit={(e) => {
-						e.preventDefault();
-						void load();
-					}}
-				>
-					<input aria-label="게시글 검색" placeholder="제목·본문 검색" bind:value={q} /><button
-						>검색</button
+					</form>
+					{#if board?.permissions.post}<button class="primary" onclick={() => compose()}
+							>글쓰기</button
+						>{/if}{#if board?.permissions.manage}<label
+							><input type="checkbox" bind:checked={trash} onchange={load} />휴지통</label
+						>{/if}
+				</div>
+				<div class="post-list">
+					{#each posts as p}<div class="post-row">
+							<a href={`?board=${bid}&post=${p.id}`}
+								><span>{p.pinned ? '공지 · ' : ''}{p.title}</span><small
+									>{p.author_name} · {p.created_at.slice(0, 10)} · 댓글 {p.comments}</small
+								></a
+							>{#if trash}<button
+									onclick={() =>
+										run(async () => {
+											await request(`/boards/posts/${p.id}`, {
+												method: 'PATCH',
+												body: { deleted: false }
+											});
+											await load();
+										})}>복구</button
+								>{/if}
+						</div>{:else}<p class="list-status">
+							{q ? '검색 결과가 없습니다.' : '아직 게시글이 없습니다.'}
+						</p>{/each}
+				</div>
+				<nav class="pagination" aria-label="게시글 페이지">
+					<button disabled={currentPage <= 1} onclick={() => navigate(bid, 0, currentPage - 1)}
+						>이전</button
+					><span>{currentPage} / {Math.max(1, Math.ceil(total / 30))}</span><button
+						disabled={currentPage * 30 >= total}
+						onclick={() => navigate(bid, 0, currentPage + 1)}>다음</button
 					>
-				</form>
-				{#if board?.permissions.post}<button class="primary" onclick={() => compose()}
-						>글쓰기</button
-					>{/if}{#if board?.permissions.manage}<label
-						><input type="checkbox" bind:checked={trash} onchange={load} />휴지통</label
-					>{/if}
-			</div>
-			<div class="post-list">
-				{#each posts as p}<div class="post-row">
-						<a href={`?board=${bid}&post=${p.id}`}
-							><span>{p.pinned ? '공지 · ' : ''}{p.title}</span><small
-								>{p.author_name} · {p.created_at.slice(0, 10)} · 댓글 {p.comments}</small
-							></a
-						>{#if trash}<button
-								onclick={() =>
-									run(async () => {
-										await request(`/boards/posts/${p.id}`, {
-											method: 'PATCH',
-											body: { deleted: false }
-										});
-										await load();
-									})}>복구</button
-							>{/if}
-					</div>{:else}<p class="list-status">
-						{q ? '검색 결과가 없습니다.' : '아직 게시글이 없습니다.'}
-					</p>{/each}
-			</div>
-			<nav class="pagination" aria-label="게시글 페이지">
-				<button disabled={currentPage <= 1} onclick={() => navigate(bid, 0, currentPage - 1)}
-					>이전</button
-				><span>{currentPage} / {Math.max(1, Math.ceil(total / 30))}</span><button
-					disabled={currentPage * 30 >= total}
-					onclick={() => navigate(bid, 0, currentPage + 1)}>다음</button
-				>
-			</nav>
-		</section>{/if}
+				</nav>
+			</section>{/if}
+	{/if}
+	{#if board}<ApiKeys boardId={bid} boardName={board.name} />{/if}
 	{#if canAdmin}<details class="permissions">
 			<summary>계정별 게시판 권한</summary>
 			<form
@@ -380,6 +392,23 @@
 </div>
 
 <style>
+	.board-directory {
+		display: grid;
+		gap: 0;
+	}
+	.board-directory > a {
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 22px 4px;
+		border-bottom: 1px solid #8884;
+		text-decoration: none;
+		color: inherit;
+	}
+	.board-directory p{font-size:13px;color:#666;margin:8px 0 0}.board-directory span {
+		font-size: 13px;
+		color: #777;
+	}
 	.board-page {
 		max-width: 1100px;
 	}

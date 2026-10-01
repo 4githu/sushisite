@@ -76,7 +76,13 @@
 	>
 		<div><strong>{String(value.name)}</strong><small>{String(value.code)}</small></div>
 		{#if 'credits' in value}<span>{String(value.credits)}학점</span>{/if}
-		<CourseCompletion code={String(value.code)} {progress} onchange={oncomplete} {busy} />
+		<span
+			>{courseState(progress, String(value.code)) === 'completed'
+				? '지난 학기 수강'
+				: courseState(progress, String(value.code)) === 'planned'
+					? '진행 중·예정 학기'
+					: '남은 과목'}</span
+		>
 	</div>
 {:else if value !== null && typeof value === 'object'}<dl>
 		{#each Object.entries(value) as [key, item]}<div

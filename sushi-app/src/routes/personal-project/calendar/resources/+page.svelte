@@ -123,7 +123,7 @@
 <svelte:head><title>자료 · PDF · NETAQ</title></svelte:head>
 <div class="student-page">
 	<header>
-		<h1>자료</h1>
+		<h1>자료 · PDF 편집</h1>
 		<button class="primary" onclick={() => input.click()}>사진·파일 올리기</button><input
 			hidden
 			type="file"
@@ -135,6 +135,10 @@
 			}}
 		/>
 	</header>
+	{#if !selected}<p>
+			PDF를 올린 뒤 <strong>PDF 열기 · 필기</strong>를 누르세요. 펜·형광펜·획/부분 지우개·올가미로
+			편집하고, 필기를 포함한 사본으로 내보낼 수 있습니다.
+		</p>{/if}
 	{#if error}<p class="error" role="alert">{error}</p>{/if}{#if progress !== null}<p role="status">
 			업로드 {progress}%
 		</p>{/if}{#if loading}<p role="status">자료 불러오는 중…</p>{/if}

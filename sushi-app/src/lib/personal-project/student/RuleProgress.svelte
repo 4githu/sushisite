@@ -99,8 +99,11 @@
 		class="progresses"
 		aria-label="선택한 규정의 이수 현황"
 	>
+		<p>
+			남은 전공 학점 <strong>{Math.max(0, (track.major_min_credits || 0) - creditSum)}학점</strong>
+		</p>
 		<label
-			>전공 학점 <strong>{creditSum} / {track.major_min_credits || 0}</strong><progress
+			>시간표 기준 전공 학점 <strong>{creditSum} / {track.major_min_credits || 0}</strong><progress
 				max={track.major_min_credits || 1}
 				value={creditSum}
 			></progress></label
@@ -127,8 +130,8 @@
 				>{#if bucket.pick_min_areas}<p>
 						서로 다른 영역 {new Set(done.map(area)).size} / {bucket.pick_min_areas}개
 					</p>{/if}{/each}{#each general.notes || [] as note}<p>{note}</p>{/each}{/if}<small
-			>이수 완료로 표시한 과목만 계산합니다. 성적·승인·중복 인정과 자료에 없는 조건은 별도 확인이
-			필요합니다.</small
+			>종료된 학기의 시간표에서 미이수로 제외하지 않은 과목을 계산합니다. 성적·승인·중복 인정과
+			자료에 없는 조건은 별도 확인이 필요합니다.</small
 		>
 	</section>{/if}
 

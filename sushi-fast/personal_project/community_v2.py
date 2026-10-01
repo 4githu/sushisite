@@ -42,6 +42,9 @@ def init():
                 bid=board['id'] if board else db.execute("INSERT INTO community_boards(name,school,department) VALUES(?,?,?)",(old['department'],old['school'],old['department'])).lastrowid
                 doc={'version':1,'documentId':f"legacy-{old['id']}",'blocks':[{'id':f"legacy-{old['id']}",'type':'paragraph','children':[{'type':'text','text':old['content']}]}]}
                 db.execute('INSERT INTO community_posts(board_id,author_id,title,document,plain,deleted,created_at,legacy_id) VALUES(?,?,?,?,?,?,?,?)',(bid,old['author_id'],old['title'],json.dumps(doc),old['content'],old['deleted'],old['created_at'],old['id']))
+        for name in ('자유 게시판','자료 공유','질문·답변'):
+            if not db.execute("SELECT 1 FROM community_boards WHERE name=? AND school=''",(name,)).fetchone():
+                db.execute("INSERT INTO community_boards(name,realm) VALUES(?,'other')",(name,))
         db.commit()
 init()
 
@@ -120,7 +123,7 @@ class DocumentWrite(BaseModel):
 @router.get('/boards')
 def boards(uid:int=Depends(current_user_id)):
     with connection() as db:
-        result=[dict(b)|{'permissions':{a:permission(db,uid,b,a) for a in ACTIONS}} for b in db.execute('SELECT * FROM community_boards ORDER BY id') if permission(db,uid,b,'read')]
+        result=[dict(b)|{'permissions':{a:permission(db,uid,b,a) for a in ACTIONS}} for b in db.execute('SELECT b.*, (SELECT COUNT(*) FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0) AS post_count, (SELECT title FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0 ORDER BY p.id DESC LIMIT 1) AS last_title FROM community_boards b ORDER BY id') if permission(db,uid,b,'read')]
         return {'boards':result,'canAdmin':admin(uid),'canCreate':admin(uid) or bool(db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope='other' AND action='create' AND allowed=1",(uid,)).fetchone())}
 @router.post('/boards')
 def create_board(data:BoardCreate,uid:int=Depends(current_user_id)):

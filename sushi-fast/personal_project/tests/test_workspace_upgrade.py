@@ -89,3 +89,34 @@ def test_general_rule_keeps_machine_keys_and_cleans_collection_errors():
     assert any('math' in bucket['areas'] for bucket in data['buckets'])
     from personal_project.curriculum_display import text
     assert 'frameset' not in text('철학과 frameset/JS 게이트(euc-kr) SPA-blocked hum.md 미확보')
+
+def test_transcript_uses_finished_canonical_semesters_not_manual_checks_or_exploration():
+    uid=99188
+    c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
+    with connection() as db:db.execute('DELETE FROM student_timetable_drafts WHERE user_id=?',(uid,));db.commit()
+    past=student.TimetableDraft(course_ids=[c['id']],starts_on='2020-03-01',ends_on='2020-06-30')
+    student.save_draft(uid,TERM,past)
+    student.save_draft(uid,TERM,past,'explore-test')
+    history=student.course_history(uid)
+    assert len(history['semesters'])==1
+    assert len(history['completed'])==1 and not history['planned']
+    assert student.course_progress(uid)['completed']==[c['sbjt_cd']]
+    future=student.TimetableDraft(course_ids=[c['id']],starts_on='2090-03-01',ends_on='2090-06-30',revision=1)
+    student.save_draft(uid,TERM,future)
+    assert student.course_progress(uid)['completed']==[]
+    assert student.course_progress(uid)['planned']==[c['sbjt_cd']]
+
+def test_transcript_exclusion_is_private_and_can_be_reversed():
+    global user
+    previous=user;user=99189
+    try:
+        c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
+        student.save_draft(user,TERM,student.TimetableDraft(course_ids=[c['id']],starts_on='2020-03-01',ends_on='2020-06-30'))
+        endpoint=BASE+'/student/transcript/exclusions/'+c['sbjt_cd']
+        assert client.put(endpoint,json={'excluded':True},headers={'Origin':'https://evil.example'}).status_code==403
+        response=client.put(endpoint,json={'excluded':True});assert response.status_code==200,response.text
+        assert response.json()['completed']==[]
+        assert c['sbjt_cd'] in client.get(BASE+'/student/course-history').json()['excluded']
+        assert c['sbjt_cd'] in client.put(endpoint,json={'excluded':False}).json()['completed']
+        assert student.course_history(999999)['excluded']==[]
+    finally:user=previous

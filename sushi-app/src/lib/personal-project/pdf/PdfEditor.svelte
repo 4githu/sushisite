@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { copyInk, pasteInk, inPolygon, partialErase } from './ink';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { request, PersonalApiError } from '../shared/api';
@@ -11,11 +12,16 @@
 		type InkPoint,
 		type Stroke
 	} from './model';
-	let { resourceId, url, name }: { resourceId: string; url: string; name: string } = $props();
+	let {
+		resourceId,
+		url,
+		name,
+		daily = false
+	}: { resourceId: string; url: string; name: string; daily?: boolean } = $props();
 	let notebook = $state<PdfNotebook>({ version: 1, pages: [] }),
 		selected = $state(0),
 		zoom = $state(1),
-		tool = $state<'pen' | 'highlight' | 'erase' | 'text' | 'pan'>('pen'),
+		tool = $state<'pen' | 'highlight' | 'erase' | 'text' | 'pan' | 'lasso'>('pen'),
 		color = $state('#25262b'),
 		width = $state(3),
 		penOnly = $state(true),
@@ -28,6 +34,11 @@
 		conflict = $state(false),
 		revision = 0;
 	let loadingTasks: import('pdfjs-dist').PDFDocumentLoadingTask[] = [];
+	let eraseMode = $state<'stroke' | 'partial'>('stroke'),
+		selectedInk = $state<string[]>([]),
+		lasso = $state<InkPoint[]>([]);
+	let movingSelection: InkPoint | null = null,
+		selectionBefore: Stroke[] = [];
 	let blank: import('pdfjs-dist').PDFDocumentProxy;
 	let pdf: import('pdfjs-dist').PDFDocumentProxy,
 		original: Uint8Array,
@@ -96,11 +107,36 @@
 					import.meta.url
 				).href;
 				const [response, saved] = await Promise.all([
-					fetch(url, { credentials: 'include' }),
+					daily ? Promise.resolve(null) : fetch(url, { credentials: 'include' }),
 					request<{ data: PdfNotebook | null; revision: number }>(`/documents/${docKey()}`)
 				]);
-				if (!response.ok) throw Error('PDF 원본을 불러오지 못했습니다.');
-				original = new Uint8Array(await response.arrayBuffer());
+				if (daily) {
+					const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+					const doc = await PDFDocument.create(),
+						p = doc.addPage([420, 760]),
+						font = await doc.embedFont(StandardFonts.Helvetica);
+					for (let i = 0; i <= 18; i++) {
+						const y = 738 - i * 40;
+						p.drawLine({
+							start: { x: 42, y },
+							end: { x: 410, y },
+							thickness: 0.4,
+							color: rgb(0.82, 0.83, 0.85)
+						});
+						if (i < 18)
+							p.drawText(`${String((8 + i) % 24).padStart(2, '0')}:00`, {
+								x: 5,
+								y: y - 12,
+								size: 9,
+								font,
+								color: rgb(0.4, 0.4, 0.45)
+							});
+					}
+					original = await doc.save();
+				} else {
+					if (!response?.ok) throw Error('PDF 원본을 불러오지 못했습니다.');
+					original = new Uint8Array(await response.arrayBuffer());
+				}
 				if (disposed) return;
 				const sourceTask = pdfjs.getDocument({ data: original.slice() });
 				loadingTasks.push(sourceTask);
@@ -220,6 +256,34 @@
 			})
 			.join(' ');
 	}
+	function eraseAt(p: InkPoint) {
+		if (current)
+			current.strokes =
+				eraseMode === 'stroke'
+					? erase(current.strokes, p, 12 / zoom)
+					: partialErase(current.strokes, p, 12 / zoom);
+	}
+	function copySelection() {
+		if (current)
+			copyInk(
+				structuredClone($state.snapshot(current.strokes.filter((s) => selectedInk.includes(s.id))))
+			);
+	}
+	function pasteSelection() {
+		if (!current) return;
+		checkpoint();
+		const pasted = pasteInk(18, -18);
+		current.strokes.push(...pasted);
+		selectedInk = pasted.map((s) => s.id);
+		change();
+	}
+	function deleteSelection() {
+		if (!current) return;
+		checkpoint();
+		current.strokes = current.strokes.filter((s) => !selectedInk.includes(s.id));
+		selectedInk = [];
+		change();
+	}
 	function start(e: PointerEvent) {
 		if (
 			!viewport ||
@@ -230,6 +294,9 @@
 		)
 			return;
 		e.preventDefault();
+		(e.currentTarget as SVGElement)
+			.closest<HTMLElement>('[role=application]')
+			?.focus({ preventScroll: true });
 		const p = point(e);
 		checkpoint();
 		if (tool === 'text') {
@@ -249,8 +316,27 @@
 		}
 		active = e.pointerId;
 		(e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
-		if (tool === 'erase' || e.button === 5 || (e.buttons & 32) !== 0) {
-			current.strokes = erase(current.strokes, p, 12 / zoom);
+		if (tool === 'lasso') {
+			const hit = current.strokes
+				.filter((s) => selectedInk.includes(s.id))
+				.some((s) => s.points.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 20 / zoom));
+			if (hit) {
+				movingSelection = p;
+				selectionBefore = structuredClone($state.snapshot(current.strokes));
+			} else {
+				selectedInk = [];
+				lasso = [p];
+				movingSelection = null;
+			}
+			return;
+		}
+		if (
+			tool === 'erase' ||
+			e.button === 5 ||
+			(e.buttons & 32) !== 0 ||
+			(e.pointerType === 'pen' && (e.buttons & 2) !== 0)
+		) {
+			eraseAt(p);
 			activeStroke = null;
 		} else {
 			activeStroke = {
@@ -275,8 +361,25 @@
 				clientY: event.clientY,
 				pressure: event.pressure
 			} as PointerEvent);
-			if (tool === 'erase' || (e.buttons & 32) !== 0 || !activeStroke)
-				current.strokes = erase(current.strokes, p, 12 / zoom);
+			if (tool === 'lasso') {
+				if (movingSelection) {
+					const dx = p.x - movingSelection.x,
+						dy = p.y - movingSelection.y;
+					current.strokes = selectionBefore.map((s) =>
+						selectedInk.includes(s.id)
+							? { ...s, points: s.points.map((q) => ({ ...q, x: q.x + dx, y: q.y + dy })) }
+							: s
+					);
+				} else lasso = [...lasso, p];
+				continue;
+			}
+			if (
+				tool === 'erase' ||
+				(e.buttons & 32) !== 0 ||
+				(e.pointerType === 'pen' && (e.buttons & 2) !== 0) ||
+				!activeStroke
+			)
+				eraseAt(p);
 			else {
 				const stroke = current.strokes.find((s) => s.id === activeStroke!.id);
 				stroke?.points.push(p);
@@ -286,6 +389,12 @@
 	}
 	function finish(e: PointerEvent) {
 		if (active !== e.pointerId) return;
+		if (tool === 'lasso' && !movingSelection && current)
+			selectedInk = current.strokes
+				.filter((s) => s.points.some((p) => inPolygon(p, lasso)))
+				.map((s) => s.id);
+		lasso = [];
+		movingSelection = null;
 		active = null;
 		activeStroke = null;
 		change();
@@ -376,7 +485,7 @@
 		if (dirty) e.preventDefault();
 	}}
 />
-<section class="pdf-editor">
+<section class="pdf-editor" class:daily-paper={daily}>
 	<header>
 		<h2>{name}</h2>
 		<span role="status"
@@ -384,7 +493,9 @@
 		><button onclick={() => (toolbar = !toolbar)} aria-expanded={toolbar}>도구</button><button
 			disabled={loading || saving || !dirty || conflict}
 			onclick={save}>저장</button
-		><button disabled={loading} onclick={download}>필기 포함 PDF 내보내기</button>
+		><button disabled={loading} onclick={download}
+			>{daily ? 'PDF로 저장' : '필기 포함 PDF 내보내기'}</button
+		>
 	</header>
 	{#if error}<p role="alert">{error}</p>
 		{#if conflict}<button onclick={preserveConflict}>복구본 별도 보존 후 최신 필기 불러오기</button
@@ -393,20 +504,37 @@
 			<select aria-label="PDF 도구" bind:value={tool}
 				><option value="pen">펜</option><option value="highlight">형광펜</option><option
 					value="erase">지우개</option
-				><option value="text">텍스트 주석</option><option value="pan">이동</option></select
-			><label>색<input type="color" bind:value={color} /></label><label
+				><option value="lasso">올가미 선택·이동</option><option value="text">텍스트 주석</option
+				><option value="pan">이동</option></select
+			>{#if tool === 'erase'}<select aria-label="지우개 방식" bind:value={eraseMode}
+					><option value="stroke">획 지우개</option><option value="partial">부분 지우개</option
+					></select
+				>{/if}{#if tool === 'lasso'}<button
+					onclick={() => (selectedInk = current?.strokes.map((s) => s.id) || [])}>전체 선택</button
+				><button disabled={!selectedInk.length} onclick={copySelection}>선택 복사</button><button
+					onclick={pasteSelection}>붙여넣기</button
+				><button disabled={!selectedInk.length} onclick={deleteSelection}>선택 삭제</button>{/if}
+			<div class="ink-presets" aria-label="펜 색상">
+				{#each ['#25262b', '#d94d45', '#266dcc', '#31936b', '#ffc83d', '#c084fc'] as preset}<button
+						aria-label={`펜 색 ${preset}`}
+						style={`background:${preset};width:24px;height:24px;border-radius:50%;border:2px solid ${color === preset ? 'currentColor' : 'transparent'}`}
+						onclick={() => (color = preset)}
+					></button>{/each}
+			</div>
+			<label>색<input type="color" bind:value={color} /></label><label
 				>굵기<input type="range" min="1" max="10" bind:value={width} /></label
 			><label><input type="checkbox" bind:checked={penOnly} />펜으로만 필기</label><button
 				disabled={!undo.length}
 				onclick={() => history(true)}>실행 취소</button
-			><button disabled={!redo.length} onclick={() => history(false)}>다시 실행</button><label
-				>확대<select bind:value={zoom}
-					>{#each [0.5, 0.75, 1, 1.25, 1.5, 2] as z}<option value={z}>{z * 100}%</option
-						>{/each}</select
-				></label
-			>
+			><button disabled={!redo.length} onclick={() => history(false)}>다시 실행</button
+			>{#if !daily}<label
+					>확대<select bind:value={zoom}
+						>{#each [0.5, 0.75, 1, 1.25, 1.5, 2] as z}<option value={z}>{z * 100}%</option
+							>{/each}</select
+					></label
+				>{/if}
 		</div>{/if}
-	{#if current}<div class="pages">
+	{#if current && !daily}<div class="pages">
 			<button disabled={selected === 0} onclick={() => selected--}>이전 페이지</button><select
 				aria-label="PDF 페이지"
 				bind:value={selected}
@@ -425,7 +553,24 @@
 				>뒤로 옮기기</button
 			>
 		</div>{/if}
-	<div class="viewport">
+	<!-- Custom drawing application supports focus and selection clipboard shortcuts. -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+	<div
+		class="viewport"
+		onkeydown={(e) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedInk.length) {
+				e.preventDefault();
+				copySelection();
+			}
+			if ((e.ctrlKey || e.metaKey) && e.key === 'v' && tool === 'lasso') {
+				e.preventDefault();
+				pasteSelection();
+			}
+		}}
+		role="application"
+		tabindex="0"
+		aria-label="필기 작업 공간"
+	>
 		<div class="paper" style:width={`${viewWidth}px`} style:height={`${viewHeight}px`}>
 			<canvas bind:this={canvas}></canvas>{#if current && !loading}<svg
 					viewBox={`0 0 ${viewWidth} ${viewHeight}`}
@@ -438,10 +583,15 @@
 					onlostpointercapture={finish}
 					oncontextmenu={(e) => e.preventDefault()}
 					style:touch-action={penOnly || tool === 'pan' ? 'pan-x pan-y pinch-zoom' : 'none'}
-					>{#each current.strokes as s}<path
+					>{#if lasso.length}<path
+							d={path({ id: 'lasso', kind: 'pen', width: 1, color: '#666', points: lasso })}
+							fill="#8882"
+							stroke="#666"
+							stroke-dasharray="4 3"
+						/>{/if}{#each current.strokes as s}<path
 							d={path(s)}
 							fill="none"
-							stroke={s.color}
+							stroke={selectedInk.includes(s.id) ? '#d24928' : s.color}
 							stroke-width={s.width * zoom}
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -458,6 +608,67 @@
 </section>
 
 <style>
+	.pdf-editor button,
+	.pdf-editor select {
+		font: inherit;
+		font-size: 12px;
+		color: inherit;
+		background: white;
+		border: 1px solid #d6d8de;
+		border-radius: 6px;
+		padding: 6px 8px;
+		min-height: 30px;
+	}
+	.pdf-editor button:disabled {
+		opacity: 0.45;
+	}
+	.ink-presets {
+		display: flex;
+		gap: 3px;
+	}
+	.ink-presets button {
+		padding: 0 !important;
+		min-height: 22px !important;
+		min-width: 22px !important;
+		flex: 0 0 22px !important;
+	}
+	.daily-paper header {
+		gap: 6px;
+	}
+	.daily-paper header h2 {
+		min-width: 68px;
+	}
+	.daily-paper .toolbar {
+		gap: 6px;
+	}
+	.daily-paper .toolbar label {
+		font-size: 12px;
+	}
+
+	.daily-paper .viewport {
+		height: auto;
+		overflow: visible;
+		background: transparent;
+		padding: 0;
+	}
+	.daily-paper .paper {
+		max-width: 100%;
+		box-shadow: none;
+		height: auto !important;
+		aspect-ratio: 420/760;
+		width: 100% !important;
+	}
+	.daily-paper header h2 {
+		font-size: 16px;
+	}
+	.daily-paper .toolbar {
+		padding: 8px 0;
+	}
+	.daily-paper .paper canvas,
+	.daily-paper .paper svg {
+		width: 100%;
+		height: 100%;
+	}
 	.pdf-editor {
 		min-width: 0;
 	}

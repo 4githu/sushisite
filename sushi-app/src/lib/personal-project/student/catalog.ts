@@ -89,8 +89,12 @@ export function termDates(term: Term) {
 }
 
 export function academicSlot(term: Term, admission: number | null, offset = 0) {
-	if (!admission || !term.term.endsWith('U000300001')) return '';
+	if (!admission) return '';
 	const index =
 		(Number(term.year) - admission) * 2 + (term.term.startsWith('U000200001') ? 0 : 1) - offset;
-	return index < 0 ? '' : `${Math.floor(index / 2) + 1}-${(index % 2) + 1}`;
+	return index < 0
+		? ''
+		: term.term.endsWith('U000300002')
+			? `${Math.floor(index / 2) + 1}학년 ${index % 2 === 0 ? '여름' : '겨울'} 계절`
+			: `${Math.floor(index / 2) + 1}-${(index % 2) + 1}`;
 }

@@ -146,11 +146,11 @@ def test_academic_semesters_and_course_completion_are_separate_and_private():
     assert student.draft(7951,TERM,'1-2')['draft'] is None
     assert student.draft(7951,TERM)['draft'] is None
     assert student.draft(7952,TERM,'1-1')['draft'] is None
-    assert c['sbjt_cd'] in student.course_progress(7951)['planned']
+    assert student.course_progress(7951)['planned']==[]  # legacy alternate is not a canonical semester
     assert student.course_progress(7951)['completed']==[]
     student.set_course_completion(7951,c['sbjt_cd'],student.CourseCompletion(completed=True))
-    assert student.course_progress(7951)['completed']==[c['sbjt_cd']]
-    assert student.course_progress(7952)=={'planned':[],'completed':[]}
+    assert student.course_progress(7951)['completed']==[]  # manual checkbox no longer determines transcript
+    assert student.course_progress(7952)=={'planned':[],'completed':[],'basis':'past_timetables'}
     student.set_course_completion(7951,c['sbjt_cd'].lower(),student.CourseCompletion(completed=False))
     assert student.course_progress(7951)['completed']==[]
     with pytest.raises(HTTPException): student.save_draft(7951,TERM,d,'1-1')

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
+	import Transcript from '$lib/personal-project/student/Transcript.svelte';
 	import RuleVersion from '$lib/personal-project/student/RuleVersion.svelte';
 	import RuleProgress from '$lib/personal-project/student/RuleProgress.svelte';
 	import RuleText from '$lib/personal-project/student/RuleText.svelte';
-	import { type CourseProgress, courseKey } from '$lib/personal-project/student/progress';
+	import { type CourseProgress } from '$lib/personal-project/student/progress';
 	import RuleTree from '$lib/personal-project/student/RuleTree.svelte';
 	import '$lib/personal-project/student/student.css';
 	type Entry = { id: string; major: string; batch: string };
@@ -22,22 +23,7 @@
 		external_recognition?: unknown;
 		dept_required_general?: unknown;
 	};
-	let progress = $state<CourseProgress>({ planned: [], completed: [] }),
-		progressBusy = $state(false);
-	async function completeCourse(code: string) {
-		if (progressBusy) return;
-		progressBusy = true;
-		try {
-			progress = await request(`/student/course-progress/${encodeURIComponent(code)}`, {
-				method: 'PUT',
-				body: { completed: !progress.completed.includes(courseKey(code)) }
-			});
-		} catch (e) {
-			error = e instanceof Error ? e.message : '이수 상태 저장 실패';
-		} finally {
-			progressBusy = false;
-		}
-	}
+	let progress = $state<CourseProgress>({ planned: [], completed: [] });
 
 	let entries = $state<Entry[]>([]),
 		major = $state(''),
@@ -48,7 +34,7 @@
 		loading = $state(true),
 		updated = $state('');
 	type Selection = { rule_id: string; batch: string; track: string };
-	let tab = $state<'current' | 'explore'>('current');
+	let tab = $state<'current' | 'explore' | 'rules'>('current');
 	let plan = $state<{ items: Selection[]; revision: number }>({ items: [], revision: 0 });
 	let savedRules = $state<Record<string, Rule>>({});
 	let saving = $state(false),
@@ -149,10 +135,19 @@
 				request<CourseProgress>('/student/course-progress')
 			]);
 			const details = await Promise.all(
-				[...new Set(plan.items.map((i) => i.rule_id))].map(
-					async (id) =>
-						[id, await request<Rule>(`/student/rules/${encodeURIComponent(id)}`)] as const
-				)
+				[...new Set(plan.items.map((i) => i.rule_id))].map(async (id) => {
+					const [official, version, choice] = await Promise.all([
+						request<Rule>(`/student/rules/${encodeURIComponent(id)}`),
+						request<{ data: Rule | null }>(`/student/rules/${encodeURIComponent(id)}/versions`),
+						request<{ data: { edition?: string } | null }>(
+							`/documents/rule-choice:${encodeURIComponent(id)}`
+						)
+					]);
+					return [
+						id,
+						choice.data?.edition === 'custom' && version.data ? version.data : official
+					] as const;
+				})
 			);
 			savedRules = Object.fromEntries(details);
 			planReady = true;
@@ -168,10 +163,6 @@
 <div class="student-page">
 	<header class="page-heading">
 		<div>
-			<span class="eyebrow">CAMPUS / CURRICULUM</span>
-			<a class="button" href="/personal-project/calendar/student/plan/explore"
-				>강의 탐색 · 후보 시간표</a
-			>
 			<h1>수강계획과 이수규정</h1>
 			<p class="muted">서울대 학과·입학 연도별 주전공, 복수전공, 부전공 규정을 확인하세요.</p>
 		</div>
@@ -181,8 +172,14 @@
 	</header>
 	<nav class="major-tabs" aria-label="수강 계획 보기">
 		<button class:chosen={tab === 'current'} onclick={() => (tab = 'current')}>현재 전공</button>
-		<button class:chosen={tab === 'explore'} onclick={() => (tab = 'explore')}>전공 탐색</button>
+		<button class:chosen={tab === 'explore'} onclick={() => (tab = 'explore')}
+			>전공 탐색·이수 현황</button
+		><a class="button" href="/personal-project/calendar/student/plan/explore">과거 강의 탐색</a
+		><button class:chosen={tab === 'rules'} onclick={() => (tab = 'rules')}
+			>수강 규정 편집·업데이트</button
+		>
 	</nav>
+	<Transcript onchange={(p) => (progress = p)} />
 	{#if error}<p role="alert" class="error">{error}</p>
 		<button onclick={() => location.reload()}>새로고침하고 다시 시도</button>{/if}
 	{#if tab === 'current'}
@@ -196,7 +193,8 @@
 				>
 			</div>
 			<p class="muted">
-				주전공·복수전공·부전공을 추가해 이수 기준을 비교하세요. 최대 8개까지 계정에 저장됩니다.
+				역대 시간표를 바탕으로 주전공·복수전공·부전공의 남은 이수 요건을 비교하세요. 최대 8개까지
+				계정에 저장됩니다.
 			</p>
 			{#if !planReady}<p>전공 목록을 불러오는 중…</p>{:else if !plan.items.length}<p>
 					등록한 전공이 없습니다. + 버튼으로 시작하세요.
@@ -217,7 +215,11 @@
 						{#if detail?.needs_verification}<p class="muted">
 								일부 조건은 학과 확인이 필요합니다.
 							</p>{/if}
-						<button onclick={() => inspectMajor(item)}>규정 보기</button>
+						{#if detail && chosen}<RuleProgress
+								rule={detail}
+								track={chosen}
+								{progress}
+							/>{/if}<button onclick={() => inspectMajor(item)}>이수 현황·규정 편집</button>
 						<button
 							disabled={saving}
 							aria-label={`${detail?.major} ${chosen?.name} 삭제`}
@@ -266,7 +268,11 @@
 							ruleId={entries.find((e) => e.major === major && e.batch === batch)!.id}
 							official={officialRule}
 							{track}
-							onselect={(v) => (rule = v)}
+							onselect={(v) => {
+								rule = v;
+								const entry = entries.find((e) => e.major === major && e.batch === batch);
+								if (entry) savedRules = { ...savedRules, [entry.id]: v };
+							}}
 						/>{/key}{/if}
 				{#if current}<RuleProgress {rule} track={current} {progress} />{/if}
 				<button disabled={saving || !planReady || plan.items.length >= 8} onclick={addMajor}
@@ -293,13 +299,12 @@
 				<details open>
 					<summary>이수 조건과 필수 과목</summary>
 					<p class="muted">
-						노란색: 저장한 시간표의 수강 예정 과목 · 초록색: 직접 체크한 이수 완료 과목. 과목코드로
-						연결하며 졸업 판정은 아닙니다.
+						지난 학기의 내 시간표를 기준으로 계산합니다. 진행 중인 학기와 탐색 초안은 이수 학점에
+						포함하지 않습니다. 동일·동등 과목은 한 번만 합산합니다. 성적 증명에 따른 공식 졸업
+						판정은 아닙니다.
 					</p>
 					{#if current}<RuleTree
 							{progress}
-							oncomplete={completeCourse}
-							busy={progressBusy}
 							value={Object.fromEntries(
 								Object.entries(current).filter(
 									([k]) => !['key', 'name', 'major_min_credits'].includes(k)
@@ -313,26 +318,17 @@
 							현재 전공 유형의 조건에 없는 학과 참고 과목입니다. 복수·부전공 적용 여부는 학과에
 							확인해주세요.
 						</p>
-						<RuleTree
-							{progress}
-							oncomplete={completeCourse}
-							busy={progressBusy}
-							value={extraKnown}
-						/>
+						<RuleTree {progress} value={extraKnown} />
 					</details>{/if}
 				{#if rule.external_recognition}<details>
 						<summary>타 전공 학점 인정</summary><RuleTree
 							{progress}
-							oncomplete={completeCourse}
-							busy={progressBusy}
 							value={rule.external_recognition}
 						/>
 					</details>{/if}
 				{#if rule.dept_required_general}<details>
 						<summary>학과 지정 교양</summary><RuleTree
 							{progress}
-							oncomplete={completeCourse}
-							busy={progressBusy}
 							value={rule.dept_required_general}
 						/>
 					</details>{/if}
@@ -371,6 +367,9 @@
 	}
 	.major-heading {
 		justify-content: space-between;
+	}
+	.major-tabs {
+		flex-wrap: wrap;
 	}
 	.major-tabs .chosen {
 		background: #25314a;

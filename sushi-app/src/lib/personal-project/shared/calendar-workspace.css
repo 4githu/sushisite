@@ -1244,3 +1244,9 @@
 .cw-task input[type='checkbox'] { width:28px; height:28px; flex:0 0 28px; cursor:pointer; }
 .cw-task input[type='checkbox']:disabled { cursor:default; }
 @media(max-width:600px) { .cw-quick-task { flex-wrap:wrap; } .cw-quick-task input:first-child { flex-basis:100%; } .cw-quick-task input[type='date'] { flex:1; } }
+
+/* Daily planning is one page: notes/tasks beside a writable timeline. */
+.daily-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,420px);gap:20px;align-items:start}
+.daily-workspace>.daily-plan{display:block!important;max-height:none!important;overflow:visible!important}
+.daily-workspace .daily-note{padding:12px}
+@media(max-width:900px){.daily-workspace{grid-template-columns:1fr}.daily-workspace>.pdf-editor{max-width:560px;width:100%;margin:auto}}

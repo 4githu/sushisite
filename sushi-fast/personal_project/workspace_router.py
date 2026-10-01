@@ -1,3 +1,4 @@
+import re
 import hashlib
 import secrets
 from datetime import date, datetime, timedelta, timezone
@@ -328,19 +329,32 @@ def catalog_snapshot(term: str, response: Response, user_id: int=Depends(current
 def course_history(code: str, user_id: int=Depends(current_user_id)):
     return [{'term': t['label'], 'term_id':t['id'], 'courses':[c for c in snu_catalog.courses(t['id']) if c.get('sbjt_cd','').casefold()==code.casefold()]} for t in snu_catalog.metadata()['terms'] if any(c.get('sbjt_cd','').casefold()==code.casefold() for c in snu_catalog.courses(t['id']))]
 
-from .community_v2 import router as community_v2_router
+from .community_v2 import router as community_v2_router, write_origin
 router.include_router(community_v2_router)
+
+class TranscriptExclusion(BaseModel):
+    excluded: bool
+
+@router.put('/student/transcript/exclusions/{code}',dependencies=[Depends(write_origin)])
+def transcript_exclusion(code:str,data:TranscriptExclusion,user_id:int=Depends(current_user_id)):
+    code=code.strip().upper()
+    if not re.fullmatch(r'[A-Z0-9][A-Z0-9._-]{0,49}',code):raise HTTPException(400,'과목코드를 확인해주세요.')
+    student.course_history(user_id)
+    code=snu_catalog.supplements().get('code_equiv',{}).get('canon',{}).get(code,code)
+    with connection() as db:
+        if data.excluded:db.execute('INSERT OR IGNORE INTO student_course_exclusions VALUES(?,?)',(user_id,code))
+        else:db.execute('DELETE FROM student_course_exclusions WHERE user_id=? AND code=?',(user_id,code))
+        db.commit()
+    return student.course_progress(user_id)
+
+@router.get('/student/course-history')
+def course_history(user_id:int=Depends(current_user_id)):
+    return student.course_history(user_id)
 
 @router.get('/student/completed-details')
 def completed_details(user_id:int=Depends(current_user_id)):
-    progress=student.course_progress(user_id)
-    index=snu_catalog.code_index()
-    equiv=snu_catalog.supplements().get('code_equiv',{});canon=equiv.get('canon',{});seen=set();rows=[]
-    for code in progress['completed']:
-        key=canon.get(code,code)
-        if key in seen:continue
-        course=index.get(key) or index.get(code)
-        if course:rows.append(course);seen.add(key)
+    rows=student.course_history(user_id)['completed']
+    equiv=snu_catalog.supplements().get('code_equiv',{})
     return {'courses':rows,'equivalencies':equiv,'areas':snu_catalog.supplements().get('gyo',{}).get('area_codes',{})}
 
 @router.get('/student/general/{key}')

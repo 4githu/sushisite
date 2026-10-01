@@ -17,7 +17,7 @@
 	const currentView = $derived(
 		page.url.pathname.includes('/student')
 			? 'student'
-			: activeView || page.url.pathname.split('/')[3] || 'month'
+			: (['day','week','tasks',''].includes(page.url.pathname.split('/')[3] || '') ? activeView : '') || page.url.pathname.split('/')[3] || 'month'
 	);
 	let collapsed = $state(false),
 		mobileOpen = $state(false),
@@ -28,8 +28,8 @@
 		{ path: '/week', label: '주간 시간표', icon: 'week' },
 		{ path: '', label: '월간 캘린더', icon: 'month' },
 		{ path: '/tasks', label: '해야 할 일', icon: 'tasks' },
-		{ path: '/boards', label: '게시판', icon: 'tasks' },
-		{ path: '/resources', label: '자료 · PDF', icon: 'tasks' }
+		{ path: '/boards', label: '게시판', icon: 'boards' },
+		{ path: '/resources', label: '자료 · PDF', icon: 'files' }
 	] as const;
 	onMount(() => {
 		try {
@@ -104,7 +104,7 @@
 			</nav>
 			<p class="ondo-nav-label">학생서비스</p>
 			<nav aria-label="학생서비스">
-				{#each [{ path: 'timetable', label: '시간표', icon: 'week' }, { path: 'meals', label: '학식', icon: 'day' }, { path: 'plan', label: '수강계획', icon: 'tasks' }, { path: '', label: '학교 설정', icon: 'tasks' }] as const as item}
+				{#each [{ path: 'timetable', label: '시간표', icon: 'week' }, { path: 'meals', label: '학식', icon: 'meals' }, { path: 'plan', label: '수강계획', icon: 'plan' }, { path: '', label: '학교 설정', icon: 'school' }] as const as item}
 					<a
 						href={`/personal-project/calendar/student${item.path ? '/' + item.path : ''}`}
 						class:active={page.url.pathname ===
@@ -133,7 +133,7 @@
 					}}
 					aria-label="프로젝트와 연결"
 					title="프로젝트와 연결"
-					><CalendarIcon name="tasks" /><span class="ondo-nav-text">프로젝트와 연결</span></a
+					><CalendarIcon name="projects" /><span class="ondo-nav-text">프로젝트와 연결</span></a
 				>
 			</nav>
 		</div>
