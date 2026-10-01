@@ -21,6 +21,7 @@ export type Lesson = {
 };
 export type Term = { id: string; year: string; term: string; label: string; count: number };
 export type Catalog = {
+	revision: string;
 	terms: Term[];
 	source: string;
 	sourceUpdatedAt: string;
@@ -57,15 +58,13 @@ export function validSlot(
 	);
 }
 export function courseLessons(c: Course): Lesson[] {
-	return c.slots
-		.filter(validSlot)
-		.map((s) => ({
-			title: c.name,
-			weekday: s.day_index,
-			start: s.start_time,
-			end: s.end_time,
-			location: c.room || ''
-		}));
+	return c.slots.filter(validSlot).map((s) => ({
+		title: c.name,
+		weekday: s.day_index,
+		start: s.start_time,
+		end: s.end_time,
+		location: c.room || ''
+	}));
 }
 export function overlaps(a: Lesson, b: Lesson) {
 	return a.weekday === b.weekday && a.start < b.end && b.start < a.end;
@@ -87,4 +86,11 @@ export function termDates(term: Term) {
 			? `${Number(term.year) + 1}-02-15`
 			: `${term.year}-${summer ? '08-15' : term.term.startsWith('U000200001') ? '06-30' : '12-31'}`
 	};
+}
+
+export function academicSlot(term: Term, admission: number | null, offset = 0) {
+	if (!admission || !term.term.endsWith('U000300001')) return '';
+	const index =
+		(Number(term.year) - admission) * 2 + (term.term.startsWith('U000200001') ? 0 : 1) - offset;
+	return index < 0 ? '' : `${Math.floor(index / 2) + 1}-${(index % 2) + 1}`;
 }

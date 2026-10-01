@@ -164,6 +164,7 @@ def revoke_widgets(user_id: int=Depends(current_user_id)):
 
 
 class DailyNote(BaseModel):
+    revision: int | None = Field(default=None, ge=0)
     content: str = Field(max_length=100000)
     drawing: str = Field(default='', max_length=2_000_000)
     rich_document: str = Field(default='', max_length=500000)
@@ -171,21 +172,27 @@ class DailyNote(BaseModel):
 @router.get('/calendar/daily-notes/{day}')
 def daily_note(day: date, user_id: int=Depends(current_user_id)):
     with connection() as db:
-        row = db.execute('SELECT content,drawing,rich_document FROM calendar_daily_notes WHERE user_id=? AND day=?', (user_id,day.isoformat())).fetchone()
+        row = db.execute('SELECT content,drawing,rich_document,revision FROM calendar_daily_notes WHERE user_id=? AND day=?', (user_id,day.isoformat())).fetchone()
         if row:
-            return {'content': row['content'], 'drawing': row['drawing'], 'richDocument':row['rich_document'], 'inheritedFrom': None}
+            return {'revision':row['revision'],'content': row['content'], 'drawing': row['drawing'], 'richDocument':row['rich_document'], 'inheritedFrom': None}
         previous = db.execute(
             'SELECT day,content,drawing,rich_document FROM calendar_daily_notes WHERE user_id=? AND day=?',
             (user_id, (day - timedelta(days=1)).isoformat()),
         ).fetchone()
-        return {'content': previous['content'] if previous else '', 'drawing': previous['drawing'] if previous else '', 'richDocument':previous['rich_document'] if previous else '', 'inheritedFrom': previous['day'] if previous else None}
+        return {'revision':0,'content': previous['content'] if previous else '', 'drawing': previous['drawing'] if previous else '', 'richDocument':previous['rich_document'] if previous else '', 'inheritedFrom': previous['day'] if previous else None}
 
 @router.put('/calendar/daily-notes/{day}')
 def save_daily_note(day: date, data: DailyNote, user_id: int=Depends(current_user_id)):
     with connection() as db:
-        db.execute('INSERT INTO calendar_daily_notes(user_id,day,content,drawing,rich_document) VALUES(?,?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET content=excluded.content,drawing=excluded.drawing,rich_document=excluded.rich_document', (user_id,day.isoformat(),data.content,data.drawing,data.rich_document))
+        db.execute('BEGIN IMMEDIATE')
+        old=db.execute('SELECT revision FROM calendar_daily_notes WHERE user_id=? AND day=?',(user_id,day.isoformat())).fetchone()
+        revision=old['revision'] if old else 0
+        if data.revision is not None and data.revision!=revision:
+            raise HTTPException(409,'다른 화면에서 메모가 변경되었습니다. 현재 내용은 기기에 보관했습니다. 최신 메모와 비교해주세요.')
+        db.execute('INSERT INTO calendar_daily_notes(user_id,day,content,drawing,rich_document,revision) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET content=excluded.content,drawing=excluded.drawing,rich_document=excluded.rich_document,revision=excluded.revision',(user_id,day.isoformat(),data.content,data.drawing,data.rich_document,revision+1))
         db.commit()
-    return {'content': data.content, 'drawing': data.drawing}
+    return {'content':data.content,'drawing':data.drawing,'revision':revision+1}
+
 
 
 from . import student_services as student
@@ -276,11 +283,11 @@ def search_courses(term: str, q: str=Query(default='',max_length=120), departmen
     return snu_catalog.search(term,q,department,classification,day,offset,limit)
 
 @router.get('/student/timetable/draft')
-def timetable_draft(term: str, slot: str=Query(default='',max_length=3), user_id: int=Depends(current_user_id)):
+def timetable_draft(term: str, slot: str=Query(default='',max_length=60), user_id: int=Depends(current_user_id)):
     return student.draft(user_id,term,slot)
 
 @router.put('/student/timetable/draft')
-def save_timetable_draft(term: str, data: student.TimetableDraft, slot: str=Query(default='',max_length=3), user_id: int=Depends(current_user_id)):
+def save_timetable_draft(term: str, data: student.TimetableDraft, slot: str=Query(default='',max_length=60), user_id: int=Depends(current_user_id)):
     return student.save_draft(user_id,term,data,slot)
 
 @router.get('/student/rules')
@@ -310,3 +317,50 @@ def course_progress(user_id:int=Depends(current_user_id)):
 @router.put('/student/course-progress/{code}')
 def set_course_completion(code:str,data:student.CourseCompletion,user_id:int=Depends(current_user_id)):
     return student.set_course_completion(user_id,code,data)
+
+
+@router.get('/student/catalog/{term}/snapshot')
+def catalog_snapshot(term: str, response: Response, user_id: int=Depends(current_user_id)):
+    response.headers['Cache-Control'] = 'private, max-age=300'
+    return {'revision':snu_catalog.metadata()['revision'],'courses':snu_catalog.courses(term)}
+
+@router.get('/student/course-history/{code}')
+def course_history(code: str, user_id: int=Depends(current_user_id)):
+    return [{'term': t['label'], 'term_id':t['id'], 'courses':[c for c in snu_catalog.courses(t['id']) if c.get('sbjt_cd','').casefold()==code.casefold()]} for t in snu_catalog.metadata()['terms'] if any(c.get('sbjt_cd','').casefold()==code.casefold() for c in snu_catalog.courses(t['id']))]
+
+from .community_v2 import router as community_v2_router
+router.include_router(community_v2_router)
+
+@router.get('/student/completed-details')
+def completed_details(user_id:int=Depends(current_user_id)):
+    progress=student.course_progress(user_id)
+    index=snu_catalog.code_index()
+    equiv=snu_catalog.supplements().get('code_equiv',{});canon=equiv.get('canon',{});seen=set();rows=[]
+    for code in progress['completed']:
+        key=canon.get(code,code)
+        if key in seen:continue
+        course=index.get(key) or index.get(code)
+        if course:rows.append(course);seen.add(key)
+    return {'courses':rows,'equivalencies':equiv,'areas':snu_catalog.supplements().get('gyo',{}).get('area_codes',{})}
+
+@router.get('/student/general/{key}')
+def general_rules(key:str,user_id:int=Depends(current_user_id)):
+    result=snu_catalog.supplements().get('gyo',{}).get(key)
+    if result is None: raise HTTPException(404,'교양 이수규정 자료가 없습니다.')
+    from .curriculum_display import present
+    return present(result)
+
+from . import course_trends
+@router.on_event('startup')
+def start_trends(): course_trends.start()
+@router.on_event('shutdown')
+def stop_trends(): course_trends.stop.set()
+@router.get('/student/trends')
+def trends(term:str,code:str,section:str,window:str='live',user_id:int=Depends(current_user_id)):
+    return course_trends.read(term,code,section,window)
+
+from .kakao_bridge import router as kakao_bridge_router
+router.include_router(kakao_bridge_router)
+
+from .board_api import router as board_api_router
+router.include_router(board_api_router)

@@ -66,7 +66,21 @@ def curriculum(rule_id):
     from .curriculum_display import present, source_links
     links=source_links(result['source']) if result.get('source') else []
     result.pop('raw_notes',None)
+    result['general_key']=result.get('general')
     result=present(result)
     result['source']='Class Checker 가공 자료 · 학과별 공식 안내를 함께 확인해주세요.'
     result['source_links']=links
     return result
+
+@lru_cache(maxsize=1)
+def code_index():
+    index={}
+    for term in sorted(metadata()['terms'],key=lambda t:t['id'],reverse=True):
+        for course in courses(term['id']):
+            if course.get('sbjt_cd'):index.setdefault(course['sbjt_cd'].strip().upper(),course)
+    return index
+
+@lru_cache(maxsize=1)
+def supplements():
+    path=ROOT/'supplements.json.gz'
+    return json.loads(gzip.decompress(path.read_bytes())) if path.exists() else {}

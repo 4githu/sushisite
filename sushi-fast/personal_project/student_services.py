@@ -12,6 +12,8 @@ from .db import connection
 
 
 class Profile(BaseModel):
+    admission_year: int | None = Field(default=None, ge=1950, le=2100)
+    academic_offset: int = Field(default=0, ge=-20, le=20)
     is_student: bool = False
     school: str = Field(default='', max_length=120)
     department: str = Field(default='', max_length=120)
@@ -65,6 +67,13 @@ def init():
         CREATE TABLE IF NOT EXISTS student_timetable_imports(user_id INTEGER NOT NULL, fingerprint TEXT NOT NULL, event_ids TEXT NOT NULL, PRIMARY KEY(user_id,fingerprint));
         CREATE TABLE IF NOT EXISTS student_major_plans(user_id INTEGER PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL);
         ''')
+        event_cols={r[1] for r in db.execute('PRAGMA table_info(events)')}
+        if 'location' not in event_cols:db.execute("ALTER TABLE events ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+        if 'hide_in_month' not in event_cols:db.execute('ALTER TABLE events ADD COLUMN hide_in_month INTEGER NOT NULL DEFAULT 0')
+        cols = {r[1] for r in db.execute('PRAGMA table_info(student_profiles)')}
+        for name, declaration in [('admission_year','INTEGER'), ('academic_offset','INTEGER NOT NULL DEFAULT 0')]:
+            if name not in cols: db.execute(f'ALTER TABLE student_profiles ADD COLUMN {name} {declaration}')
+        db.execute('CREATE TABLE IF NOT EXISTS student_timetable_events(user_id INTEGER NOT NULL,term TEXT NOT NULL,occurrence TEXT NOT NULL,event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,PRIMARY KEY(user_id,term,occurrence))')
         db.commit()
 
 
@@ -76,8 +85,8 @@ def profile(user_id):
 
 def save_profile(user_id, data):
     with connection() as db:
-        db.execute('INSERT INTO student_profiles VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET is_student=excluded.is_student,school=excluded.school,department=excluded.department',
-                   (user_id,int(data.is_student),data.school,data.department))
+        db.execute('INSERT INTO student_profiles(user_id,is_student,school,department,admission_year,academic_offset) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET is_student=excluded.is_student,school=excluded.school,department=excluded.department,admission_year=excluded.admission_year,academic_offset=excluded.academic_offset',
+                   (user_id,int(data.is_student),data.school,data.department,data.admission_year,data.academic_offset))
         db.commit()
     return profile(user_id)
 
@@ -171,6 +180,7 @@ class TimetableDraft(BaseModel):
     skip_holidays: bool = True
     excluded_dates: list[date] = Field(default_factory=list, max_length=200)
     revision: int = Field(default=0, ge=0)
+    sync_calendar: bool = False
 
     @model_validator(mode='after')
     def validate_dates(self):
@@ -185,7 +195,7 @@ with connection() as db:
     db.commit()
 
 def draft_key(term, slot):
-    if slot and not re.fullmatch(r'[1-6]-[12]',slot):
+    if slot and not re.fullmatch(r'(?:[1-6]-[12]|explore-[a-zA-Z0-9-]{1,45})',slot):
         raise HTTPException(400,'학년·학기는 1-1부터 6-2까지 지정해주세요.')
     return term + ('::'+slot if slot else '')
 
@@ -196,10 +206,15 @@ def draft(user_id, term, slot=''):
         row = db.execute('SELECT data,revision FROM student_timetable_drafts WHERE user_id=? AND term=?', (user_id,draft_key(term,slot))).fetchone()
     data = json.loads(row['data']) if row else None
     if data: data['revision'] = row['revision']
-    return {'draft': data, 'courses': [catalog[i] for i in data['course_ids'] if i in catalog] if data else []}
+    with connection() as db:
+        alternatives=[{'slot':r['term'].split('::',1)[1],'courses':len(json.loads(r['data']).get('course_ids',[]))} for r in db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=? AND term LIKE ?', (user_id,term+'::explore-legacy-%'))]
+    return {'alternatives':alternatives,'draft': data, 'courses': [catalog[i] for i in data['course_ids'] if i in catalog] if data else []}
 
 def save_draft(user_id, term, data, slot=''):
     storage_key=draft_key(term,slot)
+    should_sync = data.sync_calendar and not slot
+    if should_sync and not profile(user_id)['is_student']:
+        raise HTTPException(400,'학생 서비스를 먼저 설정해주세요.')
     from .snu_catalog import courses
     catalog = {c['id']:c for c in courses(term)}
     valid_ids = set(catalog)
@@ -222,8 +237,10 @@ def save_draft(user_id, term, data, slot=''):
             raise HTTPException(409, '다른 창에서 시간표가 변경되었습니다. 새로고침 후 다시 확인해주세요.')
         db.execute('INSERT INTO student_timetable_drafts VALUES(?,?,?,?) ON CONFLICT(user_id,term) DO UPDATE SET data=excluded.data,revision=excluded.revision',
                    (user_id,storage_key,data.model_dump_json(),revision+1))
+        if should_sync:
+            reconcile_timetable(db,user_id,term,data,catalog)
         db.commit()
-    return {'revision': revision+1}
+    return {'revision': revision+1, 'calendarSynced': should_sync}
 
 
 class CourseCompletion(BaseModel):
@@ -236,6 +253,7 @@ def course_progress(user_id):
         drafts=db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=?',(user_id,)).fetchall()
     planned=set()
     for row in drafts:
+        if '::explore-' in row['term']:continue
         ids=set(json.loads(row['data'])['course_ids'])
         if ids:
             planned.update(c['sbjt_cd'].strip().upper() for c in courses(row['term'].split('::')[0]) if c['id'] in ids and c.get('sbjt_cd'))
@@ -251,3 +269,66 @@ def set_course_completion(user_id,code,data):
         else: db.execute('DELETE FROM student_completed_courses WHERE user_id=? AND code=?',(user_id,code))
         db.commit()
     return course_progress(user_id)
+
+
+def reconcile_timetable(db, user_id, term, data, catalog):
+    """Only mutate owned occurrences, in the draft's transaction; never match personal titles."""
+    expected = {}
+    lessons = []
+    for course_id in data.course_ids:
+        course = catalog[course_id]
+        for index, slot in enumerate(course.get('slots', [])):
+            if slot.get('day_index') is not None and slot.get('start_time') and slot.get('end_time'):
+                lessons.append((f'course:{course_id}:{index}', Lesson(title=course['name'], weekday=slot['day_index'], start=slot['start_time'], end=slot['end_time'], location=course.get('room') or '')))
+    for index, lesson in enumerate(data.manual_lessons):
+        lessons.append((f'manual:{index}', lesson))
+    for source, lesson in lessons:
+        for event in preview(Timetable(name=term, starts_on=data.starts_on,ends_on=data.ends_on,skip_holidays=data.skip_holidays,excluded_dates=data.excluded_dates,lessons=[lesson]))['events']:
+            expected[source+':'+event['startTime'][:10]] = event
+    owned = {r['occurrence']: r['event_id'] for r in db.execute('SELECT occurrence,event_id FROM student_timetable_events WHERE user_id=? AND term=?',(user_id,term))}
+    # Old imports have explicit ownership records. Claim only recorded, exact matching events.
+    legacy_ids = {i for r in db.execute('SELECT event_ids FROM student_timetable_imports WHERE user_id=?',(user_id,)) for i in json.loads(r['event_ids'])}
+    for key, event in expected.items():
+        values = (event['title'],event['startTime'],event['endTime'],event['location'],term)
+        event_id = owned.get(key)
+        if not event_id:
+            matches = db.execute("SELECT id FROM events WHERE user_id=? AND title=? AND start_time=? AND end_time=? AND location=?",(user_id,*values[:4])).fetchall()
+            event_id = next((r['id'] for r in matches if r['id'] in legacy_ids and not db.execute('SELECT 1 FROM student_timetable_events WHERE event_id=?',(r['id'],)).fetchone()),None)
+        if event_id:
+            db.execute('UPDATE events SET title=?,start_time=?,end_time=?,location=?,group_name=?,hide_in_month=1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?',(*values,event_id,user_id))
+        else:
+            event_id = db.execute("INSERT INTO events(title,start_time,end_time,location,group_name,user_id,status,type,category_name,hide_in_month) VALUES(?,?,?,?,?,?,'passive','personal','수업',1)",(*values,user_id)).lastrowid
+        db.execute('INSERT OR REPLACE INTO student_timetable_events VALUES(?,?,?,?)',(user_id,term,key,event_id))
+    for key,event_id in owned.items():
+        if key not in expected:
+            db.execute('DELETE FROM events WHERE id=? AND user_id=?',(event_id,user_id))
+
+
+def migrate_legacy_drafts():
+    """Preserve every conflicting old plan; merge only identical alternatives."""
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        db.execute('CREATE TABLE IF NOT EXISTS student_draft_migration_backup(user_id INTEGER,term TEXT,data TEXT,revision INTEGER,PRIMARY KEY(user_id,term))')
+        rows=db.execute('SELECT * FROM student_timetable_drafts').fetchall()
+        grouped={}
+        for row in rows:
+            if '::' in row['term'] and re.fullmatch(r'[1-6]-[12]',row['term'].split('::')[1]):
+                grouped.setdefault((row['user_id'],row['term'].split('::')[0]),[]).append(row)
+        def signature(raw):
+            data=json.loads(raw);data.pop('revision',None);data.pop('sync_calendar',None);data['course_ids']=sorted(data.get('course_ids',[]));return json.dumps(data,sort_keys=True)
+        for (uid,term),old in grouped.items():
+            actual=db.execute('SELECT * FROM student_timetable_drafts WHERE user_id=? AND term=?',(uid,term)).fetchone()
+            distinct={signature(r['data']):r for r in old}
+            if not actual and len(distinct)==1:
+                chosen=next(iter(distinct.values()));db.execute('INSERT INTO student_timetable_drafts VALUES(?,?,?,?)',(uid,term,chosen['data'],chosen['revision']))
+                actual=chosen
+            seen={signature(actual['data'])} if actual else set()
+            for row in old:
+                db.execute('INSERT OR IGNORE INTO student_draft_migration_backup VALUES(?,?,?,?)',(uid,row['term'],row['data'],row['revision']))
+                sig=signature(row['data'])
+                if sig not in seen:
+                    target=term+'::explore-legacy-'+row['term'].split('::')[1]
+                    db.execute('INSERT OR IGNORE INTO student_timetable_drafts VALUES(?,?,?,?)',(uid,target,row['data'],row['revision']));seen.add(sig)
+                db.execute('DELETE FROM student_timetable_drafts WHERE user_id=? AND term=?',(uid,row['term']))
+        db.commit()
+migrate_legacy_drafts()

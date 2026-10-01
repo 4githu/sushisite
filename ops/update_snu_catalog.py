@@ -22,6 +22,8 @@ for term in index['terms']:
 rules_index = json.loads((source / 'data/grad_req/index.json').read_text())
 rules = {r['id']: json.loads((source / 'data/grad_req' / r['file']).read_text()) for r in rules_index}
 (target / 'curriculum.json.gz').write_bytes(gzip.compress(json.dumps({'index': rules_index, 'rules': rules}, ensure_ascii=False).encode(), mtime=0))
+supplements = {'code_equiv':json.loads((source/'data/grad_req/code_equiv.json').read_text()) if (source/'data/grad_req/code_equiv.json').exists() else {}, 'gyo':{p.stem:json.loads(p.read_text()) for p in (source/'data/grad_req/gyo').glob('*.json')}}
+(target/'supplements.json.gz').write_bytes(gzip.compress(json.dumps(supplements,ensure_ascii=False).encode(),mtime=0))
 meta = {'source': 'https://github.com/Rekhet/class-checker', 'revision': subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip(), 'sourceUpdatedAt': subprocess.check_output(['git', '-C', str(source), 'log', '-1', '--format=%cI', '--', 'data'], text=True).strip(), 'importedAt': datetime.now(timezone.utc).isoformat(), 'terms': terms}
 (target / 'index.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n')
 print(f'{len(terms)} semesters, {sum(t["count"] for t in terms)} courses, {len(rules)} curriculum documents')

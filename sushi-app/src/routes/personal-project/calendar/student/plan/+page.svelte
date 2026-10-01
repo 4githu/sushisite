@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
+	import RuleVersion from '$lib/personal-project/student/RuleVersion.svelte';
+	import RuleProgress from '$lib/personal-project/student/RuleProgress.svelte';
 	import RuleText from '$lib/personal-project/student/RuleText.svelte';
 	import { type CourseProgress, courseKey } from '$lib/personal-project/student/progress';
 	import RuleTree from '$lib/personal-project/student/RuleTree.svelte';
@@ -87,6 +89,7 @@
 		void load();
 	}
 
+	let officialRule = $state<Rule | null>(null);
 	let version = 0;
 	const majors = $derived([...new Set(entries.map((e) => e.major))].sort());
 	const batches = $derived(
@@ -124,7 +127,7 @@
 			if (!entry) return;
 			const data = await request<Rule>(`/student/rules/${encodeURIComponent(entry.id)}`);
 			if (n !== version) return;
-			rule = data;
+			rule = officialRule = data;
 			if (!data.tracks.some((t) => t.key === track)) track = data.tracks[0]?.key || '';
 		} catch (e) {
 			if (n === version) error = e instanceof Error ? e.message : '자료 불러오기 실패';
@@ -141,8 +144,10 @@
 			batch = [...new Set(entries.filter((e) => e.major === major).map((e) => e.batch))]
 				.sort()
 				.reverse()[0];
-			plan = await request('/student/major-plan');
-			progress = await request('/student/course-progress');
+			[plan, progress] = await Promise.all([
+				request<typeof plan>('/student/major-plan'),
+				request<CourseProgress>('/student/course-progress')
+			]);
 			const details = await Promise.all(
 				[...new Set(plan.items.map((i) => i.rule_id))].map(
 					async (id) =>
@@ -164,6 +169,9 @@
 	<header class="page-heading">
 		<div>
 			<span class="eyebrow">CAMPUS / CURRICULUM</span>
+			<a class="button" href="/personal-project/calendar/student/plan/explore"
+				>강의 탐색 · 후보 시간표</a
+			>
 			<h1>수강계획과 이수규정</h1>
 			<p class="muted">서울대 학과·입학 연도별 주전공, 복수전공, 부전공 규정을 확인하세요.</p>
 		</div>
@@ -254,6 +262,13 @@
 			>
 				<p class="eyebrow">{rule.college} / {batch}학번</p>
 				<h2>{rule.major} · {current?.name}</h2>
+				{#if officialRule}{#key entries.find((e) => e.major === major && e.batch === batch)?.id}<RuleVersion
+							ruleId={entries.find((e) => e.major === major && e.batch === batch)!.id}
+							official={officialRule}
+							{track}
+							onselect={(v) => (rule = v)}
+						/>{/key}{/if}
+				{#if current}<RuleProgress {rule} track={current} {progress} />{/if}
 				<button disabled={saving || !planReady || plan.items.length >= 8} onclick={addMajor}
 					>+ 현재 전공에 추가</button
 				>

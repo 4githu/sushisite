@@ -31,6 +31,15 @@ let cachedUser: PersonalUser | null = null;
 let verifiedAt = 0;
 let pending: Promise<PersonalUser | null> | null = null;
 let generation = 0;
+export function privateCacheUser() {
+	return cachedUser?.data.id || '';
+}
+export function clearPrivateRecovery() {
+	if (typeof localStorage !== 'undefined') {
+		for (const k of Object.keys(localStorage))
+			if (k.startsWith('ondo-private:')) localStorage.removeItem(k);
+	}
+}
 export function invalidatePersonalAuth() {
 	cachedUser = null;
 	verifiedAt = 0;
@@ -38,9 +47,14 @@ export function invalidatePersonalAuth() {
 	generation++;
 }
 if (typeof window !== 'undefined') {
-	window.addEventListener('personal-auth-invalid', invalidatePersonalAuth);
+	window.addEventListener('personal-auth-invalid', () => {
+		invalidatePersonalAuth();
+	});
 	window.addEventListener('storage', (event) => {
-		if (event.key === 'personal-auth-reset') invalidatePersonalAuth();
+		if (event.key === 'personal-auth-reset') {
+			clearPrivateRecovery();
+			invalidatePersonalAuth();
+		}
 	});
 }
 export async function checkPersonalAuth(): Promise<PersonalUser | null> {
@@ -120,6 +134,7 @@ export async function logoutPersonal() {
 			'logout_failed'
 		);
 	}
+	clearPrivateRecovery();
 	invalidatePersonalAuth();
 	try {
 		localStorage.setItem('personal-auth-reset', String(Date.now()));

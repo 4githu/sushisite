@@ -15,6 +15,8 @@ GENERAL = {'hum':'인문대학','natsci':'자연과학대학','soc':'사회과�
 
 def text(value):
     value=html.unescape(html.unescape(value)).replace('\xa0',' ')
+    if re.search(r'frameset|euc-kr|SPA-blocked|HTTPS 인증서|HTTP 200| -k |406|hum\.md 미확보',value,re.I):
+        return '공식 이수규정 확인이 필요합니다. 수집한 자료가 불완전하여 일부 필수 과목과 학점 기준이 확인되지 않았습니다. 학과의 공식 안내 또는 학과 사무실에서 확인해주세요.'
     if re.search(r'HTTP 200이나|GNUBOARD',value):
         return '학과의 공식 이수규정을 확인하지 못해 농업생명과학대학 공통 기준을 임시 적용했습니다. 교양 학점 등 일부 수치는 자료끼리 일치하지 않으며, 필수 과목코드도 확인되지 않았습니다. 정확한 기준은 학과 사무실에서 확인해주세요.'
     if 'colleges 모드' in value:
@@ -32,7 +34,7 @@ def text(value):
 def present(value, key=''):
     if isinstance(value,dict):return {k:present(v,k) for k,v in value.items()}
     if isinstance(value,list):return [present(v,key) for v in value]
-    if isinstance(value,str) and key not in ('code','codes','code_prefixes','id','key','batch'):
+    if isinstance(value,str) and key not in ('code','codes','code_prefixes','id','key','batch','general_key','areas','classifications','departments'):
         return text(value)
     return value
 

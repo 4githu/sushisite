@@ -2,7 +2,13 @@
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
 	import '$lib/personal-project/student/student.css';
-	let profile = $state({ is_student: true, school: '서울대학교', department: '' }),
+	let profile = $state({
+			is_student: true,
+			school: '서울대학교',
+			department: '',
+			admission_year: new Date().getFullYear() as number | null,
+			academic_offset: 0
+		}),
 		loading = $state(true),
 		busy = $state(false),
 		error = $state(''),
@@ -67,7 +73,23 @@
 					maxlength="120"
 					placeholder="예: 컴퓨터공학부"
 				/></label
-			><button class="primary">설정 저장</button>
+			><label
+				>입학 연도<input
+					type="number"
+					min="1950"
+					max="2100"
+					bind:value={profile.admission_year}
+				/></label
+			><label
+				>휴학 등 학기 보정<input
+					type="number"
+					min="-20"
+					max="20"
+					bind:value={profile.academic_offset}
+				/></label
+			><small>휴학한 학기 수만큼 보정합니다. 이수규정의 입학 연도는 유지됩니다.</small><button
+				class="primary">설정 저장</button
+			>
 		</fieldset>
 	</form>
 	<div class="destinations">

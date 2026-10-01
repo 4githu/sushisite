@@ -50,6 +50,8 @@ def init_workspace():
             if name not in project_columns:
                 db.execute(f'ALTER TABLE calendar_projects ADD COLUMN {name} {kind}')
         note_columns = {row[1] for row in db.execute('PRAGMA table_info(calendar_daily_notes)')}
+        if 'revision' not in note_columns:
+            db.execute('ALTER TABLE calendar_daily_notes ADD COLUMN revision INTEGER NOT NULL DEFAULT 0')
         if 'drawing' not in note_columns:
             db.execute("ALTER TABLE calendar_daily_notes ADD COLUMN drawing TEXT NOT NULL DEFAULT ''")
         if 'rich_document' not in note_columns:
