@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, setContext } from 'svelte';
 	import InstallApp from '$lib/personal-project/shared/InstallApp.svelte';
+	import { request } from '$lib/personal-project/shared/api';
 	import { page } from '$app/state';
 	import PersonalAccountCard from '$lib/personal-project/shared/PersonalAccountCard.svelte';
 	import CalendarIcon from '$lib/personal-project/shared/CalendarIcon.svelte';
@@ -9,6 +10,7 @@
 
 	let { children } = $props();
 	let activeView = $state('');
+	let canAdmin = $state(false);
 	setContext('calendar-navigation', {
 		setView: (value: string) => {
 			activeView = value;
@@ -17,7 +19,11 @@
 	const currentView = $derived(
 		page.url.pathname.includes('/student')
 			? 'student'
-			: (['day','week','tasks',''].includes(page.url.pathname.split('/')[3] || '') ? activeView : '') || page.url.pathname.split('/')[3] || 'month'
+			: (['day', 'week', 'tasks', ''].includes(page.url.pathname.split('/')[3] || '')
+					? activeView
+					: '') ||
+					page.url.pathname.split('/')[3] ||
+					'month'
 	);
 	let collapsed = $state(false),
 		mobileOpen = $state(false),
@@ -32,6 +38,9 @@
 		{ path: '/resources', label: '자료 · PDF', icon: 'files' }
 	] as const;
 	onMount(() => {
+		void request<{ canAdmin: boolean }>('/boards')
+			.then((v) => (canAdmin = v.canAdmin))
+			.catch(() => {});
 		try {
 			collapsed = localStorage.getItem('ondo.sidebar-collapsed') === 'true';
 		} catch {
@@ -101,6 +110,11 @@
 						<CalendarIcon name={view.icon} /><span class="ondo-nav-text">{view.label}</span>
 					</a>
 				{/each}
+				{#if canAdmin}<a
+						href="/personal-project/calendar/admin"
+						onclick={() => (mobileOpen = false)}
+						><CalendarIcon name="settings" /><span class="ondo-nav-text">관리자</span></a
+					>{/if}
 			</nav>
 			<p class="ondo-nav-label">학생서비스</p>
 			<nav aria-label="학생서비스">

@@ -120,3 +120,32 @@ def test_transcript_exclusion_is_private_and_can_be_reversed():
         assert c['sbjt_cd'] in client.put(endpoint,json={'excluded':False}).json()['completed']
         assert student.course_history(999999)['excluded']==[]
     finally:user=previous
+
+
+def test_restricted_board_requires_explicit_read_and_protects_thumbnails(monkeypatch):
+    global user
+    original=user
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(original))
+    bid=client.post(BASE+'/boards',json={'name':'권한 검증방'}).json()['id']
+    assert client.put(BASE+f'/admin/boards/{bid}/restriction',json={'restricted':True}).status_code==200
+    image=client.post(BASE+'/resources',params={'name':'test.png','board_id':bid},content=b'png-test',headers={'content-type':'image/png'}).json()
+    pid=client.post(BASE+f'/boards/{bid}/posts',json={'title':'사진','document':{'richContent':{'type':'doc','content':[{'type':'image','attrs':{'src':image['url']}}]}}}).json()['id']
+    assert client.get(BASE+f'/boards/{bid}/posts').json()['posts'][0]['thumbnail']==image['url']
+    user=99109
+    try:
+        assert bid not in [b['id'] for b in client.get(BASE+'/boards').json()['boards']]
+        assert client.get(BASE+f'/boards/{bid}/posts').status_code==403
+        assert client.get(BASE+f'/boards/posts/{pid}').status_code==403
+        assert client.get(image['url']).status_code==403
+        assert client.get(BASE+'/admin/workspace').status_code==403
+        assert client.put(BASE+f'/admin/boards/{bid}/restriction',json={'restricted':False}).status_code==403
+        user=original
+        assert client.put(BASE+'/boards/permissions',json={'user_id':99109,'scope':f'board:{bid}','action':'read','allowed':True}).status_code==200
+        user=99109
+        assert client.get(BASE+f'/boards/{bid}/posts').status_code==200
+        assert client.get(image['url']).status_code==200
+        user=original
+        client.put(BASE+'/boards/permissions',json={'user_id':99109,'scope':f'board:{bid}','action':'read','allowed':False})
+        user=99109
+        assert client.get(image['url']).status_code==403
+    finally:user=original

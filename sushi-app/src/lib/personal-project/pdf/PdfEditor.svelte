@@ -523,10 +523,11 @@
 			</div>
 			<label>색<input type="color" bind:value={color} /></label><label
 				>굵기<input type="range" min="1" max="10" bind:value={width} /></label
-			><label><input type="checkbox" bind:checked={penOnly} />펜으로만 필기</label><button
-				disabled={!undo.length}
-				onclick={() => history(true)}>실행 취소</button
-			><button disabled={!redo.length} onclick={() => history(false)}>다시 실행</button
+			><label><input type="checkbox" bind:checked={penOnly} />펜으로만 필기</label><small
+				>필기 영역 이동은 ‘이동’ 도구를 선택하세요.</small
+			><button disabled={!undo.length} onclick={() => history(true)}>실행 취소</button><button
+				disabled={!redo.length}
+				onclick={() => history(false)}>다시 실행</button
 			>{#if !daily}<label
 					>확대<select bind:value={zoom}
 						>{#each [0.5, 0.75, 1, 1.25, 1.5, 2] as z}<option value={z}>{z * 100}%</option
@@ -582,7 +583,7 @@
 					onpointercancel={finish}
 					onlostpointercapture={finish}
 					oncontextmenu={(e) => e.preventDefault()}
-					style:touch-action={penOnly || tool === 'pan' ? 'pan-x pan-y pinch-zoom' : 'none'}
+					style:touch-action={tool === 'pan' ? 'pan-x pan-y pinch-zoom' : 'none'}
 					>{#if lasso.length}<path
 							d={path({ id: 'lasso', kind: 'pen', width: 1, color: '#666', points: lasso })}
 							fill="#8882"

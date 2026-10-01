@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { Editor, Node, mergeAttributes } from '@tiptap/core';
+	import { Editor, Node, Extension, mergeAttributes } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import { Markdown } from '@tiptap/markdown';
 	import { TableKit } from '@tiptap/extension-table';
@@ -17,6 +17,7 @@
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
 	import { toRich, fromRich } from './document';
+	import PersonalColorPicker from './PersonalColorPicker.svelte';
 	import { uploadResource } from '../resources/api';
 	let {
 		initialValue = null,
@@ -48,6 +49,102 @@
 	let surface: HTMLDivElement;
 	let editor = $state.raw<Editor>();
 	let expanded = $state(!untrack(() => compact));
+	let inTable = $state(false);
+	let palette = $state<'text' | 'highlight' | null>(null);
+	let markerEnabled = $state(
+		untrack(
+			() =>
+				Object.values(questionChecks).some(Boolean) ||
+				JSON.stringify(initialValue?.richContent || {}).includes('\"questionMarked\":true')
+		)
+	);
+	const BlockLayout = Extension.create({
+		name: 'blockLayout',
+		addGlobalAttributes() {
+			return [
+				{
+					types: ['paragraph', 'heading', 'codeBlock', 'details'],
+					attributes: {
+						indent: {
+							default: 0,
+							parseHTML: (el) => Math.min(8, Math.max(0, Number(el.dataset.indent) || 0)),
+							renderHTML: (attrs) => ({
+								'data-indent': attrs.indent,
+								style: `margin-left:${attrs.indent * 24}px`
+							})
+						},
+						questionMarked: {
+							default: false,
+							parseHTML: (el) => el.dataset.questionMarked === 'true',
+							renderHTML: (attrs) =>
+								attrs.questionMarked ? { 'data-question-marked': 'true' } : {}
+						}
+					}
+				}
+			];
+		}
+	});
+	function indentBlock(out = false) {
+		if (!editor) return false;
+		if (editor.isActive('table'))
+			return out ? editor.commands.goToPreviousCell() : editor.commands.goToNextCell();
+		const list = editor.isActive('taskItem') ? 'taskItem' : 'listItem';
+		if (editor.isActive(list))
+			return out ? editor.commands.liftListItem(list) : editor.commands.sinkListItem(list);
+		if (editor.isActive('codeBlock')) {
+			if (!out) return editor.commands.insertContent('  ');
+			const { from } = editor.state.selection;
+			if (editor.state.doc.textBetween(Math.max(0, from - 2), from) === '  ')
+				return editor.commands.deleteRange({ from: from - 2, to: from });
+			return true;
+		}
+		const type = editor.isActive('detailsSummary')
+			? 'details'
+			: editor.isActive('heading')
+				? 'heading'
+				: 'paragraph';
+		return editor.commands.updateAttributes(type, {
+			indent: Math.min(8, Math.max(0, (editor.getAttributes(type).indent || 0) + (out ? -1 : 1)))
+		});
+	}
+	function link() {
+		if (!editor) return;
+		const href = prompt(
+			'선택한 글자에 연결할 https:// 주소 (비우면 링크 제거)',
+			editor.getAttributes('link').href || ''
+		);
+		if (href === null) return;
+		if (!href.trim()) {
+			editor.chain().focus().extendMarkRange('link').unsetLink().run();
+			return;
+		}
+		if (!/^https?:\/\//i.test(href.trim())) {
+			error = 'http:// 또는 https:// 주소를 입력해주세요.';
+			return;
+		}
+		if (editor.state.selection.empty && !editor.isActive('link'))
+			editor
+				.chain()
+				.focus()
+				.insertContent({
+					type: 'text',
+					text: href.trim(),
+					marks: [{ type: 'link', attrs: { href: href.trim() } }]
+				})
+				.run();
+		else editor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run();
+	}
+	export function attachMemo(text: string) {
+		if (!editor) return;
+		editor
+			.chain()
+			.focus()
+			.insertContentAt(editor.state.selection.to, [
+				{ type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] },
+				{ type: 'paragraph' }
+			])
+			.run();
+	}
 	let error = $state('');
 	let uploadProgress = $state<number | null>(null);
 	let failedFile = $state<File | null>(null);
@@ -83,11 +180,17 @@
 	});
 	function toggleQuestion() {
 		if (!editor || readonly) return;
+		markerEnabled = true;
 		const from = editor.state.selection.$from;
 		for (let d = from.depth; d > 0; d--) {
 			const id = from.node(d).attrs.id;
 			if (id) {
-				onquestionchange?.(id, !questionChecks[id]);
+				if (onquestionchange) onquestionchange(id, !questionChecks[id]);
+				else
+					editor.commands.updateAttributes(from.node(d).type.name, {
+						questionMarked: !from.node(d).attrs.questionMarked
+					});
+				refreshChecks();
 				return;
 			}
 		}
@@ -144,32 +247,16 @@
 							}
 						});
 					}
-					if (!onquestionchange && !Object.keys(questionChecks).length)
-						return DecorationSet.create(state.doc, dec);
-					state.doc.descendants((node, pos) => {
-						const id = node.attrs.id;
-						if (node.isTextblock && id) {
-							dec.push(
-								Decoration.widget(
-									pos + 1,
-									() => {
-										const b = document.createElement('button');
-										b.className = 'question-check';
-										b.contentEditable = 'false';
-										b.type = 'button';
-										b.disabled = readonly;
-										b.textContent = questionChecks[id] ? '☑' : '☐';
-										b.setAttribute('aria-label', checkLabel);
-										b.setAttribute('aria-pressed', String(!!questionChecks[id]));
-										b.onmousedown = (e) => e.preventDefault();
-										b.onclick = () => onquestionchange?.(id, !questionChecks[id]);
-										return b;
-									},
-									{ key: `${id}:${!!questionChecks[id]}`, side: -1 }
-								)
-							);
-						}
-					});
+					if (markerEnabled)
+						state.doc.descendants((node, pos) => {
+							if (node.isTextblock && (questionChecks[node.attrs.id] || node.attrs.questionMarked))
+								dec.push(
+									Decoration.node(pos, pos + node.nodeSize, {
+										class: 'question-marked',
+										'data-question-marked': 'true'
+									})
+								);
+						});
 					return DecorationSet.create(state.doc, dec);
 				}
 			}
@@ -178,6 +265,7 @@
 			element: surface,
 			extensions: [
 				StarterKit,
+				BlockLayout,
 				Markdown,
 				TableKit.configure({ table: { resizable: true } }),
 				TaskList,
@@ -212,6 +300,22 @@
 					'aria-multiline': 'true'
 				},
 				handleKeyDown: (_view, event) => {
+					if (readonly) return false;
+					if (
+						(event.ctrlKey || event.metaKey) &&
+						event.shiftKey &&
+						!event.altKey &&
+						event.code === 'KeyB'
+					) {
+						event.preventDefault();
+						editor?.chain().focus().toggleBlockquote().run();
+						return true;
+					}
+					if (event.key === 'Tab' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+						event.preventDefault();
+						indentBlock(event.shiftKey);
+						return true;
+					}
 					if ((event.ctrlKey || event.metaKey) && event.altKey && event.code === 'KeyQ') {
 						event.preventDefault();
 						toggleQuestion();
@@ -266,6 +370,12 @@
 					return true;
 				}
 			},
+			onSelectionUpdate: ({ editor: e }) => {
+				inTable = e.isActive('table');
+			},
+			onTransaction: ({ editor: e }) => {
+				inTable = e.isActive('table');
+			},
 			onUpdate: ({ editor: e }) => {
 				base = fromRich(e.getJSON(), base);
 				onchange?.(base);
@@ -289,6 +399,7 @@
 	$effect(() => {
 		questionChecks;
 		foldedBlocks;
+		markerEnabled;
 		allowFolding;
 		refreshChecks();
 	});
@@ -316,13 +427,16 @@
 				uploadProgress = 0;
 				const asset = await uploadResource(file, boardId, (p) => (uploadProgress = p));
 				if (scope !== generation) return;
-				if (asset.mimeType.startsWith('image/'))
-					editor?.chain().focus().setImage({ src: asset.url, alt: asset.name }).run();
-				else
+				if (editor)
 					editor
-						?.chain()
+						.chain()
 						.focus()
-						.insertContent({ type: 'attachment', attrs: { href: asset.url, name: asset.name } })
+						.insertContentAt(editor.state.selection.to, [
+							asset.mimeType.startsWith('image/')
+								? { type: 'image', attrs: { src: asset.url, alt: asset.name } }
+								: { type: 'attachment', attrs: { href: asset.url, name: asset.name } },
+							{ type: 'paragraph' }
+						])
 						.run();
 				failedFile = null;
 			} catch (e) {
@@ -335,7 +449,7 @@
 	}
 </script>
 
-<div class="personal-editor" class:compact>
+<div class="personal-editor" class:compact class:markers={markerEnabled}>
 	{#if !readonly}<div class="tools" role="toolbar" aria-label="문서 편집 도구">
 			<button type="button" onclick={() => (expanded = !expanded)} aria-expanded={expanded}
 				>서식 {expanded ? '접기' : '열기'}</button
@@ -363,49 +477,84 @@
 					>목록</button
 				><button type="button" onclick={() => editor?.chain().focus().toggleOrderedList().run()}
 					>번호</button
-				><button type="button" onclick={() => editor?.chain().focus().toggleBlockquote().run()}
-					>인용</button
+				><button
+					type="button"
+					title="인용 전환 · Ctrl/Cmd+Shift+B"
+					onclick={() => editor?.chain().focus().toggleBlockquote().run()}>인용</button
 				><button type="button" onclick={() => editor?.chain().focus().setDetails().run()}
 					>토글</button
 				>
-				<label
-					>글자색 <input
-						type="color"
-						value="#25262b"
-						oninput={(e) => editor?.chain().focus().setColor(e.currentTarget.value).run()}
-					/></label
-				><label
-					>형광펜 <input
-						type="color"
-						value="#fff3bf"
-						oninput={(e) =>
-							editor?.chain().focus().setHighlight({ color: e.currentTarget.value }).run()}
-					/></label
+				<button type="button" onclick={() => (palette = palette === 'text' ? null : 'text')}
+					>글자색</button
+				>
+				<button
+					type="button"
+					onclick={() => (palette = palette === 'highlight' ? null : 'highlight')}>형광펜 색</button
+				>
+				<button type="button" onclick={() => editor?.chain().focus().unsetHighlight().run()}
+					>형광 제거</button
+				>
+				<button type="button" onclick={link} title="선택한 글자에 링크를 연결하거나 수정합니다."
+					>링크 연결</button
 				>
 				<button
 					type="button"
 					onclick={() => {
-						const href = prompt('링크 주소');
-						if (href && /^https?:\/\//i.test(href)) editor?.chain().focus().setLink({ href }).run();
-					}}>링크</button
+						editor?.commands.focus();
+						indentBlock();
+					}}>들여쓰기</button
 				>
+				<button
+					type="button"
+					onclick={() => {
+						editor?.commands.focus();
+						indentBlock(true);
+					}}>내어쓰기</button
+				>
+				<button type="button" onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
+					>코드 블록</button
+				>
+				<button
+					type="button"
+					aria-pressed={markerEnabled}
+					onclick={() => (markerEnabled = !markerEnabled)}
+					>질문 표시 {markerEnabled ? '켜짐' : '꺼짐'}</button
+				>
+				{#if markerEnabled}<button type="button" onclick={toggleQuestion} title="Ctrl/Cmd+Alt+Q"
+						>왼쪽 표시 전환</button
+					>{/if}
+				{#if palette}<PersonalColorPicker
+						kind={palette}
+						onclose={() => (palette = null)}
+						onselect={(color) => {
+							if (palette === 'text') {
+								if (color) editor?.chain().focus().setColor(color).run();
+								else editor?.chain().focus().unsetColor().run();
+							} else {
+								if (color) editor?.chain().focus().setHighlight({ color }).run();
+								else editor?.chain().focus().unsetHighlight().run();
+							}
+							palette = null;
+						}}
+					/>{/if}
 				<button type="button" onclick={() => input.click()}>사진·파일</button><button
 					type="button"
 					onclick={() =>
 						editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
 					>표</button
 				>
-				<button type="button" onclick={() => editor?.chain().focus().addRowAfter().run()}
-					>행 추가</button
-				><button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()}
-					>열 추가</button
-				><button type="button" onclick={() => editor?.chain().focus().deleteRow().run()}
-					>행 삭제</button
-				><button type="button" onclick={() => editor?.chain().focus().deleteColumn().run()}
-					>열 삭제</button
-				><button type="button" onclick={() => editor?.chain().focus().deleteTable().run()}
-					>표 삭제</button
-				>{/if}
+				{#if inTable}<button
+						type="button"
+						onclick={() => editor?.chain().focus().addRowAfter().run()}>행 추가</button
+					><button type="button" onclick={() => editor?.chain().focus().addColumnAfter().run()}
+						>열 추가</button
+					><button type="button" onclick={() => editor?.chain().focus().deleteRow().run()}
+						>행 삭제</button
+					><button type="button" onclick={() => editor?.chain().focus().deleteColumn().run()}
+						>열 삭제</button
+					><button type="button" onclick={() => editor?.chain().focus().deleteTable().run()}
+						>표 삭제</button
+					>{/if}{/if}
 		</div>{/if}
 	<input
 		hidden
@@ -429,6 +578,31 @@
 </div>
 
 <style>
+	.markers :global(.question-marked),
+	.markers :global([data-question-marked='true']) {
+		border-left: 4px solid #e59639;
+		padding-left: 10px;
+	}
+	.tools :global(.color-popover) {
+		flex-basis: 100%;
+		padding: 12px;
+		background: var(--surface, #fff);
+		border: 1px solid #aaa5;
+		border-radius: 8px;
+	}
+	.tools :global(.swatches) {
+		display: flex;
+		gap: 7px;
+		margin: 6px 0;
+	}
+	.tools :global(.swatch) {
+		background: var(--swatch);
+		width: 28px;
+		height: 28px;
+		border: 1px solid #8886;
+		border-radius: 50%;
+	}
+
 	.personal-editor {
 		border: 1px solid var(--border, #ccd0d8);
 		border-radius: 10px;
@@ -454,13 +628,13 @@
 		color: inherit;
 		cursor: pointer;
 	}
-	.tools label {
+	.tools :global(label) {
 		display: flex;
 		gap: 4px;
 		align-items: center;
 		font-size: 14px;
 	}
-	.tools input {
+	.tools :global(input) {
 		width: 26px;
 		height: 26px;
 		padding: 0;
@@ -533,8 +707,7 @@
 	.personal-editor :global([data-type='details']) {
 		display: flex;
 		gap: 8px;
-		border-left: 2px solid #adb2be;
-		padding: 8px;
+		padding: 2px 0;
 	}
 	.personal-editor :global([data-type='details'] > div) {
 		flex: 1;

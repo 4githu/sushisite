@@ -1250,3 +1250,5 @@
 .daily-workspace>.daily-plan{display:block!important;max-height:none!important;overflow:visible!important}
 .daily-workspace .daily-note{padding:12px}
 @media(max-width:900px){.daily-workspace{grid-template-columns:1fr}.daily-workspace>.pdf-editor{max-width:560px;width:100%;margin:auto}}
+
+.day-agenda{min-width:0}.day-agenda h2{font-size:17px;margin:0 0 10px}.day-agenda-event{display:flex;gap:12px;width:100%;text-align:left;padding:10px;border:0;border-bottom:1px solid var(--cw-line);background:transparent;color:inherit}.day-agenda-event time{min-width:48px;font-size:13px}.day-agenda .pdf-editor{margin-top:16px}

@@ -45,6 +45,11 @@ def init():
         for name in ('자유 게시판','자료 공유','질문·답변'):
             if not db.execute("SELECT 1 FROM community_boards WHERE name=? AND school=''",(name,)).fetchone():
                 db.execute("INSERT INTO community_boards(name,realm) VALUES(?,'other')",(name,))
+        cols={c['name'] for c in db.execute('PRAGMA table_info(community_boards)')}
+        if 'restricted' not in cols:
+            db.execute('ALTER TABLE community_boards ADD COLUMN restricted INTEGER NOT NULL DEFAULT 0')
+            db.execute("UPDATE community_boards SET restricted=1 WHERE name='자료 공유'")
+        db.executescript('CREATE TABLE IF NOT EXISTS community_admins(user_id INTEGER PRIMARY KEY); CREATE TABLE IF NOT EXISTS community_audit(id INTEGER PRIMARY KEY,actor INTEGER,action TEXT,target TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);')
         db.commit()
 init()
 
@@ -56,11 +61,14 @@ def author_names(rows):
         with get_connection() as db:names={r['id']:r['name'] for r in db.execute('SELECT id,name FROM users WHERE id IN ('+','.join('?' for _ in ids)+')',ids)}
     return [dict(r)|{'author_name':names.get(r['author_id']) or f"회원 {r['author_id']}"} for r in rows]
 
-def admin(uid): return str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(',')
+def admin(uid):
+    if str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(','):return True
+    with connection() as db:return bool(db.execute('SELECT 1 FROM community_admins WHERE user_id=?',(uid,)).fetchone())
 def permission(db,uid,board,action):
     flags=[r[0] for r in db.execute('SELECT allowed FROM community_acl WHERE user_id=? AND action=? AND scope IN (?,?)',(uid,action,board['realm'],f"board:{board['id']}"))]
     if 0 in flags:return False
     if admin(uid):return True
+    if board['restricted'] and not db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope=? AND action='read' AND allowed=1",(uid,f"board:{board['id']}")).fetchone():return False
     if board['school']:
         p=db.execute('SELECT school,department,is_student FROM student_profiles WHERE user_id=?',(uid,)).fetchone()
         if not p or not p['is_student'] or (p['school'],p['department'])!=(board['school'],board['department']):return False
@@ -141,6 +149,7 @@ def set_permission(data:ACL,uid:int=Depends(current_user_id)):
     with connection() as db:
         if data.allowed is None:db.execute('DELETE FROM community_acl WHERE user_id=? AND scope=? AND action=?',(data.user_id,data.scope,data.action))
         else:db.execute('INSERT OR REPLACE INTO community_acl VALUES(?,?,?,?)',(data.user_id,data.scope,data.action,int(data.allowed)))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'permission',f'{data.user_id}:{data.scope}:{data.action}:{data.allowed}'))
         db.commit()
     return {'saved':True}
 @router.get('/boards/{bid}/posts')
@@ -151,8 +160,15 @@ def posts(bid:int,q:str=Query('',max_length=120),page:int=Query(1,ge=1),deleted:
         args=(bid,int(deleted),'%'+q+'%','%'+q+'%')
         where='board_id=? AND deleted=? AND (title LIKE ? OR plain LIKE ?)'
         total=db.execute('SELECT count(*) FROM community_posts WHERE '+where,args).fetchone()[0]
-        rows=db.execute('SELECT id,title,author_id,pinned,revision,created_at,updated_at,(SELECT count(*) FROM community_comments c WHERE c.post_id=p.id AND c.deleted=0) AS comments FROM community_posts p WHERE '+where+' ORDER BY pinned DESC,id DESC LIMIT 30 OFFSET ?',(*args,(page-1)*30)).fetchall()
-        return {'posts':author_names(rows),'total':total,'page':page}
+        rows=db.execute('SELECT id,title,document,author_id,pinned,revision,created_at,updated_at,(SELECT count(*) FROM community_comments c WHERE c.post_id=p.id AND c.deleted=0) AS comments FROM community_posts p WHERE '+where+' ORDER BY pinned DESC,id DESC LIMIT 30 OFFSET ?',(*args,(page-1)*30)).fetchall()
+        items=[]
+        for row in author_names(rows):
+            document=json.loads(row.pop('document'));row['thumbnail']=None
+            for rid in re.findall(r'/api/personal/resources/([a-f0-9]{32})',json.dumps(document)):
+                asset=db.execute("SELECT id FROM personal_resources WHERE id=? AND board_id=? AND mime LIKE 'image/%'",(rid,bid)).fetchone()
+                if asset:row['thumbnail']=f"/api/personal/resources/{rid}";break
+            items.append(row)
+        return {'posts':items,'total':total,'page':page}
 @router.post('/boards/{bid}/posts')
 def create_post(bid:int,data:PostWrite,uid:int=Depends(current_user_id)):
     encoded=encode_document(data.document)
@@ -304,3 +320,23 @@ def rule_history(rule_id:str,uid:int=Depends(current_user_id)):
 @router.get('/documents')
 def document_copies(uid:int=Depends(current_user_id)):
     with connection() as db:return [dict(r) for r in db.execute("SELECT document_key,revision,updated_at FROM personal_documents WHERE user_id=? AND document_key LIKE '%conflict:%' ORDER BY updated_at DESC LIMIT 100",(uid,))]
+
+@router.get('/admin/workspace')
+def admin_workspace(q:str=Query('',max_length=120),uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    from auth.userdb import get_connection
+    with get_connection() as users:
+        rows=[dict(r) for r in users.execute('SELECT id,name,email FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id LIMIT 30',('%'+q+'%','%'+q+'%'))] if q.strip() else []
+    with connection() as db:return {'users':rows,'boards':[dict(b) for b in db.execute('SELECT id,name,restricted FROM community_boards')],'permissions':[dict(a) for a in db.execute('SELECT * FROM community_acl')],'audit':[dict(a) for a in db.execute('SELECT * FROM community_audit ORDER BY id DESC LIMIT 50')]}
+
+class BoardRestriction(BaseModel):
+    restricted:bool
+
+@router.put('/admin/boards/{bid}/restriction')
+def restrict_board(bid:int,data:BoardRestriction,uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    with connection() as db:
+        if not db.execute('SELECT id FROM community_boards WHERE id=?',(bid,)).fetchone():raise HTTPException(404,'게시판 없음')
+        db.execute('UPDATE community_boards SET restricted=? WHERE id=?',(int(data.restricted),bid))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.restricted',f'{bid}:{data.restricted}'));db.commit()
+    return {'saved':True}

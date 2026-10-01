@@ -8,8 +8,16 @@
 	import { createDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
 	import '$lib/personal-project/student/student.css';
-	type Board = { id: number; name: string; realm: string; post_count?: number; last_title?: string; permissions: Record<string, boolean> };
+	type Board = {
+		id: number;
+		name: string;
+		realm: string;
+		post_count?: number;
+		last_title?: string;
+		permissions: Record<string, boolean>;
+	};
 	type Post = {
+		thumbnail?: string;
 		id: number;
 		title: string;
 		author_id: number;
@@ -65,6 +73,8 @@
 	const pid = $derived(Number(page.url.searchParams.get('post') || 0));
 	const currentPage = $derived(Number(page.url.searchParams.get('page') || 1));
 	const board = $derived(boards.find((b) => b.id === bid));
+	let memo = $state('');
+	let composer = $state<PersonalTextEditor>();
 	let generation = 0;
 	beforeNavigate(({ cancel }) => {
 		if (changed && !confirm('작성 중인 글을 두고 이동할까요?')) cancel();
@@ -177,7 +187,11 @@
 	{#if !bid}<section class="board-directory">
 			<h2>전체 게시판</h2>
 			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards as b}<a href={`?board=${b.id}`}
-					><div><strong>{b.name}</strong><p>{b.last_title || '첫 글을 남겨보세요.'}</p></div><span>{b.post_count || 0}개 글 · 목록 보기 →</span></a
+					><div>
+						<strong>{b.name}</strong>
+						<p>{b.last_title || '첫 글을 남겨보세요.'}</p>
+					</div>
+					<span>{b.post_count || 0}개 글 · 목록 보기 →</span></a
 				>{/each}
 		</section>{/if}
 	{#if error}<p class="error" role="alert">
@@ -202,7 +216,25 @@
 						maxlength="160"
 						oninput={() => (changed = true)}
 					/></label
-				><PersonalTextEditor
+				>
+				<details>
+					<summary>간단한 메모 첨부</summary><textarea
+						aria-label="첨부할 메모"
+						bind:value={memo}
+						placeholder="짧은 설명이나 전달사항"
+						rows="3"
+					></textarea><button
+						type="button"
+						disabled={!memo.trim()}
+						onclick={() => {
+							composer?.attachMemo(memo.trim());
+							memo = '';
+						}}>메모를 본문에 첨부</button
+					>
+				</details>
+				<p class="attachment-help">사진은 붙여넣기·드래그하거나 ‘사진·파일’에서 첨부하세요.</p>
+				<PersonalTextEditor
+					bind:this={composer}
 					initialValue={initial}
 					boardId={bid}
 					onchange={(value) => {
@@ -312,7 +344,12 @@
 				<div class="post-list">
 					{#each posts as p}<div class="post-row">
 							<a href={`?board=${bid}&post=${p.id}`}
-								><span>{p.pinned ? '공지 · ' : ''}{p.title}</span><small
+								>{#if p.thumbnail}<img
+										class="post-thumb"
+										src={p.thumbnail}
+										alt="첨부 이미지"
+										loading="lazy"
+									/>{/if}<span>{p.pinned ? '공지 · ' : ''}{p.title}</span><small
 									>{p.author_name} · {p.created_at.slice(0, 10)} · 댓글 {p.comments}</small
 								></a
 							>{#if trash}<button
@@ -340,58 +377,22 @@
 			</section>{/if}
 	{/if}
 	{#if board}<ApiKeys boardId={bid} boardName={board.name} />{/if}
-	{#if canAdmin}<details class="permissions">
-			<summary>계정별 게시판 권한</summary>
-			<form
-				class="fields"
-				onsubmit={(e) => {
-					e.preventDefault();
-					void run(async () => {
-						await request('/boards/permissions', {
-							method: 'PUT',
-							body: {
-								user_id: account,
-								scope,
-								action,
-								allowed: permission === 'default' ? null : permission === 'allow'
-							}
-						});
-						acl = await request('/boards/permissions');
-					});
-				}}
-			>
-				<input
-					aria-label="회원 ID"
-					type="number"
-					min="1"
-					placeholder="회원 ID"
-					bind:value={account}
-					required
-				/><select aria-label="권한 범위" bind:value={scope}
-					><option value="main">메인 게시판</option><option value="other">기타 게시판 전체</option
-					>{#each boards as b}<option value={`board:${b.id}`}>{b.name}</option>{/each}</select
-				><select aria-label="동작" bind:value={action}
-					>{#each [['read', '읽기'], ['post', '글쓰기'], ['comment', '댓글'], ['create', '게시판 생성'], ['manage', '관리']] as [a, label]}<option
-							value={a}>{label}</option
-						>{/each}</select
-				><select aria-label="허용 여부" bind:value={permission}
-					><option value="allow">허용</option><option value="deny">거부</option><option
-						value="default">기본값</option
-					></select
-				><button disabled={busy}>권한 저장</button>
-			</form>
-			<button
-				onclick={() =>
-					run(async () => {
-						acl = await request('/boards/permissions');
-					})}>현재 권한 조회</button
-			>{#each acl as a}<p>
-					회원 {a.user_id} · {a.scope} · {a.action} · {a.allowed ? '허용' : '거부'}
-				</p>{/each}
-		</details>{/if}
+	{#if canAdmin}<a href="/personal-project/calendar/admin">관리자 화면 →</a>{/if}
 </div>
 
 <style>
+	.post-thumb {
+		float: right;
+		width: 76px;
+		height: 64px;
+		object-fit: cover;
+		border-radius: 6px;
+		margin-left: 12px;
+	}
+	.attachment-help {
+		font-size: 13px;
+		color: #666;
+	}
 	.board-directory {
 		display: grid;
 		gap: 0;
@@ -405,7 +406,12 @@
 		text-decoration: none;
 		color: inherit;
 	}
-	.board-directory p{font-size:13px;color:#666;margin:8px 0 0}.board-directory span {
+	.board-directory p {
+		font-size: 13px;
+		color: #666;
+		margin: 8px 0 0;
+	}
+	.board-directory span {
 		font-size: 13px;
 		color: #777;
 	}
@@ -460,12 +466,23 @@
 	}
 	.post-row > a {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
+		min-width: 0;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
 		gap: 8px;
 		padding: 20px 4px;
 		text-decoration: none;
 		font-size: 16px;
+	}
+	.post-row > a > span,
+	.post-row > a > small {
+		grid-column: 1;
+		overflow-wrap: anywhere;
+	}
+	.post-row > a > .post-thumb {
+		grid-column: 2;
+		grid-row: 1 / 3;
+		align-self: center;
 	}
 	.post-row small {
 		font-size: 13px;
@@ -527,11 +544,6 @@
 		display: block;
 		width: 100%;
 		margin: 16px 0 8px;
-	}
-	.permissions {
-		margin-top: 48px;
-		padding: 20px 0;
-		border-top: 1px solid var(--border, #ddd);
 	}
 	@media (max-width: 600px) {
 		.list-toolbar form {

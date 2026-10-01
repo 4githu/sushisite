@@ -3,7 +3,20 @@
 	import PdfEditor from '../pdf/PdfEditor.svelte';
 	import DailyPlan from './DailyPlan.svelte';
 	import CalendarIcon from './CalendarIcon.svelte';
-	import { readTaskMode, saveTaskMode, inProject, taskGroups, type CalendarProject, categoryPaths, eventCategories, categoryHidden, safeEventUrl, taskTiming, taskWaiting, taskDeadline } from './planner';
+	import {
+		readTaskMode,
+		saveTaskMode,
+		inProject,
+		taskGroups,
+		type CalendarProject,
+		categoryPaths,
+		eventCategories,
+		categoryHidden,
+		safeEventUrl,
+		taskTiming,
+		taskWaiting,
+		taskDeadline
+	} from './planner';
 	import { personalApi, request } from './api';
 	import type { CalendarEvent } from './types';
 	import CalendarConnections from './CalendarConnections.svelte';
@@ -17,7 +30,9 @@
 	type View = 'month' | 'week' | 'day' | 'tasks';
 	type Project = CalendarProject;
 	let taskMode = $state<'time' | 'theme'>('time');
-    onMount(() => {taskMode = readTaskMode();});
+	onMount(() => {
+		taskMode = readTaskMode();
+	});
 	let {
 		initialView = 'month',
 		aura = false,
@@ -78,35 +93,65 @@
 		exportOpen = $state(false);
 	let loadVersion = 0;
 	let pendingTasks = $state<number[]>([]);
-	let quickTitle = $state(''), quickDate = $state(dayKey(new Date())), addingTask = $state(false);
+	let quickTitle = $state(''),
+		quickDate = $state(dayKey(new Date())),
+		addingTask = $state(false);
 	let taskFilter = $state<'all' | 'today' | 'overdue' | 'upcoming'>('all');
 	let undoTask = $state<CalendarEvent | null>(null);
 	function matchesTaskDate(e: CalendarEvent) {
-		const date = dayKey(new Date(taskDeadline(e))), today = dayKey(new Date());
-		return taskFilter === 'all' || (taskFilter === 'today' ? date === today : taskFilter === 'overdue' ? date < today : date > today);
+		const date = dayKey(new Date(taskDeadline(e))),
+			today = dayKey(new Date());
+		return (
+			taskFilter === 'all' ||
+			(taskFilter === 'today'
+				? date === today
+				: taskFilter === 'overdue'
+					? date < today
+					: date > today)
+		);
 	}
 	function replaceTask(e: CalendarEvent) {
-		tasks = tasks.map(item => item.id === e.id ? e : item);
-		events = events.map(item => item.id === e.id ? e : item);
+		tasks = tasks.map((item) => (item.id === e.id ? e : item));
+		events = events.map((item) => (item.id === e.id ? e : item));
 	}
 	async function addQuickTask(event: SubmitEvent) {
 		event.preventDefault();
 		if (addingTask || !quickTitle.trim() || !quickDate) return;
-		addingTask = true; error = '';
-		++loadVersion; loading = false;
+		addingTask = true;
+		error = '';
+		++loadVersion;
+		loading = false;
 		try {
-			const created = await request<CalendarEvent>('/calendar/events', {method:'POST', body:{
-				title:quickTitle.trim(), start_time:`${quickDate}T00:00:00`, end_time:`${quickDate}T23:59:59`,
-				is_all_day:true, status:'todo', type:'personal', project_id:Number(projectFilter) > 0 ? Number(projectFilter) : null
-			}});
-			tasks = [...tasks, created]; events = [...events, created]; quickTitle = '';
-			undoTask = null; notice = '할 일을 추가했습니다.'; taskFilter = 'all'; query = ''; onChanged?.();
-		} catch (e) { error = e instanceof Error ? e.message : '할 일을 추가하지 못했습니다.'; }
-		finally { addingTask = false; }
+			const created = await request<CalendarEvent>('/calendar/events', {
+				method: 'POST',
+				body: {
+					title: quickTitle.trim(),
+					start_time: `${quickDate}T00:00:00`,
+					end_time: `${quickDate}T23:59:59`,
+					is_all_day: true,
+					status: 'todo',
+					type: 'personal',
+					project_id: Number(projectFilter) > 0 ? Number(projectFilter) : null
+				}
+			});
+			tasks = [...tasks, created];
+			events = [...events, created];
+			quickTitle = '';
+			undoTask = null;
+			notice = '할 일을 추가했습니다.';
+			taskFilter = 'all';
+			query = '';
+			onChanged?.();
+		} catch (e) {
+			error = e instanceof Error ? e.message : '할 일을 추가하지 못했습니다.';
+		} finally {
+			addingTask = false;
+		}
 	}
 	let noteDirty = $state(false);
 	let mobilePane = $state<'plan' | 'schedule'>('plan');
-	let availableFrom = $state(''), dueAt = $state('');
+	let availableFrom = $state(''),
+		dueAt = $state('');
 	const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 	function dayKey(d: Date) {
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -293,9 +338,19 @@
 		void load();
 	}
 	function isZoomLink(value: string) {
-		try { const u = new URL(value); return u.protocol==='https:' && !u.username && !u.password && /(^|\.)zoom\.(us|com)$/.test(u.hostname); } catch { return false; }
+		try {
+			const u = new URL(value);
+			return (
+				u.protocol === 'https:' &&
+				!u.username &&
+				!u.password &&
+				/(^|\.)zoom\.(us|com)$/.test(u.hostname)
+			);
+		} catch {
+			return false;
+		}
 	}
-	function reserveZoom() { create(cursor); zoomMode=true; title='Zoom 회의'; category='온라인 회의'; task=false; }
+
 	function create(date = new Date(), hour = 9, minutes = 0, durationMinutes = 60) {
 		const d = new Date(date);
 		d.setHours(hour, minutes, 0, 0);
@@ -343,7 +398,10 @@
 	}
 	function slotSelected(day: Date, slot: number) {
 		if (!dragStart || !dragEnd || dragStart.day !== day) return false;
-		return slot >= Math.min(dragStart.slot, dragEnd.slot) && slot <= Math.max(dragStart.slot, dragEnd.slot);
+		return (
+			slot >= Math.min(dragStart.slot, dragEnd.slot) &&
+			slot <= Math.max(dragStart.slot, dragEnd.slot)
+		);
 	}
 	function edit(e: CalendarEvent) {
 		selected = e;
@@ -380,7 +438,8 @@
 				b.setHours(0, 0, 0, 0);
 				if (b <= a) b = addDays(a, 1);
 			}
-			if (zoomMode && !isZoomLink(webUrl.trim())) throw new Error('https://로 시작하는 Zoom 회의 링크를 입력해주세요.');
+			if (zoomMode && !isZoomLink(webUrl.trim()))
+				throw new Error('https://로 시작하는 Zoom 회의 링크를 입력해주세요.');
 			if (webUrl.trim() && !safeEventUrl(webUrl.trim()))
 				throw new Error('웹페이지는 https:// 주소 또는 /로 시작하는 앱 경로를 입력해주세요.');
 			if (!title.trim() || isNaN(+a) || isNaN(+b) || b <= a)
@@ -444,12 +503,22 @@
 		}
 	}
 	async function complete(e: CalendarEvent) {
-		if (pendingTasks.includes(e.id) || e.completionSource === 'external' || e.canEdit === false || taskWaiting(e)) return;
-		++loadVersion; loading = false; error = '';
+		if (
+			pendingTasks.includes(e.id) ||
+			e.completionSource === 'external' ||
+			e.canEdit === false ||
+			taskWaiting(e)
+		)
+			return;
+		++loadVersion;
+		loading = false;
+		error = '';
 		pendingTasks = [...pendingTasks, e.id];
-		replaceTask({...e, status: e.status === 'done' ? 'todo' : 'done'});
+		replaceTask({ ...e, status: e.status === 'done' ? 'todo' : 'done' });
 		try {
-			const updated = await personalApi.updateEvent(e.id, { status: e.status === 'done' ? 'todo' : 'done' });
+			const updated = await personalApi.updateEvent(e.id, {
+				status: e.status === 'done' ? 'todo' : 'done'
+			});
 			replaceTask(updated);
 			undoTask = updated.status === 'done' ? updated : null;
 			notice = updated.status === 'done' ? `${e.title} 완료` : `${e.title} 완료를 취소했습니다.`;
@@ -457,7 +526,9 @@
 		} catch (reason) {
 			replaceTask(e);
 			error = reason instanceof Error ? reason.message : '완료 상태를 저장하지 못했습니다.';
-		} finally { pendingTasks = pendingTasks.filter(id => id !== e.id); }
+		} finally {
+			pendingTasks = pendingTasks.filter((id) => id !== e.id);
+		}
 	}
 
 	async function loadExports() {
@@ -529,8 +600,13 @@
 			hidden = [];
 		}
 		const params = new URL(location.href).searchParams;
-        const requestedDate = params.get('date');
-        if (requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && !Number.isNaN(+new Date(requestedDate + 'T12:00:00'))) cursor = new Date(requestedDate + 'T12:00:00');
+		const requestedDate = params.get('date');
+		if (
+			requestedDate &&
+			/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+			!Number.isNaN(+new Date(requestedDate + 'T12:00:00'))
+		)
+			cursor = new Date(requestedDate + 'T12:00:00');
 		if (params.has('google') || params.has('google_error')) showConnections = true;
 		const invite = params.get('invite');
 		if (invite)
@@ -559,10 +635,16 @@
 		const timer = window.setInterval(() => {
 			if (!document.hidden && !showEditor) void load();
 		}, 60000);
-		const refresh = () => { if (!document.hidden && !showEditor) void load(); };
+		const refresh = () => {
+			if (!document.hidden && !showEditor) void load();
+		};
 		window.addEventListener('focus', refresh);
 		document.addEventListener('visibilitychange', refresh);
-		return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+		return () => {
+			window.clearInterval(timer);
+			window.removeEventListener('focus', refresh);
+			document.removeEventListener('visibilitychange', refresh);
+		};
 	});
 </script>
 
@@ -600,16 +682,25 @@
 					if (noteDirty && !confirm('저장하지 않은 메모가 있습니다. 이동할까요?')) return;
 					showConnections = !showConnections;
 				}}>연결·공유</button
-			>{#if !aura}<button onclick={reserveZoom}>Zoom 예약</button>{/if}{#if view !== 'day'}<button class="cw-primary" onclick={() => create(cursor)}
-				><CalendarIcon name="plus" size={16} />{aura ? '새 회차' : '일정 만들기'}</button
-			>{/if}
+			>{#if view !== 'day'}<button class="cw-primary" onclick={() => create(cursor)}
+					><CalendarIcon name="plus" size={16} />{aura ? '새 회차' : '일정 만들기'}</button
+				>{/if}
 		</div>
 	</header>
 	{#if error}<p role="alert" class="cw-feedback cw-error">
 			{error}<button onclick={() => load()}>다시 시도</button>
 		</p>{/if}
 	{#if notice}<p role="status" class="cw-feedback">
-			{notice}{#if undoTask}<button disabled={pendingTasks.includes(undoTask.id)} onclick={() => undoTask && complete(undoTask)}>완료 취소</button>{/if}<button aria-label="알림 닫기" onclick={() => {notice = ''; undoTask = null;}}>×</button>
+			{notice}{#if undoTask}<button
+					disabled={pendingTasks.includes(undoTask.id)}
+					onclick={() => undoTask && complete(undoTask)}>완료 취소</button
+				>{/if}<button
+				aria-label="알림 닫기"
+				onclick={() => {
+					notice = '';
+					undoTask = null;
+				}}>×</button
+			>
 		</p>{/if}
 	{#if showConnections}<CalendarConnections onchange={() => void load()} />{:else}
 		<div class="cw-filters-bar">
@@ -686,7 +777,6 @@
 					</div>{/each}
 			</div>
 		{:else if view === 'week' || view === 'day'}
-
 			<div class:daily-workspace={view === 'day'} class:mobile-schedule={mobilePane === 'schedule'}>
 				{#if view === 'day'}<DailyPlan
 						date={dayKey(cursor)}
@@ -697,101 +787,172 @@
 						oncomplete={complete}
 						ondirty={(value) => (noteDirty = value)}
 					/>{/if}
-				{#if view === 'day'}{#key dayKey(cursor)}<PdfEditor daily={true} resourceId={`day-ink:${dayKey(cursor)}`} url="" name="하루 일정" />{/key}{:else}<div class="cw-week-scroll" bind:this={weekScroll} aria-busy={loading}>
-					<div class="cw-week"  role="grid" tabindex="0" aria-label="08시부터 익일 02시까지 일정 시간표" onmouseup={finishSlot} onmouseleave={finishSlot}>
-						<div class="cw-corner"></div>
-						{#each days as day}<div
-								class="cw-week-heading"
-								class:today={dayKey(day) === dayKey(new Date())}
-							>
-								<button
-									class="cw-date-add"
-									aria-label={`${dayKey(day)} 일정 추가`}
-									onclick={() => create(day)}
-									><span>{weekdays[day.getDay()]}</span><strong>{day.getDate()}</strong></button
-								>{#if onDate}<button class="cw-room" onclick={() => onDate?.(day)}
-										>강의실 요청</button
-									>{/if}
-							</div>{/each}
-						<div class="cw-all-day-label">종일</div>
-						{#each days as day}<div class="cw-all-day">
-								{#each visible.filter((e) => e.isAllDay && onDay(e, day)) as e}<button
-										class="cw-event"
-										style={`--event-color:${colorOf(e)}`}
-										onclick={() => edit(e)}>{e.title}</button
+				{#if view === 'day'}<section class="day-agenda">
+						<h2>오늘 일정</h2>
+						{#each visible
+							.filter((e) => onDay(e, cursor))
+							.sort((a, b) => a.startTime.localeCompare(b.startTime)) as event}<button
+								class="day-agenda-event"
+								onclick={() => edit(event)}
+								><time
+									>{event.isAllDay
+										? '종일'
+										: new Date(event.startTime).toLocaleTimeString('ko-KR', {
+												hour: '2-digit',
+												minute: '2-digit',
+												hour12: false
+											})}</time
+								><strong>{event.title}</strong></button
+							>{:else}<p>등록된 일정이 없습니다.</p>{/each}{#key dayKey(cursor)}<PdfEditor
+								daily={true}
+								resourceId={`day-ink:${dayKey(cursor)}`}
+								url=""
+								name="하루 일정 필기"
+							/>{/key}
+					</section>{:else}<div class="cw-week-scroll" bind:this={weekScroll} aria-busy={loading}>
+						<div
+							class="cw-week"
+							role="grid"
+							tabindex="0"
+							aria-label="08시부터 익일 02시까지 일정 시간표"
+							onmouseup={finishSlot}
+							onmouseleave={finishSlot}
+						>
+							<div class="cw-corner"></div>
+							{#each days as day}<div
+									class="cw-week-heading"
+									class:today={dayKey(day) === dayKey(new Date())}
+								>
+									<button
+										class="cw-date-add"
+										aria-label={`${dayKey(day)} 일정 추가`}
+										onclick={() => create(day)}
+										><span>{weekdays[day.getDay()]}</span><strong>{day.getDate()}</strong></button
+									>{#if onDate}<button class="cw-room" onclick={() => onDate?.(day)}
+											>강의실 요청</button
+										>{/if}
+								</div>{/each}
+							<div class="cw-all-day-label">종일</div>
+							{#each days as day}<div class="cw-all-day">
+									{#each visible.filter((e) => e.isAllDay && onDay(e, day)) as e}<button
+											class="cw-event"
+											style={`--event-color:${colorOf(e)}`}
+											onclick={() => edit(e)}>{e.title}</button
+										>{/each}
+								</div>{/each}
+							<div class="cw-axis">
+								{#each Array.from({ length: 18 }, (_, i) => i) as hour}<span
+										style={`top:${hour * 64}px`}
+										>{hour >= 16 ? '익일 ' : ''}{String((hour + 8) % 24).padStart(2, '0')}:00</span
 									>{/each}
-							</div>{/each}
-						<div class="cw-axis">
-						{#each Array.from({ length: 18 }, (_, i) => i) as hour}<span
-									style={`top:${hour * 64}px`}
-									>{hour >= 16 ? '익일 ' : ''}{String(
-										(hour + 8) % 24
-									).padStart(2, '0')}:00</span
-								>{/each}
-						</div>
-						{#each days as day}<div class="cw-column">
-								{#each Array.from({ length: 36 }, (_, i) => i) as slot}<button
-										class="cw-slot"
-										class:selected-slot={slotSelected(day, slot)}
-										aria-label={`${dayKey(day)} ${Math.floor(slot / 2) + 8}시 ${slot % 2 ? '30분' : '정각'} 일정 추가`}
-										onmousedown={(event) => { event.preventDefault(); beginSlot(day, slot); }}
-										onmouseenter={() => extendSlot(day, slot)}
-										onclick={(event) => { if (event.detail === 0) create(day, 8 + Math.floor(slot / 2), (slot % 2) * 30, 30); }}
+							</div>
+							{#each days as day}<div class="cw-column">
+									{#each Array.from({ length: 36 }, (_, i) => i) as slot}<button
+											class="cw-slot"
+											class:selected-slot={slotSelected(day, slot)}
+											aria-label={`${dayKey(day)} ${Math.floor(slot / 2) + 8}시 ${slot % 2 ? '30분' : '정각'} 일정 추가`}
+											onmousedown={(event) => {
+												event.preventDefault();
+												beginSlot(day, slot);
+											}}
+											onmouseenter={() => extendSlot(day, slot)}
+											onclick={(event) => {
+												if (event.detail === 0)
+													create(day, 8 + Math.floor(slot / 2), (slot % 2) * 30, 30);
+											}}
 
-									></button>{/each}{#each timedEvents(day) as positioned (positioned.event.id)}{@const e =
-										positioned.event}{@const from = positioned.from}{@const until =
-										positioned.until}<button
-										class="cw-timed"
-										class:done={e.status === 'done'}
-										style={`--event-color:${colorOf(e)};top:${((from - +day) / 3600000 - 8) * 64}px;height:${Math.max(26, ((until - from) / 3600000) * 64)}px;left:calc(${(positioned.lane / positioned.columns) * 100}% + 3px);width:calc(${100 / positioned.columns}% - 6px)`}
-										onclick={() => edit(e)}
-										><strong>{e.title}</strong><small
-											>{time(e)}{e.location ? ` · ${e.location}` : ''}</small
-										></button
-									>{/each}
-							</div>{/each}
-					</div>
-				</div>{/if}
+										></button>{/each}{#each timedEvents(day) as positioned (positioned.event.id)}{@const e =
+											positioned.event}{@const from = positioned.from}{@const until =
+											positioned.until}<button
+											class="cw-timed"
+											class:done={e.status === 'done'}
+											style={`--event-color:${colorOf(e)};top:${((from - +day) / 3600000 - 8) * 64}px;height:${Math.max(26, ((until - from) / 3600000) * 64)}px;left:calc(${(positioned.lane / positioned.columns) * 100}% + 3px);width:calc(${100 / positioned.columns}% - 6px)`}
+											onclick={() => edit(e)}
+											><strong>{e.title}</strong><small
+												>{time(e)}{e.location ? ` · ${e.location}` : ''}</small
+											></button
+										>{/each}
+								</div>{/each}
+						</div>
+					</div>{/if}
 			</div>
 		{:else}<div class="cw-tasks">
 				{#if !aura}<form class="cw-quick-task" onsubmit={addQuickTask}>
-                    <input aria-label="새 할 일" placeholder="할 일을 입력하고 Enter" maxlength="120" required bind:value={quickTitle} disabled={addingTask} />
-                    <input type="date" aria-label="할 일 날짜" required bind:value={quickDate} disabled={addingTask} />
-                    <button type="submit" disabled={addingTask || !quickTitle.trim()}>{addingTask ? '추가 중…' : '+ 추가'}</button>
-                </form>{/if}
-                <nav class="cw-task-filters" aria-label="할 일 날짜 필터">
-                    {#each [{id:'all',label:'전체'}, {id:'today',label:'오늘'}, {id:'overdue',label:'지난 할 일'}, {id:'upcoming',label:'예정'}] as filter}
-                    <button aria-pressed={taskFilter === filter.id} onclick={() => taskFilter = filter.id as typeof taskFilter}>{filter.label}</button>
-                    {/each}
-                </nav>
-                <header>
-					<p>{filteredTasks.filter(e => e.status !== 'done').length}개 남음 · 공유 할 일도 내 완료 여부만 바뀝니다.</p>
+						<input
+							aria-label="새 할 일"
+							placeholder="할 일을 입력하고 Enter"
+							maxlength="120"
+							required
+							bind:value={quickTitle}
+							disabled={addingTask}
+						/>
+						<input
+							type="date"
+							aria-label="할 일 날짜"
+							required
+							bind:value={quickDate}
+							disabled={addingTask}
+						/>
+						<button type="submit" disabled={addingTask || !quickTitle.trim()}
+							>{addingTask ? '추가 중…' : '+ 추가'}</button
+						>
+					</form>{/if}
+				<nav class="cw-task-filters" aria-label="할 일 날짜 필터">
+					{#each [{ id: 'all', label: '전체' }, { id: 'today', label: '오늘' }, { id: 'overdue', label: '지난 할 일' }, { id: 'upcoming', label: '예정' }] as filter}
+						<button
+							aria-pressed={taskFilter === filter.id}
+							onclick={() => (taskFilter = filter.id as typeof taskFilter)}>{filter.label}</button
+						>
+					{/each}
+				</nav>
+				<header>
+					<p>
+						{filteredTasks.filter((e) => e.status !== 'done').length}개 남음 · 공유 할 일도 내 완료
+						여부만 바뀝니다.
+					</p>
 					<label><input type="checkbox" bind:checked={showCompleted} />완료한 할 일</label>
 				</header>
-				<label>보기 <select aria-label="할 일 보기 방식" bind:value={taskMode} onchange={()=>saveTaskMode(taskMode)}><option value="time">시간순</option><option value="theme">테마별</option></select></label>
-                {#each taskGroups(filteredTasks, projects, taskMode) as group}
-                {#if group.isolated}<details><summary>{group.name} · {group.tasks.length}</summary>{@render groupedTasks(group.tasks)}</details>
-                {:else}<section aria-label={group.name}><h3>{group.name}</h3>{@render groupedTasks(group.tasks)}</section>{/if}
-                {:else}<p>남은 할 일이 없습니다.</p>{/each}
-                {#snippet groupedTasks(items: CalendarEvent[])}
-                {#each items as e (e.id)}<div class="cw-task" class:done={e.status === 'done'}>
-						<input
-							type="checkbox"
-							aria-label={`${e.title} 완료`}
-							checked={e.status === 'done'}
-							disabled={pendingTasks.includes(e.id) || e.completionSource === 'external' || e.canEdit === false || taskWaiting(e)}
-							onchange={() => complete(e)}
-						/><button onclick={() => edit(e)}
-							><strong>{e.title}</strong><small
-								>{taskWaiting(e) ? '시작 전 · ' : ''}{taskTiming(e)} · {categoryOf(e)}{e.projectId
-									? ` · ${projects.find((p) => p.id === e.projectId)?.name || '공유 프로젝트'}`
-									: ''}</small
-							></button
-						>
-					</div>{:else}<div class="cw-no-tasks">
-						<strong>남은 할 일이 없습니다.</strong>
-						<p>새 할 일을 만들거나 표시 필터를 바꿔보세요.</p>
-					</div>{/each}{/snippet}
+				<label
+					>보기 <select
+						aria-label="할 일 보기 방식"
+						bind:value={taskMode}
+						onchange={() => saveTaskMode(taskMode)}
+						><option value="time">시간순</option><option value="theme">테마별</option></select
+					></label
+				>
+				{#each taskGroups(filteredTasks, projects, taskMode) as group}
+					{#if group.isolated}<details>
+							<summary>{group.name} · {group.tasks.length}</summary>{@render groupedTasks(
+								group.tasks
+							)}
+						</details>
+					{:else}<section aria-label={group.name}>
+							<h3>{group.name}</h3>
+							{@render groupedTasks(group.tasks)}
+						</section>{/if}
+				{:else}<p>남은 할 일이 없습니다.</p>{/each}
+				{#snippet groupedTasks(items: CalendarEvent[])}
+					{#each items as e (e.id)}<div class="cw-task" class:done={e.status === 'done'}>
+							<input
+								type="checkbox"
+								aria-label={`${e.title} 완료`}
+								checked={e.status === 'done'}
+								disabled={pendingTasks.includes(e.id) ||
+									e.completionSource === 'external' ||
+									e.canEdit === false ||
+									taskWaiting(e)}
+								onchange={() => complete(e)}
+							/><button onclick={() => edit(e)}
+								><strong>{e.title}</strong><small
+									>{taskWaiting(e) ? '시작 전 · ' : ''}{taskTiming(e)} · {categoryOf(e)}{e.projectId
+										? ` · ${projects.find((p) => p.id === e.projectId)?.name || '공유 프로젝트'}`
+										: ''}</small
+								></button
+							>
+						</div>{:else}<div class="cw-no-tasks">
+							<strong>남은 할 일이 없습니다.</strong>
+							<p>새 할 일을 만들거나 표시 필터를 바꿔보세요.</p>
+						</div>{/each}{/snippet}
 			</div>{/if}{/if}
 </section>
 
@@ -811,8 +972,10 @@
 				{selected.googleAccount} · {selected.googleCalendar}
 			</p>{/if}{#if selected?.type === 'aura'}<p class="cw-source">
 				시간 변경은 아우라 클리닉에도 반영됩니다.
-			</p>{/if}{#if safeEventUrl(selected?.webUrl)}<a class="cw-service-link"
-				href={safeEventUrl(selected?.webUrl) || '#'}>{isZoomLink(selected?.webUrl || '') ? 'Zoom 회의 참가 ↗' : '연결된 페이지 열기 ↗'}</a
+			</p>{/if}{#if safeEventUrl(selected?.webUrl)}<a
+				class="cw-service-link"
+				href={safeEventUrl(selected?.webUrl) || '#'}
+				>{isZoomLink(selected?.webUrl || '') ? 'Zoom 회의 참가 ↗' : '연결된 페이지 열기 ↗'}</a
 			>{/if}{#if editorError}<p role="alert" class="cw-feedback cw-error">{editorError}</p>{/if}
 		<fieldset disabled={saving || selected?.canEdit === false}>
 			<label
@@ -836,10 +999,26 @@
 			</div>
 			{#if allDay}<p class="cw-source">종료 날짜는 일정이 끝난 다음 날입니다.</p>{/if}
 			{#if task}<div class="cw-fields">
-				<label>시작 가능일<input type="datetime-local" bind:value={availableFrom} disabled={selected?.completionSource === 'external'} /></label>
-				<label>할 일 마감<input type="datetime-local" bind:value={dueAt} disabled={selected?.completionSource === 'external'} /></label>
-			</div>
-			{#if selected?.completionSource === 'external'}<p class="cw-source">완료 상태와 기한은 연결된 서비스에서 동기화됩니다. 현재 {selected.status === 'done' ? '완료' : '미완료'}입니다.</p>{/if}{/if}
+					<label
+						>시작 가능일<input
+							type="datetime-local"
+							bind:value={availableFrom}
+							disabled={selected?.completionSource === 'external'}
+						/></label
+					>
+					<label
+						>할 일 마감<input
+							type="datetime-local"
+							bind:value={dueAt}
+							disabled={selected?.completionSource === 'external'}
+						/></label
+					>
+				</div>
+				{#if selected?.completionSource === 'external'}<p class="cw-source">
+						완료 상태와 기한은 연결된 서비스에서 동기화됩니다. 현재 {selected.status === 'done'
+							? '완료'
+							: '미완료'}입니다.
+					</p>{/if}{/if}
 			<div class="cw-fields">
 				<label
 					>프로젝트<select bind:value={project} disabled={Boolean(selected)}
@@ -873,7 +1052,9 @@
 					placeholder="https://"
 					maxlength="2000"
 				/></label
-			>{#if zoomMode}<p class="cw-source">기존 Zoom 회의 링크를 일정에 저장합니다. 회의를 자동으로 생성하지는 않습니다.</p>{/if}{#if safeEventUrl(selected?.webUrl)}<a
+			>{#if zoomMode}<p class="cw-source">
+					기존 Zoom 회의 링크를 일정에 저장합니다. 회의를 자동으로 생성하지는 않습니다.
+				</p>{/if}{#if safeEventUrl(selected?.webUrl)}<a
 					href={safeEventUrl(selected?.webUrl) || '#'}
 					target="_blank"
 					rel="noopener noreferrer">웹페이지 열기 ↗</a
