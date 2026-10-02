@@ -274,13 +274,17 @@ def add_department_calendar(post_id:int,user_id:int=Depends(current_user_id)):
 # Public-source catalog, authenticated personal draft and cached dining information.
 from fastapi import Query
 from . import snu_catalog, student_meals
+from . import campuses
+router.include_router(campuses.router)
 
 @router.get('/student/catalog')
 def catalog(user_id: int=Depends(current_user_id)):
+    if not campuses.is_snu(user_id):return campuses.metadata(user_id)
     return snu_catalog.metadata()
 
 @router.get('/student/courses')
 def search_courses(term: str, q: str=Query(default='',max_length=120), department: str='', classification: str='', day: int|None=Query(default=None,ge=0,le=6), offset: int=Query(default=0,ge=0), limit: int=Query(default=40,ge=1,le=100), user_id: int=Depends(current_user_id)):
+    if not campuses.is_snu(user_id):return {'courses':[],'total':0,'departments':[],'classifications':[]}
     return snu_catalog.search(term,q,department,classification,day,offset,limit)
 
 @router.get('/student/timetable/draft')
@@ -293,6 +297,7 @@ def save_timetable_draft(term: str, data: student.TimetableDraft, slot: str=Quer
 
 @router.get('/student/rules')
 def rule_index(user_id: int=Depends(current_user_id)):
+    if not campuses.is_snu(user_id):return {'index':[],'source':'사용자 등록','sourceUpdatedAt':''}
     return {'index': snu_catalog.curricula()['index'], 'source': snu_catalog.metadata()['source'], 'sourceUpdatedAt': snu_catalog.metadata()['sourceUpdatedAt']}
 
 @router.get('/student/major-plan')
@@ -309,6 +314,7 @@ def rule_detail(rule_id: str, user_id: int=Depends(current_user_id)):
 
 @router.get('/student/meals')
 def meals(day: date, user_id: int=Depends(current_user_id)):
+    if not campuses.is_snu(user_id):return {'date':str(day),'restaurants':[],'source':'','fetchedAt':'','stale':False,'supported':False,'school':campuses.school(user_id)}
     return student_meals.menus(day)
 
 @router.get('/student/course-progress')
@@ -323,10 +329,11 @@ def set_course_completion(code:str,data:student.CourseCompletion,user_id:int=Dep
 @router.get('/student/catalog/{term}/snapshot')
 def catalog_snapshot(term: str, response: Response, user_id: int=Depends(current_user_id)):
     response.headers['Cache-Control'] = 'private, max-age=300'
-    return {'revision':snu_catalog.metadata()['revision'],'courses':snu_catalog.courses(term)}
+    return {'revision':catalog(user_id)['revision'],'courses':campuses.courses(user_id,term)}
 
 @router.get('/student/course-history/{code}')
 def course_history(code: str, user_id: int=Depends(current_user_id)):
+    if not campuses.is_snu(user_id):return []
     return [{'term': t['label'], 'term_id':t['id'], 'courses':[c for c in snu_catalog.courses(t['id']) if c.get('sbjt_cd','').casefold()==code.casefold()]} for t in snu_catalog.metadata()['terms'] if any(c.get('sbjt_cd','').casefold()==code.casefold() for c in snu_catalog.courses(t['id']))]
 
 from .community_v2 import router as community_v2_router, write_origin

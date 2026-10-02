@@ -71,9 +71,15 @@ def process_job(job):
     try:
         payload=json.loads(job['payload']);files=[]
         with connection() as db:
+            relay_board=None
+            if payload.get('route_id'):
+                from .kakao_board_sync import validate_job
+                relay_board=validate_job(db,job,payload)
             for rid in payload['resources']:
-                r=db.execute('SELECT * FROM personal_resources WHERE id=? AND user_id=?',(rid,job['user_id'])).fetchone()
+                r=db.execute('SELECT * FROM personal_resources WHERE id=? AND board_id=?',(rid,relay_board)).fetchone() if relay_board else db.execute('SELECT * FROM personal_resources WHERE id=? AND user_id=?',(rid,job['user_id'])).fetchone()
                 if not r:raise ValueError('첨부파일 접근 권한이 변경되었습니다.')
+                if r['mime'] not in native_kakao.ALLOWED_IMAGE_TYPES or r['size']>8*1024*1024:raise ValueError('사진은 PNG/JPG/WebP, 장당 8MB까지 전송할 수 있습니다.')
+                if not native_kakao._matches_image_signature(r['mime'],(community.ROOT/rid).read_bytes()):raise ValueError('사진 파일 형식이 올바르지 않습니다.')
                 if r['board_id']:community.board_access(db,job['user_id'],r['board_id'])
                 target=Path(stage.name)/(rid+native_kakao.ALLOWED_IMAGE_TYPES[r['mime']]);shutil.copyfile(community.ROOT/rid,target);files.append(str(target))
         with native_kakao._send_lock:
@@ -91,6 +97,12 @@ def loop():
         for job in jobs:process_job(job)
         if time.monotonic()-last<30:continue
         last=time.monotonic()
+        try:
+            from .kakao_board_sync import tick
+            tick()
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception('Kakao relay scan failed')
         with connection() as db:sources=db.execute('SELECT * FROM kakao_bridge_sources WHERE enabled=1').fetchall()
         for source in sources:
             if stop.is_set():break
@@ -123,6 +135,22 @@ class Publish(BaseModel):
 @router.get('')
 def status(uid:int=Depends(native_kakao_user_id)):
     with connection() as db:return {'installed':BINARY.is_file(),'sources':[dict(r) for r in db.execute('SELECT * FROM kakao_bridge_sources WHERE user_id=?',(uid,))],'jobs':[dict(r) for r in db.execute('SELECT id,state,result,created_at FROM kakao_bridge_outbox WHERE user_id=? ORDER BY created_at DESC LIMIT 20',(uid,))],'inbox':[dict(r) for r in db.execute('SELECT * FROM kakao_bridge_inbox WHERE user_id=? ORDER BY created_at DESC LIMIT 100',(uid,))]}
+
+class BoardRelay(BaseModel):
+    board_id:int=Field(gt=0)
+    room:str='대학생 자료 공유방'
+    mention:str=Field(default='김지후',min_length=1,max_length=40)
+    enabled:bool=False
+    ack:bool=True
+@router.get('/board-relay')
+def board_relay_status(uid:int=Depends(native_kakao_user_id)):
+    from .kakao_board_sync import summary
+    return summary(uid)
+@router.put('/board-relay')
+def board_relay(data:BoardRelay,request:Request,uid:int=Depends(native_kakao_user_id)):
+    require_native_kakao_origin(request)
+    from .kakao_board_sync import configure
+    return configure(uid,data.board_id,data.room,data.mention,data.enabled,data.ack)
 @router.put('/source')
 def source(data:Source,request:Request,uid:int=Depends(native_kakao_user_id)):
     require_native_kakao_origin(request)

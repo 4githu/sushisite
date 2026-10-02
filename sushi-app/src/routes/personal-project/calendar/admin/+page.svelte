@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import KakaoBoardRelay from '$lib/personal-project/KakaoBoardRelay.svelte';
 	import { request } from '$lib/personal-project/shared/api';
 	import '$lib/personal-project/student/student.css';
 	type Data = {
@@ -44,7 +45,7 @@
 	<h1>워크스페이스 관리</h1>
 	<p>게시판 공개 범위, 회원별 접근 권한, 변경 기록을 관리합니다.</p>
 	{#if error}<p role="alert">{error}</p>{/if}
-	{#if data}<section>
+	{#if data}<KakaoBoardRelay boards={data.boards}/><section>
 			<h2>게시판 공개 범위</h2>
 			<p>
 				제한 게시판은 해당 게시판의 읽기 권한을 부여받은 회원과 관리자만 열람합니다.

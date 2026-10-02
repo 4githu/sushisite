@@ -21,7 +21,8 @@ class Profile(BaseModel):
     @model_validator(mode='after')
     def validate_school(self):
         self.school = ' '.join(self.school.split())
-        if self.school == '서울대': self.school = '서울대학교'
+        from .campuses import normalize
+        self.school = normalize(self.school)
         self.department = self.department.strip()
         if self.is_student and not self.school:
             raise ValueError('학교를 입력해주세요.')
@@ -85,7 +86,9 @@ def profile(user_id):
 
 
 def save_profile(user_id, data):
+    from .campuses import register
     with connection() as db:
+        register(db,user_id,data.school,data.department)
         db.execute('INSERT INTO student_profiles(user_id,is_student,school,department,admission_year,academic_offset) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET is_student=excluded.is_student,school=excluded.school,department=excluded.department,admission_year=excluded.admission_year,academic_offset=excluded.academic_offset',
                    (user_id,int(data.is_student),data.school,data.department,data.admission_year,data.academic_offset))
         db.commit()
@@ -201,8 +204,8 @@ def draft_key(term, slot):
     return term + ('::'+slot if slot else '')
 
 def draft(user_id, term, slot=''):
-    from .snu_catalog import courses
-    catalog = {c['id']:c for c in courses(term)}
+    from .campuses import courses
+    catalog = {c['id']:c for c in courses(user_id,term)}
     with connection() as db:
         row = db.execute('SELECT data,revision FROM student_timetable_drafts WHERE user_id=? AND term=?', (user_id,draft_key(term,slot))).fetchone()
     data = json.loads(row['data']) if row else None
@@ -216,8 +219,8 @@ def save_draft(user_id, term, data, slot=''):
     should_sync = data.sync_calendar and not slot
     if should_sync and not profile(user_id)['is_student']:
         raise HTTPException(400,'학생 서비스를 먼저 설정해주세요.')
-    from .snu_catalog import courses
-    catalog = {c['id']:c for c in courses(term)}
+    from .campuses import courses
+    catalog = {c['id']:c for c in courses(user_id,term)}
     valid_ids = set(catalog)
     if any(i not in valid_ids for i in data.course_ids):
         raise HTTPException(400, '선택한 강의가 이 학기의 강의 목록에 없습니다.')

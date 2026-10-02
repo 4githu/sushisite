@@ -106,6 +106,7 @@
 		}
 	}
 	const lessons = $derived([...selected.flatMap(courseLessons), ...manual]);
+	const hasCatalog=$derived(!school || ['서울대학교','서울대'].includes(school));
 	const snapshot = $derived(
 		JSON.stringify({
 			course_ids: selected.map((c) => c.id),
@@ -181,7 +182,7 @@
 				after,
 				before,
 				emptyOnly,
-				lessons,
+				lessons: $state.snapshot(lessons),
 				offset
 			});
 			if (current !== searchVersion) return;
@@ -445,6 +446,7 @@
 	{#if !exploration && admissionYear}<nav class="semester-nav" aria-label="내 학년별 시간표">
 			{#each (catalog?.terms || [])
 				.filter((t) => academicSlot(t, admissionYear, academicOffset))
+				.filter((t) => Math.abs(Number(t.year)-Number(termInfo?.year || new Date().getFullYear()))<=1)
 				.sort((a, b) => termDates(a).starts_on.localeCompare(termDates(b).starts_on)) as t}<button
 					class:active={term === t.id}
 					disabled={loading || busy}
@@ -480,9 +482,10 @@
 		</p>{:else if !initialized}<button onclick={() => location.reload()}>다시 불러오기</button
 		>{:else}
 		{#if !['서울대학교', '서울대'].includes(school)}<p class="notice">
-				현재 검색 데이터는 서울대학교 강의입니다. 다른 학교의 수업은 직접 입력할 수 있습니다.
+				이 학교의 강의 목록은 아직 등록되지 않았습니다. 수업을 직접 입력하면 학기 일정에 반영됩니다.
 			</p>{/if}
-		<div class="workspace">
+		<div class="workspace" class:manual-only={!hasCatalog}>
+			{#if hasCatalog}
 			<section class="panel search-panel" aria-label="강의 검색">
 				<h2 data-search-ms={searchMs.toFixed(2)}>강의 검색</h2>
 				<form
@@ -567,7 +570,7 @@
 						>{/if}
 				</div>
 			</section>
-			<section class="schedule">
+			{/if}<section class="schedule">
 				<div class="schedule-heading">
 					<div>
 						<h2>{termInfo?.label} <span>{credits}학점</span></h2>
@@ -601,9 +604,11 @@
 				</div>
 				<TimetableGrid {lessons} />
 				{#if !selected.length && !manual.length}<p class="empty">
+						{#if hasCatalog}
 						왼쪽에서 강의를 검색해 담아보세요.<br /><small
 							>모바일에서는 위의 검색 목록에서 담을 수 있습니다.</small
 						>
+						{:else}아래에서 수업 이름과 요일·시간을 입력하세요.{/if}
 					</p>{/if}
 				{#if missing.length}<p class="notice">
 						{missing.map((c) => c.name).join(', ')}: 시간 미정 수업은 학점에만 반영됩니다. 확정 후
@@ -632,7 +637,7 @@
 								onclick={() => (manual = manual.filter((_, j) => j !== i))}>빼기</button
 							>
 						</div>{/each}
-					<details>
+					<details open={!hasCatalog}>
 						<summary>수업 직접 입력</summary>
 						<form
 							class="fields"
@@ -726,17 +731,20 @@
 			</section>
 		</div>
 		<footer class="muted">
+			{#if !school || ['서울대학교','서울대'].includes(school)}
 			서울대 수강편람 가공 데이터 · <a href={catalog?.source} target="_blank" rel="noreferrer"
 				>Class Checker</a
 			>
 			· 원본 갱신 {catalog?.sourceUpdatedAt.slice(0, 10)} ·
 			<a href="https://sugang.snu.ac.kr" target="_blank" rel="noreferrer">공식 수강편람 확인</a><br
 			/>검색 결과는 저장된 자료이며 실시간 수강신청·정원 정보가 아닙니다.
+			{:else}학교의 공식 수강편람을 확인한 뒤 수업을 직접 추가해주세요.{/if}
 		</footer>
 	{/if}
 </div>
 
 <style>
+	.workspace.manual-only{grid-template-columns:minmax(0,1fr);max-width:1000px}
 	.semester-nav {
 		display: flex;
 		flex-wrap: wrap;

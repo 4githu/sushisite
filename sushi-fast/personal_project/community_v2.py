@@ -15,7 +15,7 @@ from .router import current_user_id
 def write_origin(request:Request):
     if request.method in ('GET','HEAD','OPTIONS'):return
     origin=request.headers.get('origin')
-    allowed={'https://chobab.app','https://aura.chobab.app','http://localhost:5173','http://127.0.0.1:5174'}
+    allowed={'https://chobab.app','https://netaq.chobab.app','https://aura.chobab.app','http://localhost:5173','http://127.0.0.1:5174'}
     if (origin and origin.rstrip('/') not in allowed) or request.headers.get('sec-fetch-site')=='cross-site':
         raise HTTPException(403,'허용된 사이트에서 요청해주세요.')
 router = APIRouter(prefix='', tags=['documents-and-boards'],dependencies=[Depends(write_origin)])
@@ -132,6 +132,9 @@ class DocumentWrite(BaseModel):
 def boards(uid:int=Depends(current_user_id)):
     with connection() as db:
         result=[dict(b)|{'permissions':{a:permission(db,uid,b,a) for a in ACTIONS}} for b in db.execute('SELECT b.*, (SELECT COUNT(*) FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0) AS post_count, (SELECT title FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0 ORDER BY p.id DESC LIMIT 1) AS last_title FROM community_boards b ORDER BY id') if permission(db,uid,b,'read')]
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='kakao_board_routes'").fetchone():
+            relays={r[0]:r[1] for r in db.execute('SELECT board_id,room FROM kakao_board_routes WHERE enabled=1')}
+            for b in result:b['relayRoom']=relays.get(b['id'])
         return {'boards':result,'canAdmin':admin(uid),'canCreate':admin(uid) or bool(db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope='other' AND action='create' AND allowed=1",(uid,)).fetchone())}
 @router.post('/boards')
 def create_board(data:BoardCreate,uid:int=Depends(current_user_id)):

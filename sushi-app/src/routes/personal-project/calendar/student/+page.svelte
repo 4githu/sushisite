@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
+	import CampusServices from '$lib/personal-project/student/CampusServices.svelte';
+	let schools=$state<{id:number;name:string;departments:string[]}[]>([]);
+	let servicesKey=$state(0);
 	import '$lib/personal-project/student/student.css';
 	let profile = $state({
 			is_student: true,
@@ -15,7 +18,8 @@
 		notice = $state('');
 	onMount(async () => {
 		try {
-			const data = await request<typeof profile>('/student/profile');
+			const [data,list] = await Promise.all([request<typeof profile>('/student/profile'),request<typeof schools>('/student/schools')]);
+			schools=list;
 			if (data.school) profile = { ...data, is_student: Boolean(data.is_student) };
 		} catch (e) {
 			error = e instanceof Error ? e.message : '설정을 불러오지 못했습니다.';
@@ -28,6 +32,7 @@
 		error = '';
 		try {
 			profile = await request('/student/profile', { method: 'PUT', body: profile });
+			schools=await request('/student/schools');servicesKey++;
 			notice = '학교 설정을 저장했습니다.';
 		} catch (e) {
 			error = e instanceof Error ? e.message : '저장 실패';
@@ -63,6 +68,7 @@
 			><label
 				>학교<input
 					bind:value={profile.school}
+					list="campus-list"
 					required={profile.is_student}
 					maxlength="120"
 					placeholder="서울대학교"
@@ -70,6 +76,7 @@
 			><label
 				>학과<input
 					bind:value={profile.department}
+					list="department-list"
 					maxlength="120"
 					placeholder="예: 컴퓨터공학부"
 				/></label
@@ -92,8 +99,12 @@
 			>
 		</fieldset>
 	</form>
+	<datalist id="campus-list">{#each schools as s}<option value={s.name}></option>{/each}</datalist>
+	<datalist id="department-list">{#each schools.find(s=>s.name===profile.school)?.departments || [] as d}<option value={d}></option>{/each}</datalist>
+	<p class="muted">목록에 없는 학교·학과도 이름을 입력하고 저장하면 등록됩니다. KAIST·DGIST·한양대학교는 수동 시간표와 사용자 수강 규정부터 이용할 수 있습니다.</p>
+	{#key servicesKey}<CampusServices />{/key}
 	<div class="destinations">
-		{#each [['timetable', '시간표', '실제 강의를 검색하고 캘린더로 가져오기'], ['meals', '학식', '식당별 아침·점심·저녁 식단'], ['plan', '수강계획', '학번별 복수전공·부전공 이수규정'], ['board', '게시판', '학과 소식과 일정 공유']] as [path, title, description]}<a
+		{#each [['timetable', '시간표', '강의 검색 또는 직접 입력하고 캘린더에 자동 반영'], ['meals', '학식', '지원 학교의 식단과 학교별 서비스 링크'], ['plan', '수강계획', '학교·학과별 이수규정 조회와 사용자 작성본']] as [path, title, description]}<a
 				class="panel"
 				href={`/personal-project/calendar/student/${path}`}
 				><h2>{title} →</h2>

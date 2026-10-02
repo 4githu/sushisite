@@ -1,6 +1,6 @@
 # NETAQ 게시글 자동 등록 API
 
-기준 URL: `https://chobab.app/api/personal/board-api`
+기준 URL: `https://netaq.chobab.app/api/personal/board-api`
 
 ## 1. 키 발급
 
@@ -16,7 +16,7 @@ Python 3와 `requests`가 필요합니다. 문서는 Tiptap JSON을 `richContent
 import os, uuid, requests
 from pathlib import Path
 
-base = 'https://chobab.app/api/personal/board-api'
+base = 'https://netaq.chobab.app/api/personal/board-api'
 board_id = 1  # 발급 시 선택한 게시판
 session = requests.Session()
 session.headers['Authorization'] = 'Bearer ' + os.environ['NETAQ_BOARD_API_KEY']
@@ -44,7 +44,7 @@ response = session.post(f'{base}/boards/{board_id}/posts', json=payload,
     headers={'Idempotency-Key': request_key}, timeout=30)
 response.raise_for_status()
 post = response.json()
-print('https://chobab.app' + post['url'])
+print('https://netaq.chobab.app' + post['url'])
 
 # comment 권한이 있는 키만 사용할 수 있습니다.
 response = session.post(f"{base}/posts/{post['id']}/comments",

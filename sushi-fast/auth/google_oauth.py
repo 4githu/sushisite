@@ -1,10 +1,11 @@
 """Server-side Google authorization, bound to a browser nonce and one-use state."""
 import base64
 import hashlib
+import json
 import os
 import secrets
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, parse_qs
 from datetime import datetime, timezone
 
 import httpx
@@ -17,7 +18,7 @@ from personal_project.db import connection
 from personal_project import workspace  # additive tables
 
 router = APIRouter(prefix='/auth/google', tags=['google'])
-HOSTS = {'chobab.app','aura.chobab.app','rehear.chobab.app','calender.chobab.app','calendar.chobab.app','localhost','127.0.0.1'}
+HOSTS = {'chobab.app','netaq.chobab.app','aura.chobab.app','rehear.chobab.app','calender.chobab.app','calendar.chobab.app','localhost','127.0.0.1'}
 
 
 def credentials(kind):
@@ -48,14 +49,77 @@ def safe_return(path):
     return path
 
 
+def netaq_table():
+    with connection() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS google_netaq_handoffs(id TEXT PRIMARY KEY,nonce_hash TEXT NOT NULL,purpose TEXT NOT NULL,return_to TEXT NOT NULL,token TEXT,result TEXT,expires INTEGER NOT NULL)');db.commit()
+
+def netaq_ticket(request,ident):
+    netaq_table()
+    with connection() as db:row=db.execute('SELECT * FROM google_netaq_handoffs WHERE id=?',(ident,)).fetchone()
+    nonce=request.cookies.get('google_netaq_nonce','')
+    if not row or row['expires']<time.time() or not secrets.compare_digest(row['nonce_hash'],hashlib.sha256(nonce.encode()).hexdigest()):raise HTTPException(400,'로그인 연결이 만료되었습니다. NETAQ에서 다시 시작해주세요.')
+    return row
+
+def netaq_id(path):
+    return parse_qs(urlsplit(path).query).get('id',[''])[0] if path.startswith('/auth/google/netaq-finish?') else ''
+
+def current_oauth_user(request,path):
+    ident=netaq_id(path)
+    if ident:
+        ticket=netaq_ticket(request,ident)
+        if not ticket['token']:raise HTTPException(401,'캘린더 연결 세션이 만료되었습니다.')
+        try:
+            token=cipher().decrypt(ticket['token'].encode()).decode()
+            return int(JMT.jwt.decode(token,JMT.SECRET_KEY,algorithms=[JMT.ALGORITHM])['sub'])
+        except Exception:raise HTTPException(401,'캘린더 연결 세션이 만료되었습니다.')
+    return int(JMT.check_jwt(request,'mainauth')['sub'])
+
+@router.get('/netaq-finish')
+def netaq_finish(request:Request,id:str=''):
+    if request.url.hostname!='netaq.chobab.app':raise HTTPException(400,'잘못된 로그인 도착 주소입니다.')
+    ticket=netaq_ticket(request,id)
+    if not ticket['result']:raise HTTPException(400,'아직 완료되지 않은 로그인입니다.')
+    with connection() as db:
+        if not db.execute('DELETE FROM google_netaq_handoffs WHERE id=?',(id,)).rowcount:raise HTTPException(400,'이미 사용한 로그인 연결입니다.')
+        db.commit()
+    result=json.loads(ticket['result'])
+    target='https://netaq.chobab.app'+safe_return(ticket['return_to'])
+    response=RedirectResponse(target+('&' if '?' in target else '?')+urlencode(result),status_code=303)
+    if ticket['token'] and not result.get('google_error'):
+        try:
+            token=cipher().decrypt(ticket['token'].encode()).decode()
+            JMT.jwt.decode(token,JMT.SECRET_KEY,algorithms=[JMT.ALGORITHM])
+        except Exception:raise HTTPException(401,'로그인 연결이 만료되었습니다. 다시 로그인해주세요.')
+        response.set_cookie('mainauth',token,httponly=True,secure=True,samesite='lax',path='/',max_age=JMT.MAIN_SESSION_SECONDS)
+    response.delete_cookie('google_netaq_nonce',domain='chobab.app',path='/auth/google')
+    return response
+
 @router.get('/start')
-def start(request: Request, purpose: str='login', return_to: str='/personal-project/calendar'):
+def start(request: Request, purpose: str='login', return_to: str='/personal-project/calendar',handoff:str=''):
     if purpose not in ('login','calendar'): raise HTTPException(400,'잘못된 연결 방식입니다.')
+    # Reuse the registered parent callback without sharing the login cookie
+    # across subdomains. Only a short-lived browser nonce crosses domains.
+    if request.url.hostname == 'netaq.chobab.app':
+        safe_return(return_to)
+        netaq_table();ident=secrets.token_urlsafe(32);nonce=secrets.token_urlsafe(32);token=None
+        if purpose=='calendar':
+            JMT.check_jwt(request,'mainauth');token=cipher().encrypt(request.cookies['mainauth'].encode()).decode()
+        with connection() as db:
+            db.execute('DELETE FROM google_netaq_handoffs WHERE expires<?',(int(time.time()),))
+            db.execute('INSERT INTO google_netaq_handoffs VALUES(?,?,?,?,?,NULL,?)',(ident,hashlib.sha256(nonce.encode()).hexdigest(),purpose,return_to,token,int(time.time())+600));db.commit()
+        response=RedirectResponse('https://chobab.app/auth/google/start?'+urlencode({'purpose':purpose,'handoff':ident}))
+        response.set_cookie('google_netaq_nonce',nonce,max_age=600,httponly=True,secure=True,samesite='lax',domain='chobab.app',path='/auth/google')
+        return response
+    if handoff:
+        if request.url.hostname!='chobab.app':raise HTTPException(400,'잘못된 로그인 연결 주소입니다.')
+        ticket=netaq_ticket(request,handoff)
+        if ticket['purpose']!=purpose:raise HTTPException(400,'연결 목적이 다릅니다.')
+        return_to='/auth/google/netaq-finish?'+urlencode({'id':handoff})
     base=origin(request)
     kind='rehear' if request.url.hostname=='rehear.chobab.app' or return_to.startswith('/odi') else 'calendar'
     client,_=credentials(kind)
     user_id=None
-    if purpose=='calendar': user_id=int(JMT.check_jwt(request,'mainauth')['sub'])
+    if purpose=='calendar': user_id=current_oauth_user(request,return_to)
     nonce=secrets.token_urlsafe(32); state=secrets.token_urlsafe(32); verifier=secrets.token_urlsafe(48)
     callback=base+'/auth/google/callback'
     with connection() as db:
@@ -115,7 +179,15 @@ def callback(request: Request, state: str='', code: str='', error: str=''):
             raise HTTPException(400,'구글 연결 요청이 만료되었습니다. 다시 시작해주세요.')
         db.execute('DELETE FROM google_oauth_states WHERE state=?',(state,)); db.commit()
     return_to=row['return_to']
-    def result(query):
+    def result(query,token=None):
+        ident=netaq_id(return_to)
+        if ident:
+            netaq_ticket(request,ident)
+            with connection() as db:
+                db.execute('UPDATE google_netaq_handoffs SET result=?,token=COALESCE(?,token) WHERE id=?',(json.dumps(query),cipher().encrypt(token.encode()).decode() if token else None,ident));db.commit()
+            response=RedirectResponse('https://netaq.chobab.app/auth/google/netaq-finish?'+urlencode({'id':ident}),status_code=303)
+            response.delete_cookie('google_oauth_nonce',path='/auth/google')
+            return response
         response=RedirectResponse(base+return_to+('&' if '?' in return_to else '?')+urlencode(query),status_code=303)
         response.delete_cookie('google_oauth_nonce',path='/auth/google')
         return response
@@ -131,7 +203,7 @@ def callback(request: Request, state: str='', code: str='', error: str=''):
     if not info.get('email_verified') or not info.get('sub'): return result({'google_error':'unverified_email'})
     if row['purpose']=='calendar':
         # The callback remains tied to the same app user, never to the newly selected Google account.
-        try: current=int(JMT.check_jwt(request,'mainauth')['sub'])
+        try: current=current_oauth_user(request,return_to)
         except HTTPException: return result({'google_error':'session_expired'})
         if current!=row['user_id']: return result({'google_error':'session_changed'})
         scopes=tokens.get('scope','')
@@ -147,7 +219,7 @@ def callback(request: Request, state: str='', code: str='', error: str=''):
         return result({'google':'connected'})
     try: user=google_identity(info)
     except HTTPException: return result({'google_error':'account_link_required'})
-    response=result({'google':'signed_in'})
+    response=result({'google':'signed_in'},JMT.make_jwt(user['id'],user,['id','name','email'],lifetime_seconds=JMT.MAIN_SESSION_SECONDS))
     response.set_cookie('mainauth',JMT.make_jwt(user['id'],user,['id','name','email'],lifetime_seconds=JMT.MAIN_SESSION_SECONDS),httponly=True,secure=base.startswith('https:'),samesite='lax',path='/',max_age=JMT.MAIN_SESSION_SECONDS)
     if row['client_kind']=='rehear':
         from odi.db import odidb

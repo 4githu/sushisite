@@ -9,6 +9,7 @@
 	import type { EditorDocument } from '$lib/textediter/types';
 	import '$lib/personal-project/student/student.css';
 	type Board = {
+		relayRoom?: string;
 		id: number;
 		name: string;
 		realm: string;
@@ -196,6 +197,7 @@
 	{#if error}<p class="error" role="alert">
 			{error}<button onclick={load}>다시 불러오기</button>
 		</p>{/if}
+	{#if board?.relayRoom}<p role="status">이 게시판의 새 글·이미지는 ‘{board.relayRoom}’ 카카오톡 방에도 공유됩니다. 파일은 게시글 링크에서 접근 권한을 확인한 뒤 열 수 있습니다.</p>{/if}
 	{#if bid}{#if composing}<section class="composer">
 				<div class="heading">
 					<h2>{editId ? '글 수정' : '새 글'}</h2>

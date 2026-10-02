@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import CampusServices from '$lib/personal-project/student/CampusServices.svelte';
 	import { request } from '$lib/personal-project/shared/api';
 	import '$lib/personal-project/student/student.css';
 	type Menu = {
+		supported?:boolean;school?:string;
 		date: string;
 		restaurants: { title: string; breakfast: string; lunch: string; dinner: string }[];
 		source: string;
@@ -46,8 +48,9 @@
 	onMount(load);
 </script>
 
-<svelte:head><title>서울대 학식 · NETAQ</title></svelte:head>
+<svelte:head><title>학식 · NETAQ</title></svelte:head>
 <div class="student-page">
+	{#if data?.supported===false}<h1>{data.school} 학식</h1><p>아직 식단 데이터가 연결되지 않았습니다. 학교의 학식 페이지를 직접 연결할 수 있습니다.</p><CampusServices />{:else}
 	<header class="page-heading">
 		<div>
 			<span class="eyebrow">CAMPUS / DINING</span>
@@ -107,7 +110,7 @@
 						<p>다른 날짜를 선택하거나 공식 식단을 확인해주세요.</p>
 					</section>{/each}{/key}
 		</div>{/if}
-</div>
+{/if}</div>
 
 <style>
 	.restaurants {

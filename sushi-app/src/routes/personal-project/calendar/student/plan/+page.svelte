@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import CommunityRules from '$lib/personal-project/student/CommunityRules.svelte';
+	let school=$state(''),schoolReady=$state(false);
 	import { request } from '$lib/personal-project/shared/api';
 	import Transcript from '$lib/personal-project/student/Transcript.svelte';
 	import RuleVersion from '$lib/personal-project/student/RuleVersion.svelte';
@@ -123,6 +125,8 @@
 	}
 	onMount(async () => {
 		try {
+		const profile=await request<{school:string}>('/student/profile');school=profile.school;schoolReady=true;
+		if(school && school!=='서울대학교'){loading=false;return;}
 			const data = await request<{ index: Entry[]; sourceUpdatedAt: string }>('/student/rules');
 			entries = data.index;
 			updated = data.sourceUpdatedAt;
@@ -161,6 +165,7 @@
 
 <svelte:head><title>수강계획·이수규정 · NETAQ</title></svelte:head>
 <div class="student-page">
+	{#if !schoolReady}<p role={error ? 'alert':'status'}>{error || '학교 정보를 불러오는 중…'}</p>{:else if school && school!=='서울대학교'}<h1>{school} 수강계획</h1><a href="/personal-project/calendar/student/timetable">내 시간표</a><CommunityRules />{:else}
 	<header class="page-heading">
 		<div>
 			<h1>수강계획과 이수규정</h1>
@@ -355,7 +360,7 @@
 	<p class="muted">
 		원본 갱신 {updated.slice(0, 10)} · 자료에 없는 학과·학번은 임의의 다른 학번 규정으로 대체하지 않습니다.
 	</p>
-</div>
+{/if}</div>
 
 <style>
 	.major-tabs,
