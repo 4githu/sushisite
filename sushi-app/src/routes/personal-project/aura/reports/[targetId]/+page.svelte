@@ -75,7 +75,10 @@
 		if (autosaveTimer) window.clearTimeout(autosaveTimer);
 		autosaveTimer = undefined;
 	}
-	onDestroy(() => { destroyed = true; cancelAutosave(); });
+	onDestroy(() => {
+		destroyed = true;
+		cancelAutosave();
+	});
 
 	function hasAppendixContent(document: EditorDocument) {
 		return document.blocks.some((block) => {
@@ -136,7 +139,10 @@
 		const revision = ++loadRevision;
 		cancelAutosave();
 		report = null;
-		message = ''; error = ''; modalStage = 'closed'; aiResults = [];
+		message = '';
+		error = '';
+		modalStage = 'closed';
+		aiResults = [];
 		try {
 			const [nextReport, attachments] = await Promise.all([
 				personalApi.targetReport(targetId),
@@ -173,7 +179,8 @@
 				modalStage = generatedReport ? 'final' : 'generate';
 			}
 		} catch (cause) {
-			if (!destroyed && loadingTargetId === targetId && revision === loadRevision) error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
+			if (!destroyed && loadingTargetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
 		}
 	}
 
@@ -246,8 +253,11 @@
 		if (destroyed || !targetId || report?.targetId !== targetId) return false;
 		const pending = saveSnapshot(submit, silent);
 		savePromise = pending;
-		try { return await pending; }
-		finally { if (savePromise === pending) savePromise = null; }
+		try {
+			return await pending;
+		} finally {
+			if (savePromise === pending) savePromise = null;
+		}
 	}
 
 	async function saveSnapshot(submit = false, silent = false) {
@@ -277,12 +287,19 @@
 				status: submit ? 'ready' : report.status === 'submitted' ? 'submitted' : 'draft'
 			});
 			if (submit) savedReport = await personalApi.submitTargetReport(reportId);
-			if (destroyed || report?.targetId !== targetId || loadingTargetId !== targetId || revision !== loadRevision) return true;
+			if (
+				destroyed ||
+				report?.targetId !== targetId ||
+				loadingTargetId !== targetId ||
+				revision !== loadRevision
+			)
+				return true;
 			report = savedReport;
 			if (!silent) message = submit ? 'PDF 생성용 리포트를 확정했습니다.' : '임시저장했습니다.';
 			return true;
 		} catch (cause) {
-			if (!destroyed && report?.targetId === targetId && revision === loadRevision) error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
+			if (!destroyed && report?.targetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
 			return false;
 		} finally {
 			saving = false;
@@ -296,7 +313,8 @@
 		const targetId = report.targetId;
 		autosaveTimer = window.setTimeout(() => {
 			autosaveTimer = undefined;
-			if (!destroyed && report?.targetId === targetId && loadingTargetId === targetId) void save(false, true);
+			if (!destroyed && report?.targetId === targetId && loadingTargetId === targetId)
+				void save(false, true);
 		}, 1_500);
 	}
 
@@ -597,10 +615,11 @@
 				}
 				offset += pageHeight;
 			}
-			const safeName = `${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
-				/[\\/:*?"<>|]/g,
-				'_'
-			);
+			const safeName =
+				`${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
+					/[\\/:*?"<>|]/g,
+					'_'
+				);
 			pdf.save(`${safeName}_클리닉리포트.pdf`);
 			message = 'PDF 다운로드를 시작했습니다.';
 			modalStage = 'closed';
@@ -737,6 +756,7 @@
 	}
 
 	async function switchStudent(targetId: number) {
+		templateConfirm = false;
 		if (!report || targetId === report.targetId || switching) return;
 		switching = true;
 		try {
@@ -746,15 +766,15 @@
 				noScroll: true,
 				keepFocus: false
 			});
-		} finally { switching = false; }
+		} finally {
+			switching = false;
+		}
 	}
 
+	let templateConfirm = $state(false);
 	async function saveAsTemplate() {
-		if (
-			!report ||
-			!confirm(`${report.schoolName} ${progressStageLabels[report.progressStage]} ${report.roundLabel}의 새 기본 양식으로 저장할까요?`)
-		)
-			return;
+		if (!report || saving || report.roundNumbers.length > 1) return;
+		templateConfirm = false;
 		saving = true;
 		try {
 			draftDocument = editor?.getJSON() ?? draftDocument;
@@ -887,26 +907,35 @@
 					질문이나 참고 문구는 인용으로 구분하세요. Ctrl/Cmd+Shift+B로 전환합니다.
 				</p>
 				{#key report.targetId}
-				<AuraReportEditor
-					bind:this={editor}
-					initialValue={initialDocument}
-					readonly={switching}
-					placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
-					onchange={queueAutosave}
-					{questionChecks}
-					onquestionchange={(blockId, checked) => {
-						if (switching) return;
-						questionChecks = { ...questionChecks, [blockId]: checked };
-						queueAutosave(editor?.getJSON() ?? draftDocument, true);
-					}}
-				/>
+					<AuraReportEditor
+						bind:this={editor}
+						initialValue={initialDocument}
+						readonly={switching}
+						placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
+						onchange={queueAutosave}
+						{questionChecks}
+						onquestionchange={(blockId, checked) => {
+							if (switching) return;
+							questionChecks = { ...questionChecks, [blockId]: checked };
+							queueAutosave(editor?.getJSON() ?? draftDocument, true);
+						}}
+					/>
 				{/key}
 			</div>
+			{#if templateConfirm}<section role="group" aria-label="기본 양식 저장 확인">
+					<p>
+						{report.schoolName} · {report.roundLabel}의 새 기본 양식으로 저장합니다. 다른 학생의
+						기존 리포트는 바꾸지 않습니다.
+					</p>
+					<button disabled={saving} onclick={saveAsTemplate}>양식 저장 확인</button><button
+						onclick={() => (templateConfirm = false)}>취소</button
+					>
+				</section>{/if}
 			<footer>
 				<button
 					class="template-button"
-					onclick={saveAsTemplate}
-					disabled={saving || report.status === 'submitted' || report.roundNumbers.length > 1}
+					onclick={() => (templateConfirm = true)}
+					disabled={saving || report.roundNumbers.length > 1}
 				>
 					{report.roundNumbers.length > 1
 						? '복수 회차 결합 리포트'
@@ -1223,8 +1252,11 @@
 							<table class="summary-table">
 								<tbody>
 									<tr
-										><th>구분</th><td>{report.schoolName} {progressStageLabels[report.progressStage]} {report.roundLabel}</td><th>강의수강도</th
-										><td>{lectureProgress}</td></tr
+										><th>구분</th><td
+											>{report.schoolName}
+											{progressStageLabels[report.progressStage]}
+											{report.roundLabel}</td
+										><th>강의수강도</th><td>{lectureProgress}</td></tr
 									>
 									<tr
 										><th>이름</th><td>{report.studentName}</td><th>강의이해도</th><td

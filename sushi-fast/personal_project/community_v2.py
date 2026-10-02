@@ -50,6 +50,14 @@ def init():
             db.execute('ALTER TABLE community_boards ADD COLUMN restricted INTEGER NOT NULL DEFAULT 0')
             db.execute("UPDATE community_boards SET restricted=1 WHERE name='자료 공유'")
         db.executescript('CREATE TABLE IF NOT EXISTS community_admins(user_id INTEGER PRIMARY KEY); CREATE TABLE IF NOT EXISTS community_audit(id INTEGER PRIMARY KEY,actor INTEGER,action TEXT,target TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);')
+        for name,kind in [('parent_id','INTEGER'),('sort_order','INTEGER NOT NULL DEFAULT 0'),('system_key','TEXT')]:
+            if name not in cols:db.execute(f'ALTER TABLE community_boards ADD COLUMN {name} {kind}')
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS community_board_system_key ON community_boards(system_key) WHERE system_key IS NOT NULL")
+        db.execute("CREATE TABLE IF NOT EXISTS netaq_members(user_id INTEGER PRIMARY KEY,joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,source TEXT NOT NULL DEFAULT 'visit')")
+        for table,col in [('student_profiles','user_id'),('calendar_daily_notes','user_id'),('calendar_projects','owner_id'),('community_posts','author_id')]:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone():
+                db.execute(f"INSERT OR IGNORE INTO netaq_members(user_id,source) SELECT DISTINCT {col},'legacy-activity' FROM {table}")
+        db.execute("INSERT OR IGNORE INTO netaq_members(user_id,source) SELECT DISTINCT user_id,'legacy-calendar' FROM events WHERE type='personal'")
         db.commit()
 init()
 
@@ -65,9 +73,12 @@ def admin(uid):
     if str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(','):return True
     with connection() as db:return bool(db.execute('SELECT 1 FROM community_admins WHERE user_id=?',(uid,)).fetchone())
 def permission(db,uid,board,action):
+    if board['parent_id']:
+        parent=db.execute('SELECT * FROM community_boards WHERE id=?',(board['parent_id'],)).fetchone()
+        if not parent or not permission(db,uid,parent,'read'):return False
     flags=[r[0] for r in db.execute('SELECT allowed FROM community_acl WHERE user_id=? AND action=? AND scope IN (?,?)',(uid,action,board['realm'],f"board:{board['id']}"))]
     if 0 in flags:return False
-    if admin(uid):return True
+    if str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(',') or db.execute('SELECT 1 FROM community_admins WHERE user_id=?',(uid,)).fetchone():return True
     if board['restricted'] and not db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope=? AND action='read' AND allowed=1",(uid,f"board:{board['id']}")).fetchone():return False
     if board['school']:
         p=db.execute('SELECT school,department,is_student FROM student_profiles WHERE user_id=?',(uid,)).fetchone()
@@ -104,6 +115,13 @@ def validate_assets(db,uid,document,bid=None):
 
 class BoardCreate(BaseModel):
     name:str=Field(min_length=1,max_length=80)
+    parent_id:int | None=None
+    sort_order:int=0
+    @model_validator(mode='after')
+    def trim_name(self):
+        self.name=self.name.strip()
+        if not self.name:raise ValueError('게시판 이름을 입력해주세요.')
+        return self
 class ACL(BaseModel):
     user_id:int=Field(gt=0)
     scope:str=Field(pattern=r'^(main|other|board:[1-9][0-9]*)$')
@@ -131,7 +149,8 @@ class DocumentWrite(BaseModel):
 @router.get('/boards')
 def boards(uid:int=Depends(current_user_id)):
     with connection() as db:
-        result=[dict(b)|{'permissions':{a:permission(db,uid,b,a) for a in ACTIONS}} for b in db.execute('SELECT b.*, (SELECT COUNT(*) FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0) AS post_count, (SELECT title FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0 ORDER BY p.id DESC LIMIT 1) AS last_title FROM community_boards b ORDER BY id') if permission(db,uid,b,'read')]
+        sync_department_boards(db);db.commit()
+        result=[dict(b)|{'permissions':{a:permission(db,uid,b,a) for a in ACTIONS}} for b in db.execute('SELECT b.*, (SELECT COUNT(*) FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0) AS post_count, (SELECT title FROM community_posts p WHERE p.board_id=b.id AND p.deleted=0 ORDER BY p.id DESC LIMIT 1) AS last_title FROM community_boards b ORDER BY sort_order,id') if permission(db,uid,b,'read')]
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='kakao_board_routes'").fetchone():
             relays={r[0]:r[1] for r in db.execute('SELECT board_id,room FROM kakao_board_routes WHERE enabled=1')}
             for b in result:b['relayRoom']=relays.get(b['id'])
@@ -140,7 +159,8 @@ def boards(uid:int=Depends(current_user_id)):
 def create_board(data:BoardCreate,uid:int=Depends(current_user_id)):
     if not boards(uid)['canCreate']:raise HTTPException(403,'게시판 생성 권한이 필요합니다.')
     with connection() as db:
-        bid=db.execute('INSERT INTO community_boards(name,creator_id) VALUES(?,?)',(data.name.strip(),uid)).lastrowid;db.commit()
+        if data.parent_id:board_access(db,uid,data.parent_id,'manage')
+        bid=db.execute('INSERT INTO community_boards(name,creator_id,parent_id,sort_order) VALUES(?,?,?,?)',(data.name.strip(),uid,data.parent_id,data.sort_order)).lastrowid;db.commit()
     return {'id':bid}
 @router.get('/boards/permissions')
 def permissions(uid:int=Depends(current_user_id)):
@@ -324,15 +344,59 @@ def rule_history(rule_id:str,uid:int=Depends(current_user_id)):
 def document_copies(uid:int=Depends(current_user_id)):
     with connection() as db:return [dict(r) for r in db.execute("SELECT document_key,revision,updated_at FROM personal_documents WHERE user_id=? AND document_key LIKE '%conflict:%' ORDER BY updated_at DESC LIMIT 100",(uid,))]
 
+@router.post('/membership')
+def membership(uid:int=Depends(current_user_id)):
+    with connection() as db:
+        db.execute("INSERT INTO netaq_members(user_id) VALUES(?) ON CONFLICT(user_id) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP",(uid,));db.commit()
+    return {'registered':True}
+
+def sync_department_boards(db):
+    profiles=db.execute("SELECT DISTINCT school,department FROM student_profiles WHERE is_student=1 AND school<>'' AND department<>''").fetchall()
+    if not profiles:return
+    created=db.execute("INSERT OR IGNORE INTO community_boards(name,sort_order,system_key) VALUES('학과 게시판',1000,'department-root')").rowcount
+    gid=db.execute("SELECT id FROM community_boards WHERE system_key='department-root'").fetchone()[0]
+    if created:db.execute("UPDATE community_boards SET parent_id=? WHERE school<>'' AND parent_id IS NULL",(gid,))
+    for p in profiles:
+        row=db.execute('SELECT id FROM community_boards WHERE school=? AND department=?',(p['school'],p['department'])).fetchone()
+        if not row:db.execute('INSERT OR IGNORE INTO community_boards(name,school,department,parent_id,system_key) VALUES(?,?,?,?,?)',(p['school']+' · '+p['department'],p['school'],p['department'],gid,'department:'+json.dumps([p['school'],p['department']],ensure_ascii=False)))
+
 @router.get('/admin/workspace')
-def admin_workspace(q:str=Query('',max_length=120),page:int=Query(1,ge=1),uid:int=Depends(current_user_id)):
+def admin_workspace(q:str=Query('',max_length=120),page:int=Query(1,ge=1),membership:Literal['members','nonmembers','all']='members',uid:int=Depends(current_user_id)):
     if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
     from auth.userdb import get_connection
+    with connection() as db:
+        sync_department_boards(db);db.commit()
+        members={r['user_id']:dict(r) for r in db.execute('SELECT * FROM netaq_members')}
+        board_rows=[dict(b) for b in db.execute('SELECT * FROM community_boards ORDER BY sort_order,id')]
+        profiles={r['user_id']:dict(r) for r in db.execute('SELECT user_id,school,department FROM student_profiles')}
+        permissions=[dict(a) for a in db.execute('SELECT * FROM community_acl')]
+        audit=[dict(a) for a in db.execute('SELECT * FROM community_audit ORDER BY id DESC LIMIT 50')]
     with get_connection() as users:
         args=('%'+q.strip()+'%','%'+q.strip()+'%')
-        total=users.execute('SELECT count(*) FROM users WHERE email LIKE ? OR name LIKE ?',args).fetchone()[0]
-        rows=[dict(r) for r in users.execute('SELECT id,name,email FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id LIMIT 30 OFFSET ?',(*args,(page-1)*30))]
-    with connection() as db:return {'users':rows,'total':total,'page':page,'boards':[dict(b) for b in db.execute('SELECT id,name,restricted FROM community_boards')],'permissions':[dict(a) for a in db.execute('SELECT * FROM community_acl')],'audit':[dict(a) for a in db.execute('SELECT * FROM community_audit ORDER BY id DESC LIMIT 50')]}
+        matches=[dict(r) for r in users.execute('SELECT id,name,email FROM users WHERE email LIKE ? OR name LIKE ? ORDER BY id',args)]
+    rows=[r for r in matches if membership=='all' or (r['id'] in members)==(membership=='members')]
+    total=len(rows);rows=rows[(page-1)*30:page*30]
+    with connection() as db:
+        for r in rows:
+            r.update(member=r['id'] in members,isAdmin=admin(r['id']),profile=profiles.get(r['id']),membership=members.get(r['id']),effective={str(b['id']):{a:permission(db,r['id'],b,'read') and permission(db,r['id'],b,a) for a in ACTIONS} for b in board_rows})
+    return {'users':rows,'total':total,'page':page,'boards':board_rows,'permissions':permissions,'audit':audit}
+
+@router.put('/admin/boards/{bid}')
+def edit_board(bid:int,data:BoardCreate,uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        if not db.execute('SELECT 1 FROM community_boards WHERE id=?',(bid,)).fetchone():raise HTTPException(404,'게시판 없음')
+        parent=data.parent_id;seen={bid}
+        while parent:
+            if parent in seen:raise HTTPException(400,'게시판은 자신 또는 하위 게시판 아래로 이동할 수 없습니다.')
+            seen.add(parent)
+            row=db.execute('SELECT parent_id FROM community_boards WHERE id=?',(parent,)).fetchone()
+            if not row:raise HTTPException(400,'상위 게시판 없음')
+            parent=row[0]
+        db.execute('UPDATE community_boards SET name=?,parent_id=?,sort_order=? WHERE id=?',(data.name.strip(),data.parent_id,data.sort_order,bid))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.update',str(bid)));db.commit()
+    return {'saved':True}
 
 class BoardRestriction(BaseModel):
     restricted:bool
@@ -344,4 +408,20 @@ def restrict_board(bid:int,data:BoardRestriction,uid:int=Depends(current_user_id
         if not db.execute('SELECT id FROM community_boards WHERE id=?',(bid,)).fetchone():raise HTTPException(404,'게시판 없음')
         db.execute('UPDATE community_boards SET restricted=? WHERE id=?',(int(data.restricted),bid))
         db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.restricted',f'{bid}:{data.restricted}'));db.commit()
+    return {'saved':True}
+
+class AdminRole(BaseModel):
+    enabled:bool
+
+@router.put('/admin/members/{member_id}/role')
+def member_role(member_id:int,data:AdminRole,uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    configured={int(v) for v in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(',') if v.strip().isdigit()}
+    if member_id in configured and not data.enabled:raise HTTPException(400,'서버에 지정된 관리자는 이 화면에서 해제할 수 없습니다.')
+    if member_id==uid and not data.enabled:raise HTTPException(400,'자신의 관리자 권한은 다른 관리자가 변경해야 합니다.')
+    with connection() as db:
+        if not db.execute('SELECT 1 FROM netaq_members WHERE user_id=?',(member_id,)).fetchone():raise HTTPException(400,'NETAQ 이용자만 관리자 역할을 지정할 수 있습니다.')
+        if data.enabled:db.execute('INSERT OR IGNORE INTO community_admins VALUES(?)',(member_id,))
+        else:db.execute('DELETE FROM community_admins WHERE user_id=?',(member_id,))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'member.admin',f'{member_id}:{data.enabled}'));db.commit()
     return {'saved':True}

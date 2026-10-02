@@ -57,7 +57,7 @@
 	{#if opened}
 		<p>
 			현재 게시판 ‘{boardName}’에만 사용할 키를 만듭니다. 키는 발급 직후 한 번 표시되며
-			캘린더·아우라에는 접근할 수 없습니다.
+			선택한 게시판과 허용한 작업에만 사용할 수 있습니다.
 		</p>
 		<div class="fields">
 			<label>키 이름 <input bind:value={name} maxlength="80" /></label><label

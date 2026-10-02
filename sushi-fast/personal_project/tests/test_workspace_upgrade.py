@@ -25,11 +25,19 @@ def test_admin_blank_search_paginates_and_rejects_non_admin(monkeypatch, tmp_pat
         db.executemany('INSERT INTO users VALUES(?,?,?)',[(i,f'Member {i}',f'member{i}@example.test') for i in range(1,36)])
     monkeypatch.setattr(userdb,'get_connection',connect)
     monkeypatch.setenv('COMMUNITY_ADMINS',str(user))
-    first=client.get(BASE+'/admin/workspace',params={'q':' '}).json()
-    second=client.get(BASE+'/admin/workspace',params={'page':2}).json()
+    with connection() as db:
+        db.execute('INSERT OR IGNORE INTO netaq_members(user_id) VALUES(35)');db.commit()
+    assert [u['id'] for u in client.get(BASE+'/admin/workspace').json()['users']]==[35]
+    assert client.get(BASE+'/admin/workspace',params={'membership':'nonmembers'}).json()['total']==34
+    first=client.get(BASE+'/admin/workspace',params={'q':' ','membership':'all'}).json()
+    second=client.get(BASE+'/admin/workspace',params={'page':2,'membership':'all'}).json()
     assert first['total']==35 and len(first['users'])==30
     assert [r['id'] for r in second['users']]==[31,32,33,34,35]
-    assert client.get(BASE+'/admin/workspace',params={'q':'member35@'}).json()['total']==1
+    assert client.get(BASE+'/admin/workspace',params={'q':'member35@','membership':'all'}).json()['total']==1
+    with connection() as db:
+        db.execute("INSERT OR REPLACE INTO community_acl VALUES(35,'board:1','read',0)");db.commit()
+    effective=client.get(BASE+'/admin/workspace').json()['users'][0]['effective']['1']
+    assert not effective['read'] and not effective['post'] and not effective['comment']
     monkeypatch.setenv('COMMUNITY_ADMINS','999999')
     assert client.get(BASE+'/admin/workspace').status_code==403
 
@@ -168,3 +176,47 @@ def test_restricted_board_requires_explicit_read_and_protects_thumbnails(monkeyp
         user=99109
         assert client.get(image['url']).status_code==403
     finally:user=original
+
+
+def test_board_hierarchy_denial_cycles_and_department_visibility(monkeypatch):
+    global user
+    original=user
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(original))
+    parent=client.post(BASE+'/boards',json={'name':'상위'}).json()['id']
+    child=client.post(BASE+'/boards',json={'name':'하위','parent_id':parent}).json()['id']
+    assert client.put(BASE+f'/admin/boards/{parent}',json={'name':'순환','parent_id':child}).status_code==400
+    student.save_profile(99644,student.Profile(is_student=True,school='KAIST',department='전산학부'))
+    student.save_profile(99645,student.Profile(is_student=True,school='DGIST',department='융복합전공'))
+    try:
+        user=99644
+        visible=client.get(BASE+'/boards').json()['boards']
+        client.get(BASE+'/boards')
+        with connection() as db:
+            assert db.execute("SELECT count(*) FROM community_boards WHERE system_key='department-root'").fetchone()[0]==1
+            assert db.execute("SELECT count(*) FROM community_boards WHERE school='KAIST' AND department='전산학부'").fetchone()[0]==1
+        assert any(b['school']=='KAIST' and b['department']=='전산학부' for b in visible)
+        assert not any(b['school']=='DGIST' for b in visible)
+        user=original
+        client.put(BASE+'/boards/permissions',json={'user_id':99644,'scope':f'board:{parent}','action':'read','allowed':False})
+        client.put(BASE+'/boards/permissions',json={'user_id':99644,'scope':f'board:{child}','action':'read','allowed':True})
+        user=99644
+        assert client.get(BASE+f'/boards/{child}/posts').status_code==403
+        assert client.put(BASE+f'/admin/members/{original}/role',json={'enabled':True}).status_code==403
+        user=original
+        assert client.put(BASE+f'/admin/members/{original}/role',json={'enabled':False}).status_code==400
+    finally:user=original
+
+def test_template_save_versions_preserve_rich_document_and_ownership():
+    from personal_project import repository, schemas
+    uid=99891
+    school=repository.create_school(uid,schemas.SchoolCreate(admission_year=2026,school_name='양식 검수'))
+    doc={'version':1,'documentId':'template-test','blocks':[],'schemaVersion':2,'richContent':{'type':'doc','content':[{'type':'paragraph','attrs':{'id':'fixed-id'},'content':[{'type':'text','text':'양식 내용'}]}]}}
+    data=schemas.TemplateSave(content_json=doc,progress_stage='grade1_semester1')
+    a=repository.save_round_template(uid,school['id'],1,data)
+    b=repository.save_round_template(uid,school['id'],1,data)
+    assert b['version']==a['version']+1
+    with connection() as db:
+        versions=db.execute('SELECT content_json,is_active FROM aura_round_templates WHERE school_id=? ORDER BY version',(school['id'],)).fetchall()
+        assert len(versions)==2 and [r['is_active'] for r in versions]==[0,1]
+        assert __import__('json').loads(versions[-1]['content_json'])==doc
+    with pytest.raises(__import__('fastapi').HTTPException):repository.save_round_template(uid+1,school['id'],1,data)

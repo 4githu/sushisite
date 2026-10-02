@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ApiKeys from '$lib/personal-project/boards/ApiKeys.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { goto, beforeNavigate } from '$app/navigation';
@@ -11,6 +10,7 @@
 	type Board = {
 		relayRoom?: string;
 		id: number;
+		parent_id: number | null;
 		name: string;
 		realm: string;
 		post_count?: number;
@@ -45,6 +45,8 @@
 			canDelete: boolean;
 		}[];
 	};
+	let creatingBoard = $state(false),
+		newBoardName = $state('');
 	let boards = $state<Board[]>([]),
 		canAdmin = $state(false),
 		canCreate = $state(false),
@@ -168,25 +170,42 @@
 <div class="student-page board-page">
 	<header class="board-heading">
 		<h1>{board?.name || '게시판'}</h1>
-		{#if canCreate}<button
-				onclick={() =>
-					run(async () => {
-						const name = prompt('새 게시판 이름');
-						if (!name?.trim()) return;
-						const b = await request<{ id: number }>('/boards', { method: 'POST', body: { name } });
-						const result = await request<{ boards: Board[] }>('/boards');
-						boards = result.boards;
-						await navigate(b.id);
-					})}>게시판 만들기</button
+		{#if canCreate && (!bid || board?.permissions.manage)}<button
+				onclick={() => (creatingBoard = !creatingBoard)}
+				>{bid ? '하위 게시판 만들기' : '게시판 만들기'}</button
 			>{/if}
 	</header>
+	{#if creatingBoard}<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				void run(async () => {
+					const b = await request<{ id: number }>('/boards', {
+						method: 'POST',
+						body: { name: newBoardName, parent_id: bid || null }
+					});
+					boards = (await request<{ boards: Board[] }>('/boards')).boards;
+					creatingBoard = false;
+					newBoardName = '';
+					await navigate(b.id);
+				});
+			}}
+		>
+			<input aria-label="새 게시판 이름" bind:value={newBoardName} required maxlength="80" /><button
+				disabled={busy}>만들기</button
+			><button type="button" onclick={() => (creatingBoard = false)}>취소</button>
+		</form>{/if}
 	{#if board}<a href="/personal-project/calendar/boards">← 전체 게시판</a>{/if}
-	{#if bid}<nav class="board-tabs" aria-label="게시판 목록">
-			{#each boards as b}<a class:active={bid === b.id} href={`?board=${b.id}`}>{b.name}</a>{/each}
-		</nav>{/if}
+	{#if board?.parent_id}<a href={`?board=${board.parent_id}`}>← 상위 게시판</a>{/if}
+	{#if bid && boards.some((b) => b.parent_id === bid)}<section class="board-directory">
+			<h2>하위 게시판</h2>
+			{#each boards.filter((b) => b.parent_id === bid) as b}<a href={`?board=${b.id}`}
+					>{b.name} · {b.post_count || 0}개 글</a
+				>{/each}
+		</section>{/if}
 	{#if !bid}<section class="board-directory">
 			<h2>전체 게시판</h2>
-			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards as b}<a href={`?board=${b.id}`}
+			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards.filter((b) => !b.parent_id) as b}<a
+					href={`?board=${b.id}`}
 					><div>
 						<strong>{b.name}</strong>
 						<p>{b.last_title || '첫 글을 남겨보세요.'}</p>
@@ -197,7 +216,10 @@
 	{#if error}<p class="error" role="alert">
 			{error}<button onclick={load}>다시 불러오기</button>
 		</p>{/if}
-	{#if board?.relayRoom}<p role="status">이 게시판의 새 글·이미지는 ‘{board.relayRoom}’ 카카오톡 방에도 공유됩니다. 파일은 게시글 링크에서 접근 권한을 확인한 뒤 열 수 있습니다.</p>{/if}
+	{#if board?.relayRoom}<p role="status">
+			이 게시판의 새 글·이미지는 ‘{board.relayRoom}’ 카카오톡 방에도 공유됩니다. 파일은 게시글
+			링크에서 접근 권한을 확인한 뒤 열 수 있습니다.
+		</p>{/if}
 	{#if bid}{#if composing}<section class="composer">
 				<div class="heading">
 					<h2>{editId ? '글 수정' : '새 글'}</h2>
@@ -241,13 +263,14 @@
 				<a href={`?board=${detail.board_id}`}>← 목록</a>
 				<header>
 					<h2>{detail.title}</h2>
+					{#if detail.canEdit}<button onclick={() => compose(true)}>글 수정</button>{/if}
 					<p class="muted">
 						{detail.author_name} · {new Date(detail.created_at + 'Z').toLocaleString('ko-KR')}
 					</p>
 				</header>
 				<PersonalTextEditor initialValue={detail.document} readonly />
 				<div class="actions">
-					{#if detail.canEdit}<button onclick={() => compose(true)}>수정</button><button
+					{#if detail.canEdit}<button
 							onclick={() =>
 								run(async () => {
 									await request(`/boards/posts/${pid}`, {
@@ -364,7 +387,7 @@
 				</nav>
 			</section>{/if}
 	{/if}
-	{#if board}<ApiKeys boardId={bid} boardName={board.name} />{/if}
+
 	{#if canAdmin}<a href="/personal-project/calendar/admin">관리자 화면 →</a>{/if}
 </div>
 
@@ -417,22 +440,6 @@
 	}
 	.board-heading h1 {
 		font-size: 28px;
-	}
-	.board-tabs {
-		display: flex;
-		gap: 24px;
-		border-bottom: 1px solid var(--border, #ddd);
-		margin: 20px 0 28px;
-		overflow: auto;
-	}
-	.board-tabs a {
-		padding: 12px 0;
-		text-decoration: none;
-		white-space: nowrap;
-	}
-	.board-tabs a.active {
-		border-bottom: 3px solid currentColor;
-		font-weight: 700;
 	}
 	.list-toolbar form {
 		display: flex;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, setContext } from 'svelte';
+	import { request } from '$lib/personal-project/shared/api';
 	import InstallApp from '$lib/personal-project/shared/InstallApp.svelte';
 	import { page } from '$app/state';
 	import PersonalAccountCard from '$lib/personal-project/shared/PersonalAccountCard.svelte';
@@ -32,10 +33,10 @@
 		{ path: '/week', label: '주간 시간표', icon: 'week' },
 		{ path: '', label: '월간 캘린더', icon: 'month' },
 		{ path: '/tasks', label: '해야 할 일', icon: 'tasks' },
-		{ path: '/boards', label: '게시판', icon: 'boards' },
-		{ path: '/resources', label: '자료 · PDF', icon: 'files' }
+		{ path: '/boards', label: '게시판', icon: 'boards' }
 	] as const;
 	onMount(() => {
+		void request('/membership', {method: 'POST'}).catch(() => {});
 		try {
 			collapsed = localStorage.getItem('ondo.sidebar-collapsed') === 'true';
 		} catch {

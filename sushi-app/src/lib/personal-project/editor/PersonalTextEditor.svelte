@@ -3,7 +3,9 @@
 	import { Editor, Node, Extension, mergeAttributes } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
 	import { Markdown } from '@tiptap/markdown';
-	import { TableKit } from '@tiptap/extension-table';
+	import { TableKit, TableView } from '@tiptap/extension-table';
+	import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+	import type { EditorView } from '@tiptap/pm/view';
 	import TaskList from '@tiptap/extension-task-list';
 	import TaskItem from '@tiptap/extension-task-item';
 	import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
@@ -155,12 +157,34 @@
 		drawingOpen = false;
 	}
 
+	class IndentedTableView extends TableView {
+		constructor(
+			node: ProseMirrorNode,
+			width: number,
+			view?: EditorView,
+			attrs: Record<string, any> = {}
+		) {
+			super(node, width, view, attrs);
+			this.applyIndent(node);
+		}
+		applyIndent(node: ProseMirrorNode) {
+			const n = Math.max(0, Math.min(8, Number(node.attrs.indent) || 0));
+			this.dom.style.marginLeft = `${n * 24}px`;
+			this.table.dataset.indent = String(n);
+		}
+		update(node: ProseMirrorNode) {
+			const updated = super.update(node);
+			if (updated) this.applyIndent(node);
+			return updated;
+		}
+	}
+
 	const BlockLayout = Extension.create({
 		name: 'blockLayout',
 		addGlobalAttributes() {
 			return [
 				{
-					types: ['paragraph', 'heading', 'codeBlock', 'details'],
+					types: ['paragraph', 'heading', 'codeBlock', 'details', 'table'],
 					attributes: {
 						indent: {
 							default: 0,
@@ -184,7 +208,12 @@
 	function indentBlock(out = false) {
 		if (!editor) return false;
 		if (editor.isActive('table'))
-			return out ? editor.commands.goToPreviousCell() : editor.commands.goToNextCell();
+			return editor.commands.updateAttributes('table', {
+				indent: Math.min(
+					8,
+					Math.max(0, (editor.getAttributes('table').indent || 0) + (out ? -1 : 1))
+				)
+			});
 		const list = editor.isActive('taskItem') ? 'taskItem' : 'listItem';
 		if (editor.isActive(list))
 			return out ? editor.commands.liftListItem(list) : editor.commands.sinkListItem(list);
@@ -329,7 +358,7 @@
 				StarterKit,
 				BlockLayout,
 				Markdown,
-				TableKit.configure({ table: { resizable: true } }),
+				TableKit.configure({ table: { resizable: true, View: IndentedTableView } }),
 				TaskList,
 				TaskItem.configure({ nested: true }),
 				Details.configure({ persist: true }),
@@ -448,6 +477,9 @@
 	$effect(() => {
 		if (editor && initialValue !== lastInitial) {
 			lastInitial = initialValue;
+			pendingImport = null;
+			jsonOpen = false;
+			jsonText = '';
 			generation++;
 			base = normalizeDocument(initialValue);
 			editor.commands.setContent(toRich(base), { emitUpdate: false });
@@ -463,6 +495,45 @@
 	$effect(() => {
 		editor?.setEditable(!readonly);
 	});
+	let jsonInput = $state<HTMLInputElement>();
+	let pendingImport = $state<EditorDocument | null>(null),
+		jsonOpen = $state(false),
+		jsonText = $state('');
+	function exportJSON() {
+		const url = URL.createObjectURL(
+			new Blob([JSON.stringify(getJSON(), null, 2)], { type: 'application/json' })
+		);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'document.json';
+		a.click();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
+	async function importJSON(file?: File) {
+		if (!file || !editor) return;
+		error = '';
+		pendingImport = null;
+		const currentGeneration = generation;
+		try {
+			if (file.size > 2_000_000) throw Error('JSON 파일은 2MB 이하로 선택해주세요.');
+			const raw = JSON.parse(await file.text());
+			if (currentGeneration !== generation) return;
+			if (
+				!raw ||
+				typeof raw !== 'object' ||
+				(!Array.isArray(raw.blocks) && raw.type !== 'doc' && raw.richContent?.type !== 'doc')
+			)
+				throw Error('지원하는 문서 JSON이 아닙니다.');
+			const candidate =
+				raw.type === 'doc' ? fromRich(raw, createDocument()) : normalizeDocument(raw);
+			const node = editor.schema.nodeFromJSON(toRich(candidate));
+			node.check();
+			pendingImport = candidate;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'JSON을 읽지 못했습니다.';
+		}
+	}
+
 	export function getJSON() {
 		return editor ? fromRich(editor.getJSON(), base) : base;
 	}
@@ -507,6 +578,55 @@
 </script>
 
 <div class="personal-editor" class:compact>
+	{#if !readonly}<div class="json-tools">
+			<button type="button" onclick={exportJSON}>JSON 내보내기</button><button
+				type="button"
+				onclick={() => (jsonOpen = !jsonOpen)}>JSON 가져오기</button
+			><input
+				hidden
+				type="file"
+				accept=".json,application/json"
+				bind:this={jsonInput}
+				onchange={(e) => {
+					void importJSON(e.currentTarget.files?.[0]);
+					e.currentTarget.value = '';
+				}}
+			/>
+		</div>{/if}
+	{#if jsonOpen && !readonly}<div role="group" aria-label="JSON 가져오기">
+			<button type="button" onclick={() => jsonInput?.click()}>JSON 파일 선택</button><label
+				>또는 JSON 붙여넣기<textarea
+					aria-label="가져올 JSON"
+					bind:value={jsonText}
+					rows="4"
+					maxlength="2000000"
+				></textarea></label
+			><button
+				type="button"
+				disabled={!jsonText.trim()}
+				onclick={() =>
+					void importJSON(new File([jsonText], 'document.json', { type: 'application/json' }))}
+				>내용 확인</button
+			><button
+				type="button"
+				onclick={() => {
+					jsonOpen = false;
+					pendingImport = null;
+				}}>닫기</button
+			>
+		</div>{/if}
+	{#if pendingImport}<div role="group" aria-label="문서 가져오기 확인">
+			<p>현재 내용을 가져온 문서로 바꿉니다. 기존 내용은 실행 취소로 복구할 수 있습니다.</p>
+			<button
+				type="button"
+				onclick={() => {
+					if (pendingImport) setJSON(pendingImport);
+					pendingImport = null;
+					jsonOpen = false;
+					jsonText = '';
+				}}>문서 교체</button
+			><button type="button" onclick={() => (pendingImport = null)}>취소</button>
+		</div>{/if}
 	{#if !readonly}<EditorToolbar
 			{editor}
 			{inTable}
