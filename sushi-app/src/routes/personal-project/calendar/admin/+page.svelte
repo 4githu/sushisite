@@ -230,6 +230,14 @@
 						확인합니다.
 					</p>
 					<button disabled={busy} onclick={() => void run(savePermissions)}>변경 사항 저장</button>
+					{#each data.permissions.filter((p) => p.user_id === selected && !p.scope.startsWith('board:')) as p}
+						<p>{p.scope === 'main' ? '메인 게시판 범위' : '기타 게시판 전체 범위'} · {actions.find(([a]) => a === p.action)?.[1] || '게시판 생성'} · {p.allowed ? '개별 허용' : '개별 거부'}
+							<button disabled={busy} onclick={() => void run(async () => {
+								await request('/boards/permissions', {method:'PUT',body:{user_id:p.user_id,scope:p.scope,action:p.action,allowed:null}});
+								await load(); notice='전체 범위 예외를 기본 규칙으로 복원했습니다.';
+							})}>이 범위 설정 해제</button>
+						</p>
+					{/each}
 				</section>{/if}
 		{:else if tab === 'boards'}<h2>게시판 구성</h2>
 			<p>표시 순서가 작은 게시판부터 나옵니다. 학과 게시판은 해당 학교·학과 회원에게만 보입니다.</p>
