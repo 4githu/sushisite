@@ -7,9 +7,10 @@ from pydantic import BaseModel, Field, field_validator
 from .db import connection
 from .router import current_user_id
 from .community_v2 import write_origin
+from .campus_directory import ALIASES, SCHOOLS, departments, capabilities
+from . import campus_catalog
 
 router=APIRouter(prefix='/student',dependencies=[Depends(write_origin)])
-ALIASES={'서울대':'서울대학교','kaist':'KAIST','카이스트':'KAIST','한국과학기술원':'KAIST','dgist':'DGIST','디지스트':'DGIST','디지트스':'DGIST','대구경북과학기술원':'DGIST','한양대':'한양대학교'}
 def normalize(name):
     name=' '.join(name.split())
     return ALIASES.get(name.casefold(),name)
@@ -20,7 +21,7 @@ def init():
         CREATE TABLE IF NOT EXISTS campus_departments(school_id INTEGER NOT NULL, name TEXT NOT NULL,creator_id INTEGER,PRIMARY KEY(school_id,name));
         CREATE TABLE IF NOT EXISTS campus_links(id INTEGER PRIMARY KEY,school_id INTEGER NOT NULL,user_id INTEGER NOT NULL,label TEXT NOT NULL,url TEXT NOT NULL,kind TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         ''')
-        for name in ('서울대학교','KAIST','DGIST','한양대학교'):
+        for name in SCHOOLS:
             db.execute('INSERT OR IGNORE INTO campuses(name) VALUES(?)',(name,))
         for row in db.execute("SELECT user_id,school,department FROM student_profiles WHERE school<>''").fetchall():
             register(db,row['user_id'],row['school'],row['department'])
@@ -49,18 +50,28 @@ def metadata(uid):
     for year in range(max(2000,start),min(2100,max(date.today().year+2,start+6))+1):
         for code,label in [('U000200001U000300001','1학기'),('U000200001U000300002','여름 계절'),('U000200002U000300001','2학기'),('U000200002U000300002','겨울 계절')]:
             terms.append({'id':f'campus-{key}-{year}_{code}','year':str(year),'term':code,'label':f'{year} {label}','count':0})
-    return {'revision':f'campus-{key}-manual-v1','terms':terms,'source':'직접 입력','sourceUpdatedAt':'','importedAt':'','school':name,'supported':False}
+    meta=campus_catalog.index(name)
+    if meta:
+        merged={t['id']:t for t in terms}
+        merged.update({t['id']:t for t in meta['terms']})
+        return meta | {'terms':sorted(merged.values(),key=lambda t:t['id'])}
+    return {'revision':f'campus-{key}-manual-v1','terms':terms,'source':'','sourceUpdatedAt':'','importedAt':'','school':name,'supported':False}
 def courses(uid,term):
     if is_snu(uid):
         from .snu_catalog import courses as snu_courses
         return snu_courses(term)
     if term not in {t['id'] for t in metadata(uid)['terms']}:raise HTTPException(400,'현재 학교의 학기를 선택해주세요.')
-    return []
+    return campus_catalog.courses(school(uid),term)
 
 @router.get('/schools')
 def schools(uid:int=Depends(current_user_id)):
     with connection() as db:
-        return [{'id':r['id'],'name':r['name'],'catalog':r['name']=='서울대학교','departments':[d[0] for d in db.execute('SELECT name FROM campus_departments WHERE school_id=? ORDER BY name',(r['id'],))]} for r in db.execute('SELECT * FROM campuses ORDER BY id')]
+        result=[]
+        for r in db.execute('SELECT * FROM campuses ORDER BY id'):
+            known=set(departments(r['name']))
+            known.update(d[0] for d in db.execute('SELECT name FROM campus_departments WHERE school_id=?',(r['id'],)))
+            result.append({'id':r['id'],'name':r['name'],'departments':sorted(known),**capabilities(r['name'])})
+        return sorted(result,key=lambda r:(SCHOOLS.index(r['name']) if r['name'] in SCHOOLS else len(SCHOOLS),r['name']))
 
 class SchoolCreate(BaseModel):
     name:str=Field(min_length=1,max_length=120)
@@ -89,7 +100,7 @@ def services(uid:int=Depends(current_user_id)):
     with connection() as db:
         row=db.execute('SELECT id FROM campuses WHERE name=?',(name,)).fetchone()
         links=[dict(r)|{'canDelete':r['user_id']==uid} for r in db.execute('SELECT * FROM campus_links WHERE school_id=? ORDER BY id',(row[0],))] if row else []
-    return {'school':name,'catalog':is_snu(uid),'meals':is_snu(uid),'links':links,'notice':'사용자 등록 링크입니다. 자동 로그인이나 데이터 수집을 하지 않습니다.'}
+    return {'school':name,**capabilities(name),'links':links}
 @router.post('/school-services')
 def add_service(data:ServiceLink,uid:int=Depends(current_user_id)):
     name=school(uid)

@@ -4,6 +4,7 @@ export type Course = {
 	name: string;
 	professor: string;
 	department: string;
+	departments?: string[];
 	sbjt_cd: string;
 	lt_no: string;
 	credits: number;
@@ -21,6 +22,7 @@ export type Lesson = {
 };
 export type Term = { id: string; year: string; term: string; label: string; count: number };
 export type Catalog = {
+	supported?: boolean;
 	revision: string;
 	terms: Term[];
 	source: string;

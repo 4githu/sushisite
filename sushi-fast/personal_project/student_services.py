@@ -23,7 +23,8 @@ class Profile(BaseModel):
         self.school = ' '.join(self.school.split())
         from .campuses import normalize
         self.school = normalize(self.school)
-        self.department = self.department.strip()
+        from .campus_directory import normalize_department
+        self.department = normalize_department(self.school,self.department)
         if self.is_student and not self.school:
             raise ValueError('학교를 입력해주세요.')
         return self
@@ -251,10 +252,11 @@ class CourseCompletion(BaseModel):
     completed: bool
 
 def course_history(user_id):
-    from .snu_catalog import courses, metadata, supplements
+    from .snu_catalog import supplements, metadata as snu_metadata
+    from .campuses import courses as campus_courses, metadata as campus_metadata, is_snu
     today=datetime.now(ZoneInfo('Asia/Seoul')).date()
-    terms={t['id']:t for t in metadata()['terms']}
-    canon=supplements().get('code_equiv',{}).get('canon',{})
+    terms={t['id']:t for t in (snu_metadata() if is_snu(user_id) else campus_metadata(user_id))['terms']}
+    canon=supplements().get('code_equiv',{}).get('canon',{}) if is_snu(user_id) else {}
     with connection() as db:
         excluded={r[0] for r in db.execute('SELECT code FROM student_course_exclusions WHERE user_id=?',(user_id,))}
         drafts=db.execute('SELECT term,data FROM student_timetable_drafts WHERE user_id=? ORDER BY term',(user_id,)).fetchall()
@@ -264,7 +266,7 @@ def course_history(user_id):
         info=terms.get(row['term'])
         if not info:continue
         data=json.loads(row['data']);ids=set(data.get('course_ids',[]))
-        rows=[c for c in courses(row['term']) if c['id'] in ids]
+        rows=[c for c in campus_courses(user_id,row['term']) if c['id'] in ids]
         end=data.get('ends_on')
         finished=bool(end and date.fromisoformat(end)<today)
         for c in rows:

@@ -50,7 +50,7 @@
 
 <svelte:head><title>학식 · NETAQ</title></svelte:head>
 <div class="student-page">
-	{#if data?.supported===false}<h1>{data.school} 학식</h1><p>아직 식단 데이터가 연결되지 않았습니다. 학교의 학식 페이지를 직접 연결할 수 있습니다.</p><CampusServices />{:else}
+	{#if data?.supported===false}<h1>{data.school} 학식</h1><p>이 학교의 학식은 아직 연동되지 않았습니다.</p><CampusServices />{:else}
 	<header class="page-heading">
 		<div>
 			<span class="eyebrow">CAMPUS / DINING</span>

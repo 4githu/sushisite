@@ -165,7 +165,7 @@
 
 <svelte:head><title>수강계획·이수규정 · NETAQ</title></svelte:head>
 <div class="student-page">
-	{#if !schoolReady}<p role={error ? 'alert':'status'}>{error || '학교 정보를 불러오는 중…'}</p>{:else if school && school!=='서울대학교'}<h1>{school} 수강계획</h1><a href="/personal-project/calendar/student/timetable">내 시간표</a><CommunityRules />{:else}
+	{#if !schoolReady}<p role={error ? 'alert':'status'}>{error || '학교 정보를 불러오는 중…'}</p>{:else if school && school!=='서울대학교'}<h1>{school} 수강계획</h1><nav class="tabs"><a href="/personal-project/calendar/student/plan/explore">지난 강의 탐색 →</a><a href="/personal-project/calendar/student/timetable">내 시간표 →</a></nav><Transcript onchange={(p) => (progress = p)} /><CommunityRules />{:else}
 	<header class="page-heading">
 		<div>
 			<h1>수강계획과 이수규정</h1>

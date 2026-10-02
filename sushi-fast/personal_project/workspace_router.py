@@ -284,7 +284,9 @@ def catalog(user_id: int=Depends(current_user_id)):
 
 @router.get('/student/courses')
 def search_courses(term: str, q: str=Query(default='',max_length=120), department: str='', classification: str='', day: int|None=Query(default=None,ge=0,le=6), offset: int=Query(default=0,ge=0), limit: int=Query(default=40,ge=1,le=100), user_id: int=Depends(current_user_id)):
-    if not campuses.is_snu(user_id):return {'courses':[],'total':0,'departments':[],'classifications':[]}
+    if not campuses.is_snu(user_id):
+        campuses.courses(user_id,term)
+        return campuses.campus_catalog.search(campuses.school(user_id),term,q,department,classification,day,offset,limit)
     return snu_catalog.search(term,q,department,classification,day,offset,limit)
 
 @router.get('/student/timetable/draft')
@@ -333,7 +335,12 @@ def catalog_snapshot(term: str, response: Response, user_id: int=Depends(current
 
 @router.get('/student/course-history/{code}')
 def course_history(code: str, user_id: int=Depends(current_user_id)):
-    if not campuses.is_snu(user_id):return []
+    if not campuses.is_snu(user_id):
+        result=[]
+        for t in campuses.metadata(user_id)['terms']:
+            rows=[c for c in campuses.courses(user_id,t['id']) if c.get('sbjt_cd','').casefold()==code.casefold()]
+            if rows:result.append({'term':t['label'],'term_id':t['id'],'courses':rows})
+        return result
     return [{'term': t['label'], 'term_id':t['id'], 'courses':[c for c in snu_catalog.courses(t['id']) if c.get('sbjt_cd','').casefold()==code.casefold()]} for t in snu_catalog.metadata()['terms'] if any(c.get('sbjt_cd','').casefold()==code.casefold() for c in snu_catalog.courses(t['id']))]
 
 from .community_v2 import router as community_v2_router, write_origin
@@ -361,6 +368,8 @@ def course_history(user_id:int=Depends(current_user_id)):
 @router.get('/student/completed-details')
 def completed_details(user_id:int=Depends(current_user_id)):
     rows=student.course_history(user_id)['completed']
+    if student.profile(user_id).get('school') != '서울대학교':
+        return {'courses':rows,'equivalencies':{},'areas':{}}
     equiv=snu_catalog.supplements().get('code_equiv',{})
     return {'courses':rows,'equivalencies':equiv,'areas':snu_catalog.supplements().get('gyo',{}).get('area_codes',{})}
 

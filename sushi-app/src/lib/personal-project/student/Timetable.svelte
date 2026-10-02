@@ -106,7 +106,7 @@
 		}
 	}
 	const lessons = $derived([...selected.flatMap(courseLessons), ...manual]);
-	const hasCatalog=$derived(!school || ['서울대학교','서울대'].includes(school));
+	const hasCatalog=$derived(catalog?.supported !== false);
 	const snapshot = $derived(
 		JSON.stringify({
 			course_ids: selected.map((c) => c.id),
@@ -467,11 +467,11 @@
 	{#if detail}<section class="panel">
 			<button onclick={() => (detail = null)}>상세 닫기</button>
 			<h2>{detail.name} · {detail.sbjt_cd}</h2>
-			<CourseTrend
+			{#if ['서울대학교','서울대'].includes(school)}<CourseTrend
 				{term}
 				code={detail.sbjt_cd}
 				section={detail.lt_no}
-			/>{#each history as item}<details>
+			/>{/if}{#each history as item}<details>
 					<summary>{item.term} · {item.courses.length}개 분반</summary>{#each item.courses as c}<p>
 							{c.professor} · {c.lt_no} · {c.credits}학점 · {times(c)}
 						</p>{/each}
@@ -481,9 +481,8 @@
 			강의 목록과 내 시간표를 불러오는 중…
 		</p>{:else if !initialized}<button onclick={() => location.reload()}>다시 불러오기</button
 		>{:else}
-		{#if !['서울대학교', '서울대'].includes(school)}<p class="notice">
-				이 학교의 강의 목록은 아직 등록되지 않았습니다. 수업을 직접 입력하면 학기 일정에 반영됩니다.
-			</p>{/if}
+		{#if !hasCatalog}<p class="muted">이 학교의 강의 검색은 아직 연동되지 않았습니다.</p>
+		{:else if !termInfo?.count}<p class="muted">이 학기의 강의 자료는 아직 없습니다. 자료가 있는 다른 학기를 선택해주세요.</p>{/if}
 		<div class="workspace" class:manual-only={!hasCatalog}>
 			{#if hasCatalog}
 			<section class="panel search-panel" aria-label="강의 검색">
@@ -738,7 +737,8 @@
 			· 원본 갱신 {catalog?.sourceUpdatedAt.slice(0, 10)} ·
 			<a href="https://sugang.snu.ac.kr" target="_blank" rel="noreferrer">공식 수강편람 확인</a><br
 			/>검색 결과는 저장된 자료이며 실시간 수강신청·정원 정보가 아닙니다.
-			{:else}학교의 공식 수강편람을 확인한 뒤 수업을 직접 추가해주세요.{/if}
+			{:else if hasCatalog}<a href={catalog?.source} target="_blank" rel="noreferrer">{school} 공식 수강편람</a> · 자료 확인 {catalog?.sourceUpdatedAt.slice(0, 10)}
+			{:else}강의 검색 미연동{/if}
 		</footer>
 	{/if}
 </div>

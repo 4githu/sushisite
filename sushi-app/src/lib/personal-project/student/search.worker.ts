@@ -24,7 +24,7 @@ self.onmessage = ({ data }) => {
 	const matches = rows.filter(
 		(c, i) =>
 			words.every((w: string) => text[i].includes(w)) &&
-			(!data.department || c.department === data.department) &&
+			(!data.department || (c.departments || [c.department]).includes(data.department)) &&
 			(!data.classification || c.classification.includes(data.classification)) &&
 			(data.day === '' || c.slots.some((s) => String(s.day_index) === data.day)) &&
 			(!data.credits || c.credits === Number(data.credits)) &&
@@ -37,7 +37,7 @@ self.onmessage = ({ data }) => {
 		id: data.id,
 		courses: matches.slice(data.offset, data.offset + 40),
 		total: matches.length,
-		departments: [...new Set(rows.map((c) => c.department))].sort(),
+		departments: [...new Set(rows.flatMap((c) => c.departments || [c.department]))].sort(),
 		classifications: [...new Set(rows.flatMap((c) => c.classification))].sort(),
 		duration: performance.now() - start
 	});

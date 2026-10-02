@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import { request } from '$lib/personal-project/shared/api';
 	import CampusServices from '$lib/personal-project/student/CampusServices.svelte';
+	import DepartmentPicker from '$lib/personal-project/student/DepartmentPicker.svelte';
 	let schools=$state<{id:number;name:string;departments:string[]}[]>([]);
 	let servicesKey=$state(0);
+	let otherSchool=$state(false);
 	import '$lib/personal-project/student/student.css';
 	let profile = $state({
 			is_student: true,
@@ -21,6 +23,7 @@
 			const [data,list] = await Promise.all([request<typeof profile>('/student/profile'),request<typeof schools>('/student/schools')]);
 			schools=list;
 			if (data.school) profile = { ...data, is_student: Boolean(data.is_student) };
+			otherSchool=!!data.school && !list.some(s=>s.name===data.school);
 		} catch (e) {
 			error = e instanceof Error ? e.message : '설정을 불러오지 못했습니다.';
 		} finally {
@@ -66,21 +69,12 @@
 			<legend>학생서비스 설정</legend><label
 				><input type="checkbox" bind:checked={profile.is_student} />학생서비스 사용</label
 			><label
-				>학교<input
-					bind:value={profile.school}
-					list="campus-list"
-					required={profile.is_student}
-					maxlength="120"
-					placeholder="서울대학교"
-				/></label
-			><label
-				>학과<input
-					bind:value={profile.department}
-					list="department-list"
-					maxlength="120"
-					placeholder="예: 컴퓨터공학부"
-				/></label
-			><label
+				>학교<select value={otherSchool?'__other':profile.school} onchange={(e)=>{otherSchool=e.currentTarget.value==='__other';profile.school=otherSchool?'':e.currentTarget.value;profile.department='';notice='';}}>
+				{#each schools as s}<option value={s.name}>{s.name}</option>{/each}<option value="__other">다른 학교</option>
+				</select></label>
+			{#if otherSchool}<label>학교 이름<input bind:value={profile.school} required={profile.is_student} maxlength="120" placeholder="학교 이름" /></label>{/if}
+			{#key profile.school}<DepartmentPicker bind:value={profile.department} options={schools.find(s=>s.name===profile.school)?.departments || []} />{/key}
+			<label
 				>입학 연도<input
 					type="number"
 					min="1950"
@@ -99,12 +93,9 @@
 			>
 		</fieldset>
 	</form>
-	<datalist id="campus-list">{#each schools as s}<option value={s.name}></option>{/each}</datalist>
-	<datalist id="department-list">{#each schools.find(s=>s.name===profile.school)?.departments || [] as d}<option value={d}></option>{/each}</datalist>
-	<p class="muted">목록에 없는 학교·학과도 이름을 입력하고 저장하면 등록됩니다. KAIST·DGIST·한양대학교는 수동 시간표와 사용자 수강 규정부터 이용할 수 있습니다.</p>
 	{#key servicesKey}<CampusServices />{/key}
 	<div class="destinations">
-		{#each [['timetable', '시간표', '강의 검색 또는 직접 입력하고 캘린더에 자동 반영'], ['meals', '학식', '지원 학교의 식단과 학교별 서비스 링크'], ['plan', '수강계획', '학교·학과별 이수규정 조회와 사용자 작성본']] as [path, title, description]}<a
+		{#each [['timetable', '시간표', '과목을 담으면 캘린더에 자동 반영'], ['meals', '학식', '학교 식당별 식단 조회'], ['plan', '수강계획', '지난 강의 탐색과 전공별 이수 현황']] as [path, title, description]}<a
 				class="panel"
 				href={`/personal-project/calendar/student/${path}`}
 				><h2>{title} →</h2>
@@ -128,7 +119,12 @@
 	}
 	label {
 		margin: 16px 0;
+		display:flex;
+		flex-direction:column;
+		align-items:stretch;
+		gap:7px;
 	}
+	label:has(input[type='checkbox']) { flex-direction: row; align-items: center; }
 	label input:not([type='checkbox']) {
 		flex: 1;
 	}
