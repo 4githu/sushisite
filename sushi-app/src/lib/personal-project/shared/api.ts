@@ -64,6 +64,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 		);
 	}
 	if (response.status === 401) {
+		if (typeof window !== 'undefined') window.dispatchEvent(new Event('personal-auth-invalid'));
 		throw new PersonalApiError(
 			401,
 			'로그인이 만료되었습니다. 다시 로그인해주세요. / Your session expired. Please sign in again.',

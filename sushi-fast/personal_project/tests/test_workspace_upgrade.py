@@ -1,0 +1,222 @@
+import os,tempfile
+from pathlib import Path
+os.environ.setdefault('PERSONAL_PROJECT_DB_PATH',str(Path(tempfile.mkdtemp())/'upgrade.sqlite'))
+os.environ['DISABLE_TREND_REFRESH']='1'
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from personal_project import workspace_router as r, student_services as student, snu_catalog
+from personal_project.db import connection
+app=FastAPI();app.include_router(r.router)
+user=99101
+app.dependency_overrides[r.current_user_id]=lambda:user
+client=TestClient(app)
+BASE='/api/personal'
+TERM='2026_U000200002U000300001'
+
+def test_admin_blank_search_paginates_and_rejects_non_admin(monkeypatch, tmp_path):
+    import sqlite3
+    from auth import userdb
+    path=tmp_path/'members.sqlite'
+    def connect():
+        db=sqlite3.connect(path);db.row_factory=sqlite3.Row;return db
+    with connect() as db:
+        db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT,email TEXT)')
+        db.executemany('INSERT INTO users VALUES(?,?,?)',[(i,f'Member {i}',f'member{i}@example.test') for i in range(1,36)])
+    monkeypatch.setattr(userdb,'get_connection',connect)
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(user))
+    with connection() as db:
+        db.execute('INSERT OR IGNORE INTO netaq_members(user_id) VALUES(35)');db.commit()
+    assert [u['id'] for u in client.get(BASE+'/admin/workspace').json()['users']]==[35]
+    assert client.get(BASE+'/admin/workspace',params={'membership':'nonmembers'}).json()['total']==34
+    first=client.get(BASE+'/admin/workspace',params={'q':' ','membership':'all'}).json()
+    second=client.get(BASE+'/admin/workspace',params={'page':2,'membership':'all'}).json()
+    assert first['total']==35 and len(first['users'])==30
+    assert [r['id'] for r in second['users']]==[31,32,33,34,35]
+    assert client.get(BASE+'/admin/workspace',params={'q':'member35@','membership':'all'}).json()['total']==1
+    with connection() as db:
+        db.execute("INSERT OR REPLACE INTO community_acl VALUES(35,'board:1','read',0)");db.commit()
+    effective=client.get(BASE+'/admin/workspace').json()['users'][0]['effective']['1']
+    assert not effective['read'] and not effective['post'] and not effective['comment']
+    monkeypatch.setenv('COMMUNITY_ADMINS','999999')
+    assert client.get(BASE+'/admin/workspace').status_code==403
+
+def test_calendar_reconciles_only_owned_occurrences_atomically():
+    student.save_profile(user,student.Profile(is_student=True,school='서울대학교'))
+    c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
+    data={'course_ids':[c['id']],'starts_on':'2026-09-07','ends_on':'2026-09-21','revision':0,'sync_calendar':True}
+    with connection() as db:
+        db.execute('DELETE FROM events WHERE user_id=?',(user,));db.execute('DELETE FROM student_timetable_drafts WHERE user_id=?',(user,));db.commit()
+    result=client.put(BASE+'/student/timetable/draft',params={'term':TERM},json=data);assert result.status_code==200,result.text
+    with connection() as db:
+        ids=[r[0] for r in db.execute('SELECT id FROM events WHERE user_id=?',(user,))];assert len(ids)==5
+        personal=db.execute("INSERT INTO events(user_id,title,start_time,status) VALUES(?,'자료구조','2026-09-07T09:30:00+09:00','passive')",(user,)).lastrowid;db.commit()
+    assert client.put(BASE+'/student/timetable/draft',params={'term':TERM},json=data).status_code==409
+    assert client.put(BASE+'/student/timetable/draft',params={'term':TERM},json={**data,'revision':1}).status_code==200
+    with connection() as db:assert [r[0] for r in db.execute('SELECT event_id FROM student_timetable_events WHERE user_id=? ORDER BY event_id',(user,))]==ids
+    assert client.put(BASE+'/student/timetable/draft',params={'term':TERM},json={**data,'course_ids':[],'revision':2}).status_code==200
+    with connection() as db:assert [r[0] for r in db.execute('SELECT id FROM events WHERE user_id=?',(user,))]==[personal]
+
+def test_exploration_never_changes_calendar():
+    data={'course_ids':[],'manual_lessons':[{'title':'초안','weekday':1,'start':'10:00','end':'11:00'}],'starts_on':'2026-09-01','ends_on':'2026-09-14','revision':0,'sync_calendar':True}
+    result=client.put(BASE+'/student/timetable/draft',params={'term':TERM,'slot':'explore-test'},json=data)
+    assert result.status_code==200 and not result.json()['calendarSynced']
+
+def test_note_revision_conflict_preserves_content():
+    day='/calendar/daily-notes/2040-01-01';result=client.put(BASE+day,json={'content':'최초','revision':0});assert result.status_code==200
+    assert client.put(BASE+day,json={'content':'덮어쓰기','revision':0}).status_code==409
+    assert client.get(BASE+day).json()['content']=='최초'
+
+def test_board_threads_acl_and_resource_protection(monkeypatch):
+    global user
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(user))
+    b=client.post(BASE+'/boards',json={'name':'테스트 자료방'}).json()['id']
+    f=client.post(BASE+'/resources',params={'name':'example.txt','board_id':b},content=b'private',headers={'content-type':'text/plain'}).json()
+    p=client.post(BASE+f'/boards/{b}/posts',json={'title':'자료','document':{'blocks':[{'children':[{'text':'내용'}]}]}}).json()['id']
+    c=client.post(BASE+f'/boards/posts/{p}/comments',json={'content':'첫 댓글'});assert c.status_code==200,c.text
+    cid=c.json()['comments'][0]['id'];assert client.post(BASE+f'/boards/posts/{p}/comments',json={'content':'답글','parent_id':cid}).status_code==200
+    client.put(BASE+'/boards/permissions',json={'user_id':99102,'scope':f'board:{b}','action':'read','allowed':False})
+    original=user;user=99102
+    assert client.get(BASE+f'/boards/posts/{p}').status_code==403
+    assert client.get(f['url']).status_code==403
+    user=original
+    assert client.patch(BASE+f'/boards/posts/{p}',json={'deleted':True}).status_code==200
+    assert client.get(BASE+f'/boards/posts/{p}').status_code==404
+    assert client.patch(BASE+f'/boards/posts/{p}',json={'deleted':False}).status_code==200
+    assert client.get(BASE+f'/boards/posts/{p}').status_code==200
+
+def test_document_conflict_private_history_and_public_rule_versions():
+    global user
+    result=client.put(BASE+'/documents/private-test',json={'data':{'text':'mine'},'revision':0});assert result.status_code==200
+    assert client.put(BASE+'/documents/private-test',json={'data':{'text':'stale'},'revision':0}).status_code==409
+    original=user;user=99103;assert client.get(BASE+'/documents/private-test').json()['data'] is None;user=original
+    v=client.get(BASE+'/student/rules/cse_2026/versions').json();data=v['official'];data['tracks'][0]['major_min_credits']=62
+    result=client.put(BASE+'/student/rules/cse_2026/versions',json={'data':data,'revision':v['revision']});assert result.status_code==200,result.text
+    assert snu_catalog.curriculum('cse_2026')['tracks'][0]['major_min_credits']==63
+
+def test_trend_scalar_and_change_points():
+    from personal_project.course_trends import read
+    d=read(TERM,'M1522.000900','001');assert d['points'];assert 'live' in d['windows'];assert all(isinstance(p['time'],int) for p in d['points'])
+
+def test_migration_preserves_distinct_legacy_drafts():
+    uid=99200
+    with connection() as db:
+        for slot,ids in [('1-1',[1]),('2-1',[2]),('3-1',[2])]:
+            db.execute('INSERT INTO student_timetable_drafts VALUES(?,?,?,?)',(uid,TERM+'::'+slot,__import__('json').dumps({'course_ids':ids,'manual_lessons':[]}),1))
+        db.commit()
+    student.migrate_legacy_drafts();student.migrate_legacy_drafts()
+    with connection() as db:
+        rows=db.execute('SELECT term FROM student_timetable_drafts WHERE user_id=?',(uid,)).fetchall()
+        assert len(rows)==2 and all('explore-legacy-' in r[0] for r in rows)
+        assert db.execute('SELECT count(*) FROM student_draft_migration_backup WHERE user_id=?',(uid,)).fetchone()[0]==3
+
+def test_general_rule_keeps_machine_keys_and_cleans_collection_errors():
+    rule=snu_catalog.curriculum('cse_2026');assert rule['general_key']=='eng_cse_2025'
+    data=client.get(BASE+'/student/general/eng_cse_2025').json()
+    assert any('math' in bucket['areas'] for bucket in data['buckets'])
+    from personal_project.curriculum_display import text
+    assert 'frameset' not in text('철학과 frameset/JS 게이트(euc-kr) SPA-blocked hum.md 미확보')
+
+def test_transcript_uses_finished_canonical_semesters_not_manual_checks_or_exploration():
+    uid=99188
+    c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
+    with connection() as db:db.execute('DELETE FROM student_timetable_drafts WHERE user_id=?',(uid,));db.commit()
+    past=student.TimetableDraft(course_ids=[c['id']],starts_on='2020-03-01',ends_on='2020-06-30')
+    student.save_draft(uid,TERM,past)
+    student.save_draft(uid,TERM,past,'explore-test')
+    history=student.course_history(uid)
+    assert len(history['semesters'])==1
+    assert len(history['completed'])==1 and not history['planned']
+    assert student.course_progress(uid)['completed']==[c['sbjt_cd']]
+    future=student.TimetableDraft(course_ids=[c['id']],starts_on='2090-03-01',ends_on='2090-06-30',revision=1)
+    student.save_draft(uid,TERM,future)
+    assert student.course_progress(uid)['completed']==[]
+    assert student.course_progress(uid)['planned']==[c['sbjt_cd']]
+
+def test_transcript_exclusion_is_private_and_can_be_reversed():
+    global user
+    previous=user;user=99189
+    try:
+        c=snu_catalog.search(TERM,'자료구조 강유')['courses'][0]
+        student.save_draft(user,TERM,student.TimetableDraft(course_ids=[c['id']],starts_on='2020-03-01',ends_on='2020-06-30'))
+        endpoint=BASE+'/student/transcript/exclusions/'+c['sbjt_cd']
+        assert client.put(endpoint,json={'excluded':True},headers={'Origin':'https://evil.example'}).status_code==403
+        response=client.put(endpoint,json={'excluded':True});assert response.status_code==200,response.text
+        assert response.json()['completed']==[]
+        assert c['sbjt_cd'] in client.get(BASE+'/student/course-history').json()['excluded']
+        assert c['sbjt_cd'] in client.put(endpoint,json={'excluded':False}).json()['completed']
+        assert student.course_history(999999)['excluded']==[]
+    finally:user=previous
+
+
+def test_restricted_board_requires_explicit_read_and_protects_thumbnails(monkeypatch):
+    global user
+    original=user
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(original))
+    bid=client.post(BASE+'/boards',json={'name':'권한 검증방'}).json()['id']
+    assert client.put(BASE+f'/admin/boards/{bid}/restriction',json={'restricted':True}).status_code==200
+    image=client.post(BASE+'/resources',params={'name':'test.png','board_id':bid},content=b'png-test',headers={'content-type':'image/png'}).json()
+    pid=client.post(BASE+f'/boards/{bid}/posts',json={'title':'사진','document':{'richContent':{'type':'doc','content':[{'type':'image','attrs':{'src':image['url']}}]}}}).json()['id']
+    assert client.get(BASE+f'/boards/{bid}/posts').json()['posts'][0]['thumbnail']==image['url']
+    user=99109
+    try:
+        assert bid not in [b['id'] for b in client.get(BASE+'/boards').json()['boards']]
+        assert client.get(BASE+f'/boards/{bid}/posts').status_code==403
+        assert client.get(BASE+f'/boards/posts/{pid}').status_code==403
+        assert client.get(image['url']).status_code==403
+        assert client.get(BASE+'/admin/workspace').status_code==403
+        assert client.put(BASE+f'/admin/boards/{bid}/restriction',json={'restricted':False}).status_code==403
+        user=original
+        assert client.put(BASE+'/boards/permissions',json={'user_id':99109,'scope':f'board:{bid}','action':'read','allowed':True}).status_code==200
+        user=99109
+        assert client.get(BASE+f'/boards/{bid}/posts').status_code==200
+        assert client.get(image['url']).status_code==200
+        user=original
+        client.put(BASE+'/boards/permissions',json={'user_id':99109,'scope':f'board:{bid}','action':'read','allowed':False})
+        user=99109
+        assert client.get(image['url']).status_code==403
+    finally:user=original
+
+
+def test_board_hierarchy_denial_cycles_and_department_visibility(monkeypatch):
+    global user
+    original=user
+    monkeypatch.setenv('COMMUNITY_ADMINS',str(original))
+    parent=client.post(BASE+'/boards',json={'name':'상위'}).json()['id']
+    child=client.post(BASE+'/boards',json={'name':'하위','parent_id':parent}).json()['id']
+    assert client.put(BASE+f'/admin/boards/{parent}',json={'name':'순환','parent_id':child}).status_code==400
+    student.save_profile(99644,student.Profile(is_student=True,school='KAIST',department='전산학부'))
+    student.save_profile(99645,student.Profile(is_student=True,school='DGIST',department='융복합전공'))
+    try:
+        user=99644
+        visible=client.get(BASE+'/boards').json()['boards']
+        client.get(BASE+'/boards')
+        with connection() as db:
+            assert db.execute("SELECT count(*) FROM community_boards WHERE system_key='department-root'").fetchone()[0]==1
+            assert db.execute("SELECT count(*) FROM community_boards WHERE school='KAIST' AND department='전산학부'").fetchone()[0]==1
+        assert any(b['school']=='KAIST' and b['department']=='전산학부' for b in visible)
+        assert not any(b['school']=='DGIST' for b in visible)
+        user=original
+        client.put(BASE+'/boards/permissions',json={'user_id':99644,'scope':f'board:{parent}','action':'read','allowed':False})
+        client.put(BASE+'/boards/permissions',json={'user_id':99644,'scope':f'board:{child}','action':'read','allowed':True})
+        user=99644
+        assert client.get(BASE+f'/boards/{child}/posts').status_code==403
+        assert client.put(BASE+f'/admin/members/{original}/role',json={'enabled':True}).status_code==403
+        user=original
+        assert client.put(BASE+f'/admin/members/{original}/role',json={'enabled':False}).status_code==400
+    finally:user=original
+
+def test_template_save_versions_preserve_rich_document_and_ownership():
+    from personal_project import repository, schemas
+    uid=99891
+    school=repository.create_school(uid,schemas.SchoolCreate(admission_year=2026,school_name='양식 검수'))
+    doc={'version':1,'documentId':'template-test','blocks':[],'schemaVersion':2,'richContent':{'type':'doc','content':[{'type':'paragraph','attrs':{'id':'fixed-id'},'content':[{'type':'text','text':'양식 내용'}]}]}}
+    data=schemas.TemplateSave(content_json=doc,progress_stage='grade1_semester1')
+    a=repository.save_round_template(uid,school['id'],1,data)
+    b=repository.save_round_template(uid,school['id'],1,data)
+    assert b['version']==a['version']+1
+    with connection() as db:
+        versions=db.execute('SELECT content_json,is_active FROM aura_round_templates WHERE school_id=? ORDER BY version',(school['id'],)).fetchall()
+        assert len(versions)==2 and [r['is_active'] for r in versions]==[0,1]
+        assert __import__('json').loads(versions[-1]['content_json'])==doc
+    with pytest.raises(__import__('fastapi').HTTPException):repository.save_round_template(uid+1,school['id'],1,data)

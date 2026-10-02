@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AuraReportEditor from '$lib/personal-project/aura/components/AuraReportEditor.svelte';
@@ -19,6 +20,7 @@
 	let sourceNotes = $state('');
 	let questionChecks = $state<Record<string, boolean>>({});
 	let saving = $state(false);
+	let switching = $state(false);
 	let message = $state('');
 	let error = $state('');
 	let autosaveTimer: number | undefined;
@@ -66,6 +68,17 @@
 	let finalControlsCollapsed = $state(false);
 	let noteCollapsed = $state(false);
 	let loadingTargetId = 0;
+	let loadRevision = 0;
+	let savePromise: Promise<boolean> | null = null;
+	let destroyed = false;
+	function cancelAutosave() {
+		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		autosaveTimer = undefined;
+	}
+	onDestroy(() => {
+		destroyed = true;
+		cancelAutosave();
+	});
 
 	function hasAppendixContent(document: EditorDocument) {
 		return document.blocks.some((block) => {
@@ -123,12 +136,19 @@
 
 	async function load(targetId: number) {
 		loadingTargetId = targetId;
+		const revision = ++loadRevision;
+		cancelAutosave();
+		report = null;
+		message = '';
+		error = '';
+		modalStage = 'closed';
+		aiResults = [];
 		try {
 			const [nextReport, attachments] = await Promise.all([
 				personalApi.targetReport(targetId),
 				personalApi.targetReportAttachments(targetId)
 			]);
-			if (loadingTargetId !== targetId) return;
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 			report = nextReport;
 			const document = normalizeDocument(nextReport.contentJson);
 			initialDocument = document;
@@ -153,12 +173,14 @@
 			problemImages = attachments
 				.filter((item) => item.kind === 'problem_solving')
 				.map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
-			await loadAi(targetId);
+			await loadAi(targetId, revision);
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 			if (page.url.searchParams.get('pdf') === '1') {
 				modalStage = generatedReport ? 'final' : 'generate';
 			}
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
+			if (!destroyed && loadingTargetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
 		}
 	}
 
@@ -195,12 +217,12 @@
 		assessmentCsv = rows.map((item) => `${item.name},${item.score}`).join('\n');
 	}
 
-	async function loadAi(targetId: number) {
+	async function loadAi(targetId: number, revision: number) {
 		const [options, saved] = await Promise.all([
 			personalApi.aiReportModels(),
 			personalApi.aiReportResults(targetId)
 		]);
-		if (loadingTargetId !== targetId) return;
+		if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 		aiModels = options.models;
 		selectedModel = aiModels.some((item) => item.id === aiModel)
 			? (aiModel as string)
@@ -224,8 +246,25 @@
 		}
 	}
 
-	async function save(submit = false, silent = false) {
+	async function save(submit = false, silent = false): Promise<boolean> {
+		const targetId = report?.targetId;
+		cancelAutosave();
+		while (savePromise) await savePromise;
+		if (destroyed || !targetId || report?.targetId !== targetId) return false;
+		const pending = saveSnapshot(submit, silent);
+		savePromise = pending;
+		try {
+			return await pending;
+		} finally {
+			if (savePromise === pending) savePromise = null;
+		}
+	}
+
+	async function saveSnapshot(submit = false, silent = false) {
 		if (!report) return false;
+		const reportId = report.id;
+		const targetId = report.targetId;
+		const revision = loadRevision;
 		saving = true;
 		if (!silent) {
 			message = '';
@@ -234,7 +273,7 @@
 		try {
 			const assessment = parseAssessmentCsv();
 			draftDocument = editor?.getJSON() ?? draftDocument;
-			report = await personalApi.updateTargetReport(report.id, {
+			let savedReport = await personalApi.updateTargetReport(reportId, {
 				content_json: draftDocument,
 				source_notes: sourceNotes,
 				question_checks: questionChecks,
@@ -247,24 +286,35 @@
 				ai_model: aiModel,
 				status: submit ? 'ready' : report.status === 'submitted' ? 'submitted' : 'draft'
 			});
-			if (submit) report = await personalApi.submitTargetReport(report.id);
+			if (submit) savedReport = await personalApi.submitTargetReport(reportId);
+			if (
+				destroyed ||
+				report?.targetId !== targetId ||
+				loadingTargetId !== targetId ||
+				revision !== loadRevision
+			)
+				return true;
+			report = savedReport;
 			if (!silent) message = submit ? 'PDF 생성용 리포트를 확정했습니다.' : '임시저장했습니다.';
 			return true;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
+			if (!destroyed && report?.targetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
 			return false;
 		} finally {
 			saving = false;
 		}
 	}
 
-	function queueAutosave(value: EditorDocument) {
+	function queueAutosave(value: EditorDocument, includeSubmitted = false) {
 		draftDocument = value;
-		if (!report || report.status === 'submitted') return;
-		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		if (!report || (report.status === 'submitted' && !includeSubmitted)) return;
+		cancelAutosave();
+		const targetId = report.targetId;
 		autosaveTimer = window.setTimeout(() => {
 			autosaveTimer = undefined;
-			void save(false, true);
+			if (!destroyed && report?.targetId === targetId && loadingTargetId === targetId)
+				void save(false, true);
 		}, 1_500);
 	}
 
@@ -565,10 +615,11 @@
 				}
 				offset += pageHeight;
 			}
-			const safeName = `${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
-				/[\\/:*?"<>|]/g,
-				'_'
-			);
+			const safeName =
+				`${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
+					/[\\/:*?"<>|]/g,
+					'_'
+				);
 			pdf.save(`${safeName}_클리닉리포트.pdf`);
 			message = 'PDF 다운로드를 시작했습니다.';
 			modalStage = 'closed';
@@ -705,21 +756,25 @@
 	}
 
 	async function switchStudent(targetId: number) {
-		if (!report || targetId === report.targetId || saving) return;
-		if (report.status !== 'submitted' && !(await save(false, true))) return;
-		await goto(`/personal-project/aura/reports/${targetId}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		templateConfirm = false;
+		if (!report || targetId === report.targetId || switching) return;
+		switching = true;
+		try {
+			if (!(await save(false, true))) return;
+			await goto(`/personal-project/aura/reports/${targetId}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: false
+			});
+		} finally {
+			switching = false;
+		}
 	}
 
+	let templateConfirm = $state(false);
 	async function saveAsTemplate() {
-		if (
-			!report ||
-			!confirm(`${report.schoolName} ${progressStageLabels[report.progressStage]} ${report.roundLabel}의 새 기본 양식으로 저장할까요?`)
-		)
-			return;
+		if (!report || saving || report.roundNumbers.length > 1) return;
+		templateConfirm = false;
 		saving = true;
 		try {
 			draftDocument = editor?.getJSON() ?? draftDocument;
@@ -739,7 +794,7 @@
 
 	$effect(() => {
 		const targetId = Number(page.params.targetId);
-		if (targetId && targetId !== report?.targetId) void load(targetId);
+		if (targetId && targetId !== loadingTargetId) void load(targetId);
 		void checkNativeKakao();
 	});
 </script>
@@ -778,7 +833,7 @@
 					type="button"
 					class:active={target.id === report.targetId}
 					onclick={() => switchStudent(target.id)}
-					disabled={saving}
+					disabled={switching}
 				>
 					{target.studentName}<span
 						>{target.status === 'submitted'
@@ -818,7 +873,7 @@
 						<span><kbd>Ctrl/Cmd+B</kbd> 굵게</span>
 						<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
 						<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
-						<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음</span>
+						<span><kbd>Ctrl/Cmd+Shift+B</kbd> 인용 전환</span>
 						<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
 						<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
 						<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
@@ -849,25 +904,38 @@
 			</header>
 			<div class="editor-wrap">
 				<p class="question-check-guide">
-					Ctrl/Cmd+Alt+Q로 선택한 부분을 ‘물어봤음’으로 저장합니다.
+					질문이나 참고 문구는 인용으로 구분하세요. Ctrl/Cmd+Shift+B로 전환합니다.
 				</p>
-				<AuraReportEditor
-					bind:this={editor}
-					initialValue={initialDocument}
-					readonly={false}
-					placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
-					onchange={queueAutosave}
-					{questionChecks}
-					onquestionchange={(blockId, checked) => {
-						questionChecks = { ...questionChecks, [blockId]: checked };
-					}}
-				/>
+				{#key report.targetId}
+					<AuraReportEditor
+						bind:this={editor}
+						initialValue={initialDocument}
+						readonly={switching}
+						placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
+						onchange={queueAutosave}
+						{questionChecks}
+						onquestionchange={(blockId, checked) => {
+							if (switching) return;
+							questionChecks = { ...questionChecks, [blockId]: checked };
+							queueAutosave(editor?.getJSON() ?? draftDocument, true);
+						}}
+					/>
+				{/key}
 			</div>
+			{#if templateConfirm}<section role="group" aria-label="기본 양식 저장 확인">
+					<p>
+						{report.schoolName} · {report.roundLabel}의 새 기본 양식으로 저장합니다. 다른 학생의
+						기존 리포트는 바꾸지 않습니다.
+					</p>
+					<button disabled={saving} onclick={saveAsTemplate}>양식 저장 확인</button><button
+						onclick={() => (templateConfirm = false)}>취소</button
+					>
+				</section>{/if}
 			<footer>
 				<button
 					class="template-button"
-					onclick={saveAsTemplate}
-					disabled={saving || report.status === 'submitted' || report.roundNumbers.length > 1}
+					onclick={() => (templateConfirm = true)}
+					disabled={saving || report.roundNumbers.length > 1}
 				>
 					{report.roundNumbers.length > 1
 						? '복수 회차 결합 리포트'
@@ -954,7 +1022,7 @@
 							>
 							<label class="question-rule"
 								><input type="checkbox" bind:checked={includeQuestionChecks} />
-								<span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label
+								<span>과거 리포트의 질문 표시도 AI에 전달</span></label
 							>
 						</section>
 						<div class="rating-grid">
@@ -1184,8 +1252,11 @@
 							<table class="summary-table">
 								<tbody>
 									<tr
-										><th>구분</th><td>{report.schoolName} {progressStageLabels[report.progressStage]} {report.roundLabel}</td><th>강의수강도</th
-										><td>{lectureProgress}</td></tr
+										><th>구분</th><td
+											>{report.schoolName}
+											{progressStageLabels[report.progressStage]}
+											{report.roundLabel}</td
+										><th>강의수강도</th><td>{lectureProgress}</td></tr
 									>
 									<tr
 										><th>이름</th><td>{report.studentName}</td><th>강의이해도</th><td

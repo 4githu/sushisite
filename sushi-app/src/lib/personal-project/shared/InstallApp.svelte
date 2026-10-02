@@ -33,7 +33,7 @@
 <svelte:head
 	><link rel="manifest" href={`/pwa/${service}/manifest.webmanifest`} /><meta
 		name="theme-color"
-		content="#245ac7"
+		content={service === 'calendar' ? '#232428' : '#484d43'}
 	/><meta name="mobile-web-app-capable" content="yes" /></svelte:head
 >
 {#if !installed}<button class="install-app" onclick={install}>앱으로 설치</button>{/if}

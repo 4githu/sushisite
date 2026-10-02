@@ -16,6 +16,8 @@ ProgressStage = Literal[
 
 
 class EventCreate(BaseModel):
+    task_available_from: datetime | None = None
+    task_due_at: datetime | None = None
     title: str = Field(min_length=1, max_length=120)
     description: str = ""
     start_time: datetime
@@ -26,19 +28,23 @@ class EventCreate(BaseModel):
     group_name: str | None = Field(default=None, max_length=80)
     category_name: str | None = Field(default=None, max_length=80)
     location: str = Field(default='', max_length=500)
-    web_url: str = Field(default='', max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    web_url: str = Field(default='', max_length=2000, pattern=r'^(https?://[^\s\\]+|/[^/\\\s][^\s\\]*)?$')
     project_id: int | None = None
 
     @model_validator(mode="after")
     def validate_times(self):
+        if self.task_available_from and self.task_due_at and self.task_due_at < self.task_available_from:
+            raise ValueError('마감은 시작 가능일 이후여야 합니다.')
         if self.end_time and self.end_time < self.start_time:
             raise ValueError("종료 시간은 시작 시간보다 빠를 수 없습니다.")
         return self
 
 
 class EventUpdate(BaseModel):
+    task_available_from: datetime | None = None
+    task_due_at: datetime | None = None
     location: str | None = Field(default=None, max_length=500)
-    web_url: str | None = Field(default=None, max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    web_url: str | None = Field(default=None, max_length=2000, pattern=r'^(https?://[^\s\\]+|/[^/\\\s][^\s\\]*)?$')
     project_id: int | None = None
     title: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None

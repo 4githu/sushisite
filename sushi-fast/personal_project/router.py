@@ -66,6 +66,7 @@ def require_native_kakao_origin(request: Request) -> None:
         "http://localhost:9000",
         "https://chobab.app",
         "https://aura.chobab.app",
+        "https://netaq.chobab.app",
     }
     if origin not in allowed:
         raise HTTPException(
