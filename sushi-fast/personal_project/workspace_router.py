@@ -394,3 +394,6 @@ router.include_router(kakao_bridge_router)
 
 from .board_api import router as board_api_router
 router.include_router(board_api_router)
+
+from . import dshs_sync
+router.include_router(dshs_sync.router)
