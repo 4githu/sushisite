@@ -24,6 +24,16 @@ def init():
         CREATE TABLE IF NOT EXISTS kakao_board_origins(post_id INTEGER PRIMARY KEY,route_id INTEGER NOT NULL,fingerprint TEXT NOT NULL,UNIQUE(route_id,fingerprint));
         ''')
         if 'started_at' not in {r['name'] for r in db.execute('PRAGMA table_info(kakao_board_routes)')}:db.execute('ALTER TABLE kakao_board_routes ADD COLUMN started_at REAL NOT NULL DEFAULT 0')
+        columns={r['name'] for r in db.execute('PRAGMA table_info(kakao_board_routes)')}
+        for name,definition in (
+            ('last_attempt','TEXT'),('last_success','TEXT'),('last_row_count','INTEGER NOT NULL DEFAULT 0'),
+            ('consecutive_failures','INTEGER NOT NULL DEFAULT 0'),
+        ):
+            if name not in columns:db.execute(f'ALTER TABLE kakao_board_routes ADD COLUMN {name} {definition}')
+        db.execute('''CREATE TABLE IF NOT EXISTS kakao_board_incidents(
+          id INTEGER PRIMARY KEY,route_id INTEGER NOT NULL,started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,ended_at TEXT,error TEXT NOT NULL,occurrences INTEGER NOT NULL DEFAULT 1
+        )''')
         db.commit()
 init()
 
@@ -222,16 +232,34 @@ def tick():
     with connection() as db:routes=[dict(r) for r in db.execute('SELECT * FROM kakao_board_routes WHERE enabled=1')]
     for route in routes:
         try:
+            with connection() as db:db.execute('UPDATE kakao_board_routes SET last_attempt=CURRENT_TIMESTAMP WHERE id=?',(route['id'],));db.commit()
             if not community.admin(route['user_id']):raise ValueError('연결 소유자의 관리자 권한이 회수되었습니다.')
             export_posts(route)
             with native_kakao._send_lock:
-                # Reading an already opened exact room does not steal keyboard focus.
-                read=invoke('read',room=route['room'])
+                # Keep the dedicated room window at the live edge. If the room
+                # was closed, reopen the exact unique result once and retry.
+                read=invoke('read-latest',room=route['room'])
+                if read.get('error'):
+                    opened=invoke('search',room=route['room'])
+                    if opened.get('error'):raise ValueError(opened['error'])
+                    read=invoke('read-latest',room=route['room'])
                 if read.get('error'):raise ValueError(read['error'])
                 observe(route,read.get('rows',[]))
-            with connection() as db:db.execute('UPDATE kakao_board_routes SET last_scan=CURRENT_TIMESTAMP,error=NULL WHERE id=?',(route['id'],));db.commit()
+            with connection() as db:
+                db.execute('''UPDATE kakao_board_routes SET last_scan=CURRENT_TIMESTAMP,last_success=CURRENT_TIMESTAMP,
+                  last_row_count=?,consecutive_failures=0,error=NULL WHERE id=?''',(len(read.get('rows',[])),route['id']))
+                db.execute('UPDATE kakao_board_incidents SET ended_at=CURRENT_TIMESTAMP WHERE route_id=? AND ended_at IS NULL',(route['id'],));db.commit()
         except Exception as e:
-            with connection() as db:db.execute('UPDATE kakao_board_routes SET error=? WHERE id=?',(str(e)[:500],route['id']));db.commit()
+            message=str(e)[:500]
+            with connection() as db:
+                db.execute('UPDATE kakao_board_routes SET error=?,consecutive_failures=consecutive_failures+1 WHERE id=?',(message,route['id']))
+                incident=db.execute('SELECT id,error FROM kakao_board_incidents WHERE route_id=? AND ended_at IS NULL ORDER BY id DESC LIMIT 1',(route['id'],)).fetchone()
+                if incident and incident['error']==message:
+                    db.execute('UPDATE kakao_board_incidents SET last_seen=CURRENT_TIMESTAMP,occurrences=occurrences+1 WHERE id=?',(incident['id'],))
+                else:
+                    if incident:db.execute('UPDATE kakao_board_incidents SET ended_at=CURRENT_TIMESTAMP WHERE id=?',(incident['id'],))
+                    db.execute('INSERT INTO kakao_board_incidents(route_id,error) VALUES(?,?)',(route['id'],message))
+                db.commit()
 
 def validate_job(db,job,payload):
     route=db.execute('SELECT * FROM kakao_board_routes WHERE id=? AND user_id=? AND enabled=1',(payload['route_id'],job['user_id'])).fetchone()

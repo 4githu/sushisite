@@ -77,7 +77,21 @@ func run() throws -> [String:Any] {
    return ["index":index,"text":texts.joined(separator:"\n"),"mentions":mentions,"metadata":metadata,"date":date,"direction":direction,"newSender":profile != nil,"photo":image,"photoCount":image ? ns.filter{role($0,"AXImage")}.count:0,"fileName":fileName,"file":!fileName.isEmpty && fileButtons.contains{ $0.contains("저장") || $0.contains("다운로드") || $0.contains("열기") }]
   }
  }
- if command=="read" {return ["room":room,"rows":rows(),"coverage":"loaded_messages_only"]}
+ func revealLatestRow() {
+  guard let table=find(window,{role($0,"AXTable")}) else{return}
+  // Kakao virtualizes older rows. Asking the final loaded row to become visible
+  // is enough to return a scrolled chat to its live edge without focusing the
+  // composer or synthesizing keyboard input.
+  if let last=kids(table).last { _=AXUIElementPerformAction(last,"AXScrollToVisible" as CFString) }
+  for bar in walk(window).filter({role($0,"AXScrollBar") && str($0,kAXOrientationAttribute)==kAXVerticalOrientationValue}) {
+   _=AXUIElementSetAttributeValue(bar,kAXValueAttribute as CFString,NSNumber(value:1.0))
+  }
+  usleep(250000)
+ }
+ if command=="read" || command=="read-latest" {
+  if command=="read-latest" {revealLatestRow()}
+  return ["room":room,"rows":rows(),"coverage":"loaded_messages_only","latestRequested":command=="read-latest"]
+ }
  if command=="mention-inspect" {
   guard let table=find(window,{role($0,"AXTable")}) else{return ["mentions":[]]}
   var result:[[String:Any]]=[]
