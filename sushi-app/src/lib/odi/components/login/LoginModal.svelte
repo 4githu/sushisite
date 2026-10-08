@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/LoginModal.svelte -->
 <script lang="ts">
+	import GoogleAuthButton from "$lib/personal-project/shared/GoogleAuthButton.svelte";
 	import { goto } from "$app/navigation";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";
@@ -94,6 +95,7 @@
 			<p class="subtitle text-caption-main">이메일과 비밀번호로 Re:hear에 접속하세요</p>
 		</div>
 
+		<GoogleAuthButton />
 		<div class="form">
 			<AuthField
 				label="이메일"

@@ -9,6 +9,7 @@
 	let sidebarCollapsed = $state(false);
 
 	const links = [
+		{ href: '/personal-project/aura/grading', label: '시험지 채점', icon: '✓' },
 		{ href: '/personal-project/aura', label: '클리닉 홈', icon: '✦' },
 		{ href: '/personal-project/aura/schools', label: '학교별 리포트', icon: '▦' },
 		{ href: '/personal-project/aura/settlements', label: '월별 정산', icon: '₩' }
@@ -143,7 +144,7 @@
 			justify-items: center;
 			padding: 8px;
 		}
-		.sidebar-toggle { display: grid; place-items: center; }
+		.sidebar-toggle { display: grid; place-items: center; right: 8px; }
 	}
 
 	.aura-mark {
