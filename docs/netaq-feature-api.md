@@ -6,7 +6,7 @@
 
 - `GET /boards`: 현재 계정이 접근할 수 있는 게시판과 채널.
 - `GET /boards/{id}/posts?page=1&q=검색어`: 글 목록.
-- `POST /boards/{id}/posts`: `{"title":"제목","document":{"version":1,"richContent":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"본문"}]}]}}}`.
+- `POST /boards/{id}/posts`: `{"title":"제목","document":{"version":1,"schemaVersion":2,"richContent":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"본문"}]}]}}}`.
 - 사진·파일은 먼저 `POST /resources?board_id={id}&name={파일명}`에 원본 바이트와 Content-Type으로 올리고, 응답의 URL을 문서에 사용한다. 다른 게시판의 비공개 파일을 그대로 가져올 수 없다.
 - `GET /boards/{id}/management`: 게시판 관리자가 변경할 수 있는 회원 역할과 보관한 채널.
 - `PUT /boards/{id}/managers/{memberId}`: `{"enabled":true}`. 일반 계정 권한과 전체 서비스 관리자 권한은 별개다.
