@@ -14,23 +14,23 @@ async function setup(page:Page){
   return r.fulfill({json:[]});
  });return {reports,writes};
 }
-test('Ctrl Alt Q 체크를 학생별로 저장하고 전환 후에도 섞지 않는다',async({page})=>{
+test('인용을 학생별로 저장하고 전환 후에도 섞지 않는다',async({page})=>{
  const {reports,writes}=await setup(page);
  await page.goto('/personal-project/aura/reports/1');
  const surface=page.locator('[contenteditable=true]').first();
  await expect(surface).toContainText('공통 질문');
- await surface.click();await page.keyboard.press('Control+Alt+q');
- await expect(surface.locator('.question-check')).toHaveAttribute('aria-pressed','true');
- await expect.poll(()=>writes.some(w=>w.id===1&&w.question_checks['shared-question']===true)).toBeTruthy();
+ await surface.click();await page.keyboard.press('Control+Shift+b');
+ await expect(surface.locator('blockquote')).toContainText('공통 질문');
+ await expect.poll(()=>writes.some(w=>w.id===1&&JSON.stringify(w.content_json).includes('blockquote'))).toBeTruthy();
  await page.getByRole('navigation',{name:'같은 클리닉 학생 전환'}).getByRole('button',{name:/학생나/}).click();
  await expect(page.getByRole('heading',{name:'학생나',exact:true})).toBeVisible();
- await expect(surface.locator('.question-check')).toHaveAttribute('aria-pressed','false');
- await surface.click();await page.keyboard.press('Control+Alt+q');await page.keyboard.press('Control+Alt+q');
+ await expect(surface.locator('blockquote')).toHaveCount(0);
+ await surface.click();await page.keyboard.press('Control+Shift+b');await page.keyboard.press('Control+Shift+b');
  await page.getByRole('navigation',{name:'같은 클리닉 학생 전환'}).getByRole('button',{name:/학생가/}).click();
  await expect(page.getByRole('heading',{name:'학생가',exact:true})).toBeVisible();
- await expect(surface.locator('.question-check')).toHaveAttribute('aria-pressed','true');
- expect(reports[2].questionChecks['shared-question']).toBe(false);
- expect(reports[1].questionChecks['shared-question']).toBe(true);
+ await expect(surface.locator('blockquote')).toContainText('공통 질문');
+ expect(JSON.stringify(reports[2].contentJson.richContent)).not.toContain('blockquote');
+ expect(JSON.stringify(reports[1].contentJson.richContent)).toContain('blockquote');
  await page.screenshot({path:'/private/tmp/aura-checks-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:'/private/tmp/aura-checks-mobile.png',fullPage:true});
@@ -43,13 +43,13 @@ test('이전 학생의 늦은 저장 응답이 새 학생 화면을 덮지 않�
  await page.route('**/api/personal/aura/target-reports/1',async r=>{started=true;await gate;await r.fallback();});
  await page.goto('/personal-project/aura/reports/1');
  const surface=page.locator('[contenteditable=true]').first();
- await expect(surface).toContainText('공통 질문');await surface.click();await page.keyboard.press('Control+Alt+q');
+ await expect(surface).toContainText('공통 질문');await surface.click();await page.keyboard.press('Control+Shift+b');
  await expect.poll(()=>started).toBeTruthy();
  await page.evaluate(()=>{const a=document.createElement('a');a.href='/personal-project/aura/reports/2';a.textContent='다른 학생 링크';a.id='test-student-link';document.querySelector('.editor-panel')!.prepend(a);});
  await page.locator('#test-student-link').click();
  await expect(page.getByRole('heading',{name:'학생나',exact:true})).toBeVisible();
  release();
- await expect(surface.locator('.question-check')).toHaveAttribute('aria-pressed','false');
+ await expect(surface.locator('blockquote')).toHaveCount(0);
  await expect(page.getByRole('heading',{name:'학생나',exact:true})).toBeVisible();
  await page.waitForTimeout(300);
  await expect(page.getByRole('heading',{name:'학생나',exact:true})).toBeVisible();

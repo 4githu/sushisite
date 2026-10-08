@@ -8,6 +8,8 @@
 	import type { EditorDocument } from '$lib/textediter/types';
 	import '$lib/personal-project/student/student.css';
 	type Board = {
+        school?: string;
+        system_key?: string;
 		relayRoom?: string;
 		id: number;
 		parent_id: number | null;
@@ -45,6 +47,9 @@
 			canDelete: boolean;
 		}[];
 	};
+	let management=$state<{members:{id:number;name:string;manager:boolean;locked:boolean}[];archived:{id:number;name:string}[]}>({members:[],archived:[]});
+ async function loadManagement(){management=await request(`/boards/${bid}/management`);}
+	let settingsOpen = $state(false), settingsName = $state(''), managerId = $state<number>();
 	let creatingBoard = $state(false),
 		newBoardName = $state('');
 	let boards = $state<Board[]>([]),
@@ -76,6 +81,7 @@
 	const pid = $derived(Number(page.url.searchParams.get('post') || 0));
 	const currentPage = $derived(Number(page.url.searchParams.get('page') || 1));
 	const board = $derived(boards.find((b) => b.id === bid));
+	const rootBoard = $derived(board?.parent_id && !board.school ? boards.find((b) => b.id === board.parent_id) : board);
 	let composer = $state<PersonalTextEditor>();
 	let generation = 0;
 	beforeNavigate(({ cancel }) => {
@@ -169,10 +175,10 @@
 <svelte:head><title>게시판 · NETAQ</title></svelte:head>
 <div class="student-page board-page">
 	<header class="board-heading">
-		<h1>{board?.name || '게시판'}</h1>
-		{#if canCreate && (!bid || board?.permissions.manage)}<button
+		<h1>{rootBoard?.name || '게시판'}</h1>
+		{#if (!bid && canCreate) || (bid && rootBoard?.permissions.manage)}<button
 				onclick={() => (creatingBoard = !creatingBoard)}
-				>{bid ? '하위 게시판 만들기' : '게시판 만들기'}</button
+				>{bid ? '채널 추가' : '게시판 만들기'}</button
 			>{/if}
 	</header>
 	{#if creatingBoard}<form
@@ -181,7 +187,7 @@
 				void run(async () => {
 					const b = await request<{ id: number }>('/boards', {
 						method: 'POST',
-						body: { name: newBoardName, parent_id: bid || null }
+						body: { name: newBoardName, parent_id: rootBoard?.id || null }
 					});
 					boards = (await request<{ boards: Board[] }>('/boards')).boards;
 					creatingBoard = false;
@@ -194,17 +200,32 @@
 				disabled={busy}>만들기</button
 			><button type="button" onclick={() => (creatingBoard = false)}>취소</button>
 		</form>{/if}
-	{#if board}<a href="/personal-project/calendar/boards">← 전체 게시판</a>{/if}
-	{#if board?.parent_id}<a href={`?board=${board.parent_id}`}>← 상위 게시판</a>{/if}
-	{#if bid && boards.some((b) => b.parent_id === bid)}<section class="board-directory">
-			<h2>하위 게시판</h2>
-			{#each boards.filter((b) => b.parent_id === bid) as b}<a href={`?board=${b.id}`}
-					>{b.name} · {b.post_count || 0}개 글</a
-				>{/each}
-		</section>{/if}
+	{#if board?.permissions.manage}<button onclick={() => run(async()=> { settingsName = board!.name; settingsOpen = !settingsOpen;if(settingsOpen)await loadManagement(); })}>게시판·채널 설정</button>{/if}
+	{#if settingsOpen && board?.permissions.manage}<section class="panel">
+		<label>이름<input bind:value={settingsName} maxlength="80" /></label>
+		<button disabled={busy || !settingsName.trim()} onclick={() => run(async () => {
+			await request(`/boards/${bid}/settings`, {method:'PUT',body:{name:settingsName}});
+			boards = (await request<{boards:Board[]}>('/boards')).boards; settingsOpen=false;
+		})}>이름 저장</button>
+		<button disabled={busy} onclick={() => run(async () => {
+			if (!confirm('글을 보존한 채 보관합니다. 채널은 게시판 설정에서, 게시판은 관리자 페이지에서 복구할 수 있습니다.')) return;
+			const parent=board?.parent_id || 0;await request(`/boards/${bid}/settings`, {method:'PUT',body:{name:board!.name,archived:true}});
+			boards = (await request<{boards:Board[]}>('/boards')).boards; settingsOpen=false; await navigate(parent);
+		})}>보관하기</button>
+        <h3>게시판 관리자</h3>
+        {#each management.members as member}<label>{member.name || `회원 ${member.id}`}<select aria-label={`${member.name} 게시판 권한`} value={member.manager?'manager':'member'} disabled={busy||member.locked} onchange={e=>{const enabled=e.currentTarget.value==='manager';void run(async()=>{await request(`/boards/${bid}/managers/${member.id}`,{method:'PUT',body:{enabled}});await loadManagement();});}}><option value="member">일반 회원</option><option value="manager">게시판 관리자</option></select></label>{/each}
+        {#if management.archived.length}<h3>보관한 채널</h3>{#each management.archived as channel}<button disabled={busy} onclick={()=>run(async()=>{await request(`/boards/${bid}/channels/${channel.id}/restore`,{method:'POST'});await loadManagement();boards=(await request<{boards:Board[]}>('/boards')).boards;})}>{channel.name} 복구</button>{/each}{/if}
+
+	</section>{/if}
+	{#if rootBoard}<nav class="channel-tabs" aria-label="게시판 채널">
+		<a class:active={bid === rootBoard.id} aria-current={bid === rootBoard.id ? 'page' : undefined} href={`?board=${rootBoard.id}`}>일반</a>
+		{#each boards.filter((b) => b.parent_id === rootBoard.id) as channel}
+			<a class:active={bid === channel.id} aria-current={bid === channel.id ? 'page' : undefined} href={`?board=${channel.id}`}>{channel.name}</a>
+		{/each}
+	</nav>{/if}
 	{#if !bid}<section class="board-directory">
 			<h2>전체 게시판</h2>
-			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards.filter((b) => !b.parent_id) as b}<a
+			{#if !ready}<p>게시판을 불러오는 중…</p>{/if}{#each boards.filter((b) => (!b.parent_id || b.school) && b.system_key !== 'department-root') as b}<a
 					href={`?board=${b.id}`}
 					><div>
 						<strong>{b.name}</strong>
@@ -262,14 +283,8 @@
 		{:else if detail}<article class="post-detail">
 				<a href={`?board=${detail.board_id}`}>← 목록</a>
 				<header>
-					<h2>{detail.title}</h2>
+				<div class="actions post-actions">
 					{#if detail.canEdit}<button onclick={() => compose(true)}>글 수정</button>{/if}
-					<p class="muted">
-						{detail.author_name} · {new Date(detail.created_at + 'Z').toLocaleString('ko-KR')}
-					</p>
-				</header>
-				<PersonalTextEditor initialValue={detail.document} readonly />
-				<div class="actions">
 					{#if detail.canEdit}<button
 							onclick={() =>
 								run(async () => {
@@ -290,6 +305,13 @@
 								})}>{detail.pinned ? '공지 해제' : '공지로 고정'}</button
 						>{/if}
 				</div>
+					<h2>{detail.title}</h2>
+					<p class="muted">
+						{detail.author_name} · {new Date(detail.created_at + 'Z').toLocaleString('ko-KR')}
+					</p>
+				</header>
+				<PersonalTextEditor initialValue={detail.document} readonly />
+
 				<section class="comments">
 					<h3>댓글 {detail.comments.filter((c) => !c.deleted).length}</h3>
 					{#each detail.comments as c}<article class:reply={!!c.parent_id}>
@@ -335,7 +357,7 @@
 			</article>
 		{:else}<section>
 				<div class="list-toolbar">
-					<h2>{board?.name || '게시판'}</h2>
+					<h2>{rootBoard?.name || '게시판'}</h2>
 					<form
 						onsubmit={(e) => {
 							e.preventDefault();
@@ -388,10 +410,18 @@
 			</section>{/if}
 	{/if}
 
-	{#if canAdmin}<a href="/personal-project/calendar/admin">관리자 화면 →</a>{/if}
+
 </div>
 
 <style>
+	.board-page button, .post-detail > a { border: 1px solid var(--border,#d6d9df); border-radius: 8px; padding: 8px 12px; min-height: 38px; background: var(--surface,#fff); color: inherit; cursor: pointer; }
+	.board-page button:hover:not(:disabled) { background: #8b5cf612; border-color: #8b5cf6; }
+	.board-page button:disabled { opacity: .5; cursor: not-allowed; }
+	.channel-tabs { display: flex; overflow-x: auto; gap: 4px; padding: 5px 5px 0; border-bottom: 1px solid #8884; margin: 16px 0 24px; }
+	.channel-tabs a { white-space: nowrap; padding: 10px 18px; border: 1px solid #8884; border-bottom: 0; border-radius: 9px 9px 0 0; color: inherit; text-decoration: none; background: #8881; }
+	.channel-tabs a.active { background: #8b5cf61a; color: #6d28d9; box-shadow: inset 0 3px #8b5cf6; font-weight: 700; }
+	.post-actions { justify-content: flex-end; margin-bottom: 12px; }
+
 	.post-thumb {
 		float: right;
 		width: 76px;
@@ -406,14 +436,16 @@
 	}
 	.board-directory {
 		display: grid;
-		gap: 0;
+		gap: 12px;
 	}
 	.board-directory > a {
 		display: flex;
 		justify-content: space-between;
 		gap: 16px;
-		padding: 22px 4px;
-		border-bottom: 1px solid #8884;
+		padding: 18px;
+		border: 1px solid #8884;
+		border-radius: 12px;
+		background: var(--surface,#fff);
 		text-decoration: none;
 		color: inherit;
 	}

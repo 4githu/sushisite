@@ -80,6 +80,7 @@
 		end = $state(''),
 		allDay = $state(false),
 		task = $state(false),
+		taskDone = $state(false),
 		category = $state(''),
 		locationText = $state(''),
 		webUrl = $state(''),
@@ -366,6 +367,7 @@
 		end = inputDate(new Date(+d + durationMinutes * 60000));
 		allDay = false;
 		task = view === 'tasks';
+		taskDone = false;
 		category = '';
 		locationText = '';
 		webUrl = '';
@@ -414,6 +416,7 @@
 			? inputDate(new Date(e.endTime))
 			: inputDate(new Date(+new Date(e.startTime) + 3600000));
 		allDay = e.isAllDay;
+		taskDone = e.status === 'done';
 		task = e.status !== 'passive';
 		category = e.categoryName || '';
 		locationText = e.location || '';
@@ -452,7 +455,7 @@
 				start_time: allDay ? inputDate(a) + ':00' : a.toISOString(),
 				end_time: allDay ? inputDate(b) + ':00' : b.toISOString(),
 				is_all_day: allDay,
-				status: task ? (selected?.status === 'done' ? 'done' : 'todo') : 'passive',
+				status: task ? (taskDone ? 'done' : 'todo') : 'passive',
 				type: 'personal',
 				category_name: categoryPaths(category).join(', ') || null,
 				location: locationText,
@@ -478,6 +481,18 @@
 		} finally {
 			saving = false;
 		}
+	}
+	function repeatEndFromCount() {
+		if (!start || !Number.isFinite(repeat) || !Number.isFinite(intervalWeeks)) return;
+		const date = new Date(start);
+		date.setDate(date.getDate() + (Math.max(1, repeat) - 1) * Math.max(1, intervalWeeks) * 7);
+		repeatUntil = dayKey(date);
+	}
+	function repeatCountFromEnd() {
+		if (!start || !repeatUntil) return;
+		const first = Date.parse(start.slice(0, 10) + 'T00:00:00Z');
+		const last = Date.parse(repeatUntil + 'T00:00:00Z');
+		repeat = Math.max(1, Math.min(365, Math.floor((last - first) / (Math.max(1, intervalWeeks) * 604800000)) + 1));
 	}
 	async function remove() {
 		if (
@@ -976,12 +991,12 @@
 					readonly={selected?.type === 'aura'}
 				/></label
 			>{#if selected?.type !== 'aura'}<div class="cw-options">
-					<label><input type="checkbox" bind:checked={task} />할 일로 등록</label><label
+					<label><input type="checkbox" bind:checked={task} />할 일로 등록</label>{#if task}<label><input type="checkbox" bind:checked={taskDone} />완료</label>{/if}<label
 						><input type="checkbox" bind:checked={allDay} />종일</label
 					>
 				</div>{/if}
 			<div class="cw-fields">
-				<label>시작<input type="datetime-local" bind:value={start} required /></label><label
+				<label>시작<input type="datetime-local" bind:value={start} onchange={repeatEndFromCount} required /></label><label
 					>종료<input type="datetime-local" bind:value={end} required /></label
 				>
 			</div>
@@ -1053,11 +1068,11 @@
 					placeholder="일정에 필요한 내용을 적어두세요"
 				></textarea></label
 			>{#if !selected}<label
-					>반복<select bind:value={repeat}
+					>반복<select bind:value={repeat} onchange={repeatEndFromCount}
 						><option value={1}>반복 안 함</option>{#each [2, 4, 8, 12, 16, 24, 52] as n}<option
 								value={n}>{n}회</option
-							>{/each}</select
-					></label
+							>{/each}{#if ![1,2,4,8,12,16,24,52].includes(repeat)}<option value={repeat}>{repeat}회</option>{/if}</select
+					></label><label>횟수 직접 입력<input type="number" min="1" max="365" bind:value={repeat} oninput={repeatEndFromCount} /></label
 				>{#if repeat > 1}<div class="cw-fields">
 						<label
 							>반복 간격 (주)<input
@@ -1065,9 +1080,10 @@
 								min="1"
 								max="52"
 								bind:value={intervalWeeks}
+								oninput={repeatEndFromCount}
 								required
 							/></label
-						><label>반복 종료일 (선택)<input type="date" bind:value={repeatUntil} /></label>
+						><label>반복 종료일<input type="date" min={start.slice(0,10)} bind:value={repeatUntil} oninput={repeatCountFromEnd} /></label>
 					</div>{/if}{/if}{#if selected?.recurrenceGroupId}<label
 					>수정·삭제 범위<select bind:value={scope}
 						><option value="this">이 일정만</option><option value="following"

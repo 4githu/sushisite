@@ -123,7 +123,7 @@ def claim(data: Token):
     return {'token':token}
 
 @router.get('/calendar/widget/feed')
-def feed(request: Request, view: Literal['upcoming','day','week','month','tasks']='upcoming', anchor: date|None=None):
+def feed(request: Request, view: Literal['upcoming','day','week','month','tasks','plan']='upcoming', anchor: date|None=None):
     token=request.headers.get('authorization','').removeprefix('Bearer ')
     with connection() as db:
         row=db.execute('SELECT user_id FROM widget_devices WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
@@ -131,13 +131,13 @@ def feed(request: Request, view: Literal['upcoming','day','week','month','tasks'
     now=datetime.now(timezone.utc)
     local=now.astimezone(ZoneInfo('Asia/Seoul'))
     start=local.replace(hour=0,minute=0,second=0,microsecond=0)
-    if anchor and view in ('day','week','month'):
+    if anchor and view in ('day','week','month','plan'):
         start=start.replace(year=anchor.year,month=anchor.month,day=anchor.day)
     end=start+timedelta(days=7)
     if view=='month':
         start=start.replace(day=1)
         end=(start.replace(day=28)+timedelta(days=4)).replace(day=1)
-    elif view=='day': end=start+timedelta(days=1)
+    elif view in ('day','plan'): end=start+timedelta(days=1,hours=2 if view=='plan' else 0)
     elif view=='week':
         start-=timedelta(days=(start.weekday()+1)%7)
         end=start+timedelta(days=7,hours=2)
@@ -151,10 +151,13 @@ def feed(request: Request, view: Literal['upcoming','day','week','month','tasks'
         if ending.tzinfo is None: ending=ending.replace(tzinfo=ZoneInfo('Asia/Seoul'))
         if not e['endTime']: ending+=timedelta(hours=1)
         return ending>=now
-    keys=('id','title','startTime','endTime','isAllDay','status')
-    result={'events':[{k:e[k] for k in keys} for e in items if include(e)][:500], 'timezone':'Asia/Seoul'}
+    keys=('id','title','startTime','endTime','isAllDay','status','location')
+    result={'events':[{k:e.get(k) for k in keys} for e in items if include(e)][:500], 'timezone':'Asia/Seoul'}
+    if view=='plan':
+        from .widget_plan import render
+        result['image']=render(row['user_id'],start,[e for e in items if include(e)])
     if view=='day':
-        result['tasks']=[{k:e[k] for k in keys} for e in workspace.list_events(row['user_id'],tasks=True) if e['status']!='done'][:100]
+        result['tasks']=[{k:e.get(k) for k in keys} for e in workspace.list_events(row['user_id'],tasks=True) if e['status']!='done'][:100]
     return result
 
 @router.delete('/calendar/widget/devices',status_code=204)
@@ -395,5 +398,9 @@ router.include_router(kakao_bridge_router)
 from .board_api import router as board_api_router
 router.include_router(board_api_router)
 
+from . import course_tags
+router.include_router(course_tags.router)
+from . import grading
+router.include_router(grading.router)
 from . import dshs_sync
 router.include_router(dshs_sync.router)

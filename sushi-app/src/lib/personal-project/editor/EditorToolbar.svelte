@@ -14,7 +14,10 @@
 		editDrawing,
 		moveImage,
 		sizeImage,
-		alignImage
+		alignImage,
+		alignText,
+		exportJSON,
+		importJSON
 	}: {
 		editor?: Editor;
 		inTable?: boolean;
@@ -29,6 +32,9 @@
 		moveImage: (direction: number) => void;
 		sizeImage: (width: number) => void;
 		alignImage: (align: string) => void;
+		alignText: (align: string) => void;
+		exportJSON: () => void;
+		importJSON: () => void;
 	} = $props();
 	let textOpen = $state(false),
 		colorOpen = $state(false),
@@ -129,6 +135,8 @@
 		title="다시 실행"
 		onclick={() => focus()?.redo().run()}>↷</button
 	>
+	<button type="button" onclick={importJSON}>JSON 가져오기</button>
+	<button type="button" onclick={exportJSON}>JSON 내보내기</button>
 	<div class="help-anchor">
 		<button
 			type="button"
@@ -139,7 +147,7 @@
 		>{#if shortcuts}<div class="shortcut-panel">
 				<strong>단축키</strong>
 				<p>
-					Ctrl/Cmd+B · 굵게<br />Ctrl/Cmd+I · 기울임<br />Ctrl/Cmd+Shift+B · 인용 전환<br />Tab /
+					Ctrl/Cmd+Alt+H · 최근 색상 형광펜<br />Ctrl/Cmd+B · 굵게<br />Ctrl/Cmd+I · 기울임<br />Ctrl/Cmd+Shift+B · 인용 전환<br />Tab /
 					Shift+Tab · 들여쓰기 / 내어쓰기<br />Ctrl/Cmd+Z · 실행 취소<br />Ctrl/Cmd+Shift+Z · 다시
 					실행
 				</p>
@@ -147,6 +155,10 @@
 			</div>{/if}
 	</div>
 	{#if textOpen}<div class="text-tools" role="group" aria-label="텍스트 서식 도구">
+			<button type="button" onclick={() => focus()?.toggleCodeBlock().run()}>코드</button>
+			<button type="button" onclick={() => alignText('left')}>왼쪽 정렬</button>
+			<button type="button" onclick={() => alignText('center')}>가운데 정렬</button>
+			<button type="button" onclick={() => alignText('right')}>오른쪽 정렬</button>
 			<button
 				type="button"
 				aria-label="굵게"
@@ -233,7 +245,8 @@
 		align-items: center;
 		padding: 7px;
 		border-bottom: 1px solid #8884;
-		position: relative;
+		position: sticky;
+		top: var(--editor-toolbar-top, 0px);
 		z-index: 20;
 		background: var(--surface, #fff);
 		border-radius: 10px 10px 0 0;

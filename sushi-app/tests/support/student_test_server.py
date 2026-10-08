@@ -18,3 +18,7 @@ app.dependency_overrides[current_user_id] = lambda: 7890
 @app.get('/auth/isjwt')
 def qa_identity():
     return {'sub':'7890','data':{'id':'7890','name':'검수 계정','email':'review@example.com'},'exp':9999999999}
+
+# Local-only fixture accepts writes from the dedicated development frontend.
+from personal_project.community_v2 import write_origin
+app.dependency_overrides[write_origin] = lambda: None

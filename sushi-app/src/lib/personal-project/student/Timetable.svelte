@@ -19,6 +19,7 @@
 	} from '$lib/personal-project/student/catalog';
 	import '$lib/personal-project/student/student.css';
 	import CourseTrend from './CourseTrend.svelte';
+	import CourseTags from './CourseTags.svelte';
 	import { CourseSearch } from './search';
 	let { exploration = false }: { exploration?: boolean } = $props();
 	let searchMs = $state(0);
@@ -33,6 +34,23 @@
 		detail = $state<Course | null>(null);
 	let alternatives = $state<{ slot: string; courses: number }[]>([]);
 	let slot = $state('');
+	let stage = $state('1-1'), stageYears = $state(4), stageMap = $state<Record<string,string>>({}), stageRevision = $state(0);
+	const stageButtons = $derived(Array.from({length:stageYears},(_,i) => ['1','여름','2','겨울'].map(t=>`${i+1}-${t}`)).flat());
+	async function rememberStage(next: string) {
+		const mapping = {...stageMap,[stage]:next};
+		const saved = await request<{revision:number}>(`/documents/${encodeURIComponent('timetable-stage-map:'+school)}`, {method:'PUT',body:{revision:stageRevision,data:{mapping,years:stageYears,selectedStage:stage}}});
+		stageMap=mapping; stageRevision=saved.revision;
+	}
+	async function chooseStage(nextStage: string) {
+		if (dirty) await save();
+		stage=nextStage;
+		const [grade,season]=stage.split('-');
+		const code=`U00020000${['1','여름'].includes(season)?'1':'2'}U00030000${['여름','겨울'].includes(season)?'2':'1'}`;
+		const fallback = catalog?.terms.find(t=>Number(t.year)===(admissionYear || new Date().getFullYear())+Number(grade)-1 && t.term===code);
+		const target=stageMap[stage] || fallback?.id;
+		if (target) { await rememberStage(target); await loadTerm(target,''); }
+	}
+
 	const slots = Array.from({ length: 12 }, (_, i) => `${Math.floor(i / 2) + 1}-${(i % 2) + 1}`);
 
 	let catalog = $state<Catalog | null>(null),
@@ -267,9 +285,13 @@
 				)
 			]);
 			catalog = data;
+			school = profile.school || '서울대학교';
+			const mapping=await request<{data:{mapping?:Record<string,string>;years?:number;selectedStage?:string}|null;revision:number}>(`/documents/${encodeURIComponent('timetable-stage-map:'+school)}`);
+			stageMap=mapping.data?.mapping || {}; stageYears=Math.max(4,mapping.data?.years || 4); stageRevision=mapping.revision;
 			admissionYear = profile.admission_year;
 			academicOffset = profile.academic_offset || 0;
 			school = profile.school || '서울대학교';
+			stage = Object.keys(stageMap).find(k=>stageMap[k]===new URLSearchParams(location.search).get('term')) || mapping.data?.selectedStage || '1-1';
 			const available = data.terms
 				.filter((t) => termDates(t).starts_on <= new Date().toISOString().slice(0, 10))
 				.sort((a, b) => termDates(b).starts_on.localeCompare(termDates(a).starts_on));
@@ -280,13 +302,14 @@
 			await loadTerm(
 				data.terms.some((t) => t.id === chosenTerm)
 					? chosenTerm!
-					: (available[0] || data.terms[0]).id,
+					: (!exploration && stageMap[stage] ? stageMap[stage] : (available[0] || data.terms[0]).id),
 				exploration
 					? chosenSlot.startsWith('explore-') || slots.includes(chosenSlot)
 						? chosenSlot
 						: 'explore-1'
 					: ''
 			);
+			if (!exploration && !stageMap[stage]) { stage=academicLabel.replace(/(\d+)학년 (여름|겨울) 계절/,'$1-$2') || '1-1';stageYears=Math.max(stageYears,Number(stage.split('-')[0])||4); await rememberStage(term); }
 		} catch (e) {
 			error = e instanceof Error ? e.message : '불러오기 실패';
 			loading = false;
@@ -422,42 +445,31 @@
 								>기존 {slot}</option
 							>{/if}</select
 					></label
-				>{:else if academicLabel}<span>{academicLabel} · {termInfo?.label}</span>{/if}
-			<a class="button" href="/personal-project/calendar/student">{school} · 학교 설정</a><label
-				>{exploration ? '개설 학기' : '학년·학기'}<select
+				>{/if}
+			<label
+				><select
 					aria-label="학기"
 					value={term}
 					disabled={loading || busy}
-					onchange={(e) => {
+					onchange={async (e) => {
 						const next = e.currentTarget.value;
 						if (dirty && !confirm('저장하지 않은 시간표를 두고 학기를 바꿀까요?')) {
 							e.currentTarget.value = term;
 							return;
 						}
-						void loadTerm(next);
+						await run(async () => { if (!exploration) await rememberStage(next); await loadTerm(next); });
 					}}
 					>{#each catalog?.terms || [] as item}<option value={item.id}
-							>{academicSlot(item, admissionYear, academicOffset) || item.label} · {item.label}</option
+							>{item.label}</option
 						>{/each}</select
 				></label
 			>
 		</div>
 	</header>
-	{#if !exploration && admissionYear}<nav class="semester-nav" aria-label="내 학년별 시간표">
-			{#each (catalog?.terms || [])
-				.filter((t) => academicSlot(t, admissionYear, academicOffset))
-				.filter((t) => Math.abs(Number(t.year)-Number(termInfo?.year || new Date().getFullYear()))<=1)
-				.sort((a, b) => termDates(a).starts_on.localeCompare(termDates(b).starts_on)) as t}<button
-					class:active={term === t.id}
-					disabled={loading || busy}
-					onclick={async () => {
-						if (dirty) await run(save);
-						if (!dirty) await loadTerm(t.id, '');
-					}}>{academicSlot(t, admissionYear, academicOffset)}</button
-				>{/each}
-		</nav>{:else if !exploration}<p>
-			학교 설정에서 입학 연도를 입력하면 1-1·1-2·계절학기로 표시됩니다.
-		</p>{/if}
+	{#if !exploration}<nav class="semester-nav" aria-label="내 학년별 시간표">
+		{#each stageButtons as label}<button class:active={stage===label} disabled={loading || busy} onclick={() => run(()=>chooseStage(label))}>{label}</button>{/each}
+		<button aria-label="학년 추가" disabled={stageYears >= 12 || busy} onclick={() => run(async () => { stageYears+=1; await rememberStage(term); })}>＋</button>
+	</nav>{/if}
 	{#if error}<p class="error" role="alert">{error}</p>{/if}{#if notice}<p
 			class="notice"
 			role="status"
@@ -625,7 +637,7 @@
 								aria-label={`${course.name} 빼기`}
 								onclick={() => (selected = selected.filter((c) => c.id !== course.id))}>빼기</button
 							>
-						</div>{/each}{#each manual as lesson, i}<div class="chosen">
+						</div><CourseTags code={course.sbjt_cd} />{/each}{#each manual as lesson, i}<div class="chosen">
 							<span
 								><strong>{lesson.title}</strong><small
 									>{days[lesson.weekday]} {lesson.start}–{lesson.end} · 직접 입력</small

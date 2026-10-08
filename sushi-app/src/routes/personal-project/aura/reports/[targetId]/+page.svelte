@@ -6,7 +6,7 @@
 	import { progressStageLabels } from '$lib/personal-project/aura/stages';
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
-	import { personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
+	import { request, personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
 	import type {
 		AiReportModel,
 		AiReportResult,
@@ -702,7 +702,7 @@
 
 	async function sendToNativeKakao() {
 		if (!report || nativeKakaoBusy || kakaoBusy) return;
-		if (!confirm('Mac mini의 카카오톡 ‘나와의 채팅’으로 리포트 이미지 묶음을 보낼까요?')) return;
+
 		nativeKakaoBusy = true;
 		error = '';
 		message = '';
@@ -722,7 +722,7 @@
 			}
 			if (!(await save(false, true)))
 				throw new Error('리포트를 저장하지 못해 전송을 중단했습니다.');
-			shareStatus = 'Mac mini에서 자기 채팅과 접근성 권한을 확인하는 중입니다…';
+			shareStatus = 'Mac mini에서 클리닉 채팅방과 접근성 권한을 확인하는 중입니다…';
 			const job = await personalApi.createNativeKakaoJob(report.targetId);
 			shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
 			const pageFiles = await reportPageFiles();
@@ -738,17 +738,17 @@
 				shareStatus = `이미지 업로드 중… ${index + 1}/${pageFiles.length}`;
 				await personalApi.uploadNativeKakaoPage(report.targetId, job.jobId, index + 1, file);
 			}
-			shareStatus = 'Mac mini에서 자기 채팅과 첨부 화면을 확인하는 중입니다…';
+			shareStatus = 'Mac mini에서 클리닉 채팅방과 첨부 화면을 확인하는 중입니다…';
 			const result = await personalApi.sendNativeKakaoJob(report.targetId, job.jobId);
-			if (!result.sent || result.destination !== '나와의 채팅') {
+			if (!result.sent) {
 				throw new Error('카카오톡 전송 완료 증거를 확인하지 못했습니다.');
 			}
-			message = `나와의 채팅에 리포트 이미지 ${result.sentCount}장을 묶음으로 보냈습니다.`;
+			message = `${result.destination}에 리포트 이미지 ${result.sentCount}장과 안내문을 보냈습니다.`;
 			shareStatus = '';
 			preparedShareFiles = [];
 			modalStage = 'closed';
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '나와의 채팅 전송에 실패했습니다.';
+			error = cause instanceof Error ? cause.message : '클리닉 리포트 전송에 실패했습니다.';
 			shareStatus = '';
 		} finally {
 			nativeKakaoBusy = false;
@@ -756,7 +756,7 @@
 	}
 
 	async function switchStudent(targetId: number) {
-		templateConfirm = false;
+		templateConfirm = false; previousDraft=null;
 		if (!report || targetId === report.targetId || switching) return;
 		switching = true;
 		try {
@@ -772,6 +772,21 @@
 	}
 
 	let templateConfirm = $state(false);
+ let previousDraft = $state<EditorDocument|null>(null);
+ async function useTemplate() {
+  if (!report || saving || switching) return;
+  const targetId=report.targetId;
+  if (!(await save(false,true))) return;
+  try {
+   const result=await request<{document:EditorDocument}>(`/aura/targets/${targetId}/template`);
+   if(report?.targetId!==targetId)return;
+   previousDraft=editor?.getJSON() ?? draftDocument;
+   editor?.setJSON(result.document);questionChecks={};
+   queueAutosave(editor?.getJSON() ?? result.document,true);
+   message='기본양식으로 전환했습니다. 이전 내용으로 되돌릴 수 있습니다.';
+  } catch(cause){error=String(cause);}
+ }
+
 	async function saveAsTemplate() {
 		if (!report || saving || report.roundNumbers.length > 1) return;
 		templateConfirm = false;
@@ -863,6 +878,14 @@
 				</p>
 				<textarea bind:value={sourceNotes} placeholder="발음, 태도, 다음 회차에서 확인할 점…"
 				></textarea>
+				<div class="quick-actions">
+					<button disabled={saving} onclick={() => save(false)}>임시저장</button>
+					<button disabled={aiGenerating || saving} onclick={async () => { await openGenerateModal(); await generateAi(false); }}>리포트 생성</button>
+					<button disabled={saving} onclick={useTemplate}>기본양식으로 전환</button>
+				</div>
+                {#if previousDraft}<button onclick={()=>{if(previousDraft){editor?.setJSON(previousDraft);previousDraft=null;queueAutosave(editor?.getJSON() ?? draftDocument,true);}}}>양식 전환 되돌리기</button>{/if}
+                {@render attachments()}
+				{@render reportTools()}
 				<div class="highlight-guide">
 					<span></span><strong>형광 표시 부분을 AI가 부족한 내용으로 읽습니다.</strong>
 					<small>Ctrl/Cmd+Alt+1 살구 · +2 노랑 · +3 주황 · +H 최근 색</small>
@@ -956,17 +979,84 @@
 	</div>
 {/if}
 
-{#if report && modalStage !== 'closed'}
-	<div class="modal-backdrop" role="presentation">
-		<dialog open class="report-modal" aria-label="클리닉 리포트 생성">
-			<button class="mobile-modal-close" onclick={closeReportModal} aria-label="창 닫기">×</button>
+{#snippet attachments()}<div class="attachment-fields">
+							{#if attachmentNotice}<p
+									class="attachment-notice"
+									class:attachment-error={attachmentNotice.includes('실패')}
+								>
+									{attachmentNotice}
+								</p>{/if}
+							<label
+								><strong>백지테스트 사진</strong><small
+									>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
+								><input
+									type="file"
+									accept="image/*,.heic,.heif,application/pdf"
+									multiple
+									capture="environment"
+									onchange={async (event) => {
+										const input=event.currentTarget;await addAttachmentImages(input.files, 'blank');input.value='';
+									}}
+									disabled={attachmentBusy}
+								/></label
+							>
+							<button
+								type="button"
+								class="paste-image-button"
+								onpaste={(event) => pasteAttachmentImages(event, 'blank')}
+								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+							>
+							{#if blankTestImages.length}<div class="attachment-list">
+									{#each blankTestImages as image, index}<figure>
+											<img src={image.url} alt={`백지테스트 ${index + 1}`} /><button
+												aria-label={`백지테스트 ${index + 1} 삭제`}
+												onclick={() => removeAttachmentImage('blank', index)}>×</button
+											>
+											<figcaption>백지테스트 {index + 1}</figcaption>
+										</figure>{/each}
+								</div>{/if}
+							<label
+								><strong>문제 풀이 사진</strong><small
+									>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
+								><input
+									type="file"
+									accept="image/*,.heic,.heif,application/pdf"
+									multiple
+									capture="environment"
+									onchange={async (event) => {
+										const input=event.currentTarget;await addAttachmentImages(input.files, 'problem');input.value='';
+									}}
+									disabled={attachmentBusy}
+								/></label
+							>
+							<button
+								type="button"
+								class="paste-image-button"
+								onpaste={(event) => pasteAttachmentImages(event, 'problem')}
+								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+							>
+							{#if problemImages.length}<div class="attachment-list">
+									{#each problemImages as image, index}<figure>
+											<img src={image.url} alt={`문제풀이 ${index + 1}`} /><button
+												aria-label={`문제풀이 ${index + 1} 삭제`}
+												onclick={() => removeAttachmentImage('problem', index)}>×</button
+											>
+											<figcaption>문제풀이 {index + 1}</figcaption>
+										</figure>{/each}
+								</div>{/if}
+						</div>{/snippet}
+
+{#snippet reportTools()}{#if report}
+	<div class="inline-report-tools">
+		<section class="report-modal" aria-label="클리닉 리포트 생성">
+
 			<header>
 				<div>
 					<p class="eyebrow">Clinic report</p>
-					<h2>{modalStage === 'generate' ? 'AI 리포트 생성' : '최종 PDF 편집'}</h2>
+					<h2>{modalStage !== 'final' ? '리포트 생성' : '생성된 리포트'}</h2>
 				</div>
 				<div class="modal-actions">
-					{#if modalStage === 'generate'}
+					{#if modalStage !== 'final'}
 						<select bind:value={selectedModel} aria-label="AI 모델 선택">
 							{#each aiModels as model}<option value={model.id} disabled={model.available === false}
 									>{model.label}{model.available === false ? ' · API 키 필요' : ''}</option
@@ -976,11 +1066,11 @@
 							>{aiGenerating ? '생성 중…' : 'AI 생성하기'}</button
 						>
 					{/if}
-					<button class="ghost-button" onclick={closeReportModal}>닫기</button>
+
 				</div>
 			</header>
 
-			{#if modalStage === 'generate'}
+			{#if modalStage !== 'final'}
 				<div class="generate-columns">
 					<section class="generate-input">
 						<div class="student-summary">
@@ -1136,74 +1226,7 @@
 								placeholder="이해한 내용을 정리할 겸 문제를 풀게 했고 잘 풀어주었습니다."
 							></textarea>
 						</label>
-						<div class="attachment-fields">
-							{#if attachmentNotice}<p
-									class="attachment-notice"
-									class:attachment-error={attachmentNotice.includes('실패')}
-								>
-									{attachmentNotice}
-								</p>{/if}
-							<label
-								><strong>백지테스트 사진</strong><small
-									>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
-								><input
-									type="file"
-									accept="image/*,.heic,.heif,application/pdf"
-									multiple
-									capture="environment"
-									onchange={async (event) => {
-										await addAttachmentImages(event.currentTarget.files, 'blank');
-										event.currentTarget.value = '';
-									}}
-									disabled={attachmentBusy}
-								/></label
-							>
-							<button
-								type="button"
-								class="paste-image-button"
-								onpaste={(event) => pasteAttachmentImages(event, 'blank')}
-								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
-							>
-							{#if blankTestImages.length}<div class="attachment-list">
-									{#each blankTestImages as image, index}<figure>
-											<img src={image.url} alt={`백지테스트 ${index + 1}`} /><button
-												aria-label={`백지테스트 ${index + 1} 삭제`}
-												onclick={() => removeAttachmentImage('blank', index)}>×</button
-											>
-											<figcaption>백지테스트 {index + 1}</figcaption>
-										</figure>{/each}
-								</div>{/if}
-							<label
-								><strong>문제 풀이 사진</strong><small
-									>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
-								><input
-									type="file"
-									accept="image/*,.heic,.heif,application/pdf"
-									multiple
-									capture="environment"
-									onchange={async (event) => {
-										await addAttachmentImages(event.currentTarget.files, 'problem');
-										event.currentTarget.value = '';
-									}}
-									disabled={attachmentBusy}
-								/></label
-							>
-							<button
-								type="button"
-								class="paste-image-button"
-								onpaste={(event) => pasteAttachmentImages(event, 'problem')}
-								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
-							>
-							{#if problemImages.length}<div class="attachment-list">
-									{#each problemImages as image, index}<figure>
-											<img src={image.url} alt={`문제풀이 ${index + 1}`} /><button
-												aria-label={`문제풀이 ${index + 1} 삭제`}
-												onclick={() => removeAttachmentImage('problem', index)}>×</button
-											>
-											<figcaption>문제풀이 {index + 1}</figcaption>
-										</figure>{/each}
-								</div>{/if}
-						</div>
+
 						<div class="final-buttons">
 							<button class="ghost-button" onclick={() => (modalStage = 'generate')}>이전</button>
 							<div class="export-group">
@@ -1230,8 +1253,8 @@
 											onclick={sendToNativeKakao}
 											disabled={nativeKakaoBusy || kakaoBusy || pdfBusy}
 											>{nativeKakaoBusy
-												? '나와의 채팅 전송 중…'
-												: 'Mac 카카오톡 나와의 채팅 전송'}</button
+												? '클리닉 리포트 전송 중…'
+												: '클리닉 리포트 보내기'}</button
 										>{/if}<button
 										class="primary-button"
 										onclick={downloadPdf}
@@ -1337,11 +1360,24 @@
 					</section>
 				</div>
 			{/if}
-		</dialog>
+		</section>
 	</div>
 {/if}
 
+{/snippet}
+
 <style>
+	.inline-report-tools { margin-top: 12px; min-width: 0; }
+	.note-panel, .editor-panel { min-width: 0; }
+	.note-panel :global(input[type="file"]) { width: 100%; min-width: 0; }
+	.inline-report-tools .generate-input, .inline-report-tools .final-controls { min-width: 0; padding: 12px 0; overflow: visible; }
+	.inline-report-tools .report-modal > header { height: auto; padding: 12px 0; flex-wrap: wrap; }
+	.inline-report-tools .modal-actions { flex-wrap: wrap; min-width: 0; }
+	.inline-report-tools .report-modal { position: static; width: 100%; height:auto; max-width: none; max-height: none; padding: 0; border: 0; box-shadow: none; overflow: visible; }
+	.inline-report-tools .generate-columns, .inline-report-tools .final-columns { display: flex; flex-direction: column; height:auto; }
+	.inline-report-tools .pdf-scroll { overflow: visible; max-height: none; }
+	.quick-actions { display:flex; flex-wrap:wrap; gap:6px; }
+
 	.back {
 		display: inline-flex;
 		align-items: center;
@@ -1358,7 +1394,7 @@
 	}
 	.report-layout {
 		display: grid;
-		grid-template-columns: 250px minmax(0, 1fr);
+		grid-template-columns: minmax(340px, 40%) minmax(0, 1fr);
 		gap: 18px;
 		align-items: start;
 	}
@@ -1387,7 +1423,7 @@
 		cursor: wait;
 	}
 	.note-panel {
-		position: sticky;
+		position: static;
 		top: 18px;
 		padding: 20px;
 	}
@@ -2122,11 +2158,8 @@
 		.report-modal > header {
 			padding-right: 58px;
 		}
-		.modal-actions > .ghost-button {
-			display: none;
-		}
 		.report-layout {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 		.note-panel {
 			position: static;

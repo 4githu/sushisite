@@ -10,6 +10,7 @@
 		parent_id: number | null;
 		sort_order: number;
 		restricted: number;
+		archived: number;
 		school: string;
 		department: string;
 	};
@@ -40,6 +41,8 @@
 		error = $state(''),
 		notice = $state('');
 	let roleConfirm = $state(false);
+ let inspection=$state<{posts:{id:number;title:string;plain:string;author_name:string;deleted:number;comments:{content:string;author_name:string;deleted:number}[]}[];total:number;page:number}|null>(null), inspectBoard=$state<number>();
+ async function inspect(id:number,p=1){inspectBoard=id;inspection=await request(`/admin/boards/${id}/posts?page=${p}`);}
 	let permissionDraft = $state<Record<string, string>>({}),
 		editBoard = $state<Board | null>(null);
 	const actions = [
@@ -142,23 +145,15 @@
 			<div class="table-scroll">
 				<table>
 					<thead
-						><tr><th>회원</th><th>서비스</th><th>역할</th><th>학교·학과</th><th></th></tr></thead
+						><tr><th>회원</th><th>서비스</th><th>역할</th><th>학교·학과</th></tr></thead
 					><tbody
 						>{#each data.users as u}<tr
 								><td>{u.name}<small>{u.email}</small></td><td
 									>{u.member ? 'NETAQ 이용' : '미이용'}</td
-								><td>{u.isAdmin ? '관리자' : '일반 회원'}</td><td
+								><td><button disabled={!u.member || busy} onclick={() => { selected = u.id; resetPermissions(); }}>{u.isAdmin ? '관리자' : '일반 회원'}</button></td><td
 									>{u.profile?.school || '—'}<small>{u.profile?.department || ''}</small></td
-								><td
-									><button
-										disabled={!u.member || busy}
-										onclick={() => {
-											selected = u.id;
-											resetPermissions();
-										}}>권한 보기</button
-									></td
 								></tr
-							>{:else}<tr><td colspan="5">조건에 맞는 회원이 없습니다.</td></tr>{/each}</tbody
+							>{:else}<tr><td colspan="4">조건에 맞는 회원이 없습니다.</td></tr>{/each}</tbody
 					>
 				</table>
 			</div>
@@ -185,12 +180,11 @@
 					<h2>{member.name}님의 권한</h2>
 					<p>
 						{member.isAdmin
-							? '관리자입니다. 명시적 거부가 있으면 관리자도 해당 권한이 차단됩니다.'
+							? '관리 화면 접근 권한입니다. 일반 게시판 열람은 아래 회원 권한을 따릅니다.'
 							: '기본 규칙과 게시판별 설정을 함께 적용합니다.'}
 					</p>
 					<p>
-						현재 역할: {member.isAdmin ? '관리자' : '일반 회원'}
-						<button onclick={() => (roleConfirm = !roleConfirm)}>역할 변경</button>
+						<button onclick={() => (roleConfirm = !roleConfirm)} aria-expanded={roleConfirm}>{member.isAdmin ? '관리자' : '일반 회원'} ▾</button>
 					</p>
 					{#if roleConfirm}<p>
 							{member.name}님을 {member.isAdmin ? '일반 회원으로 변경' : '관리자로 지정'}합니다.
@@ -217,7 +211,7 @@
 									><td>{label}</td><td
 										>{member.effective[String(boardId)]?.[a] ? '허용' : '차단'}</td
 									><td
-										><select aria-label={`${label} 설정`} bind:value={permissionDraft[a]}
+										><select aria-label={`${label} 설정`} bind:value={permissionDraft[a]} disabled={busy} onchange={() => void run(savePermissions)}
 											><option value="default">기본 규칙</option><option value="1">개별 허용</option
 											><option value="0">개별 거부</option></select
 										></td
@@ -226,10 +220,9 @@
 						>
 					</table>
 					<p>
-						상위 게시판·학과 제한·전체 범위 거부가 우선할 수 있습니다. 저장 후 현재 적용 권한을 다시
-						확인합니다.
+						선택하면 바로 저장합니다. 게시판·학과 제한·전체 범위 거부를 적용한 결과가 현재 권한에 표시됩니다.
 					</p>
-					<button disabled={busy} onclick={() => void run(savePermissions)}>변경 사항 저장</button>
+
 					{#each data.permissions.filter((p) => p.user_id === selected && !p.scope.startsWith('board:')) as p}
 						<p>{p.scope === 'main' ? '메인 게시판 범위' : '기타 게시판 전체 범위'} · {actions.find(([a]) => a === p.action)?.[1] || '게시판 생성'} · {p.allowed ? '개별 허용' : '개별 거부'}
 							<button disabled={busy} onclick={() => void run(async () => {
@@ -250,8 +243,14 @@
 									? '제한 공개'
 									: '회원 공개'} · 순서 {b.sort_order}</small
 						></span
-					><button onclick={() => (editBoard = { ...b })}>설정</button>
+					><button onclick={() => (editBoard = { ...b })}>설정</button><button disabled={busy} onclick={()=>run(()=>inspect(b.id))}>글 검토</button>
+					<button disabled={busy} onclick={() => void run(async () => {
+						await request(`/admin/boards/${b.id}/archive`, {method:'PUT',body:{archived: !b.archived}}); await load();
+					})}>{b.archived ? '복구' : '보관'}</button>
 				</div>{/each}
+            {#if inspection}<section class="inspection"><h3>{data.boards.find(b=>b.id===inspectBoard)?.name} · 관리자 검토</h3><button onclick={()=>inspection=null}>검토 닫기</button>
+            {#each inspection.posts as post}<article><h4>{post.deleted?'[삭제됨] ':''}{post.title}</h4><small>{post.author_name}</small><p style="white-space:pre-wrap">{post.plain}</p>{#each post.comments as comment}<p>{comment.deleted?'[삭제됨] ':''}{comment.author_name} · {comment.content}</p>{/each}</article>{:else}<p>게시글이 없습니다.</p>{/each}
+            <button disabled={busy||inspection.page===1} onclick={()=>run(()=>inspect(inspectBoard!,inspection!.page-1))}>이전 글</button><span>{inspection.page}</span><button disabled={busy||inspection.page*20>=inspection.total} onclick={()=>run(()=>inspect(inspectBoard!,inspection!.page+1))}>다음 글</button></section>{/if}
 			{#if editBoard}<form
 					class="edit-board"
 					onsubmit={(e) => {
@@ -273,8 +272,8 @@
 					}}
 				>
 					<label>이름<input bind:value={editBoard.name} required maxlength="80" /></label><label
-						>상위 게시판<select bind:value={editBoard.parent_id}
-							><option value={null}>최상위</option
+						>소속 게시판<select bind:value={editBoard.parent_id}
+							><option value={null}>독립 게시판</option
 							>{#each data.boards.filter((b) => b.id !== editBoard?.id) as b}<option value={b.id}
 									>{b.name}</option
 								>{/each}</select
@@ -309,6 +308,11 @@
 </div>
 
 <style>
+	button, select, input { border: 1px solid #8885; border-radius: 8px; min-height: 38px; padding: 7px 11px; background: var(--surface,#fff); color: inherit; }
+	button { cursor: pointer; }
+	button:hover:not(:disabled) { border-color: #8b5cf6; background: #8b5cf615; }
+	button:disabled { opacity: .5; }
+
 	nav,
 	form {
 		display: flex;

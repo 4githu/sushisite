@@ -155,6 +155,9 @@ def test_restricted_board_requires_explicit_read_and_protects_thumbnails(monkeyp
     monkeypatch.setenv('COMMUNITY_ADMINS',str(original))
     bid=client.post(BASE+'/boards',json={'name':'권한 검증방'}).json()['id']
     assert client.put(BASE+f'/admin/boards/{bid}/restriction',json={'restricted':True}).status_code==200
+    # Administrator status does not bypass normal restricted-board access.
+    assert client.get(BASE+f'/boards/{bid}/posts').status_code==403
+    assert client.put(BASE+'/boards/permissions',json={'user_id':original,'scope':f'board:{bid}','action':'read','allowed':True}).status_code==200
     image=client.post(BASE+'/resources',params={'name':'test.png','board_id':bid},content=b'png-test',headers={'content-type':'image/png'}).json()
     pid=client.post(BASE+f'/boards/{bid}/posts',json={'title':'사진','document':{'richContent':{'type':'doc','content':[{'type':'image','attrs':{'src':image['url']}}]}}}).json()['id']
     assert client.get(BASE+f'/boards/{bid}/posts').json()['posts'][0]['thumbnail']==image['url']

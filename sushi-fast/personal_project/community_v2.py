@@ -50,7 +50,7 @@ def init():
             db.execute('ALTER TABLE community_boards ADD COLUMN restricted INTEGER NOT NULL DEFAULT 0')
             db.execute("UPDATE community_boards SET restricted=1 WHERE name='자료 공유'")
         db.executescript('CREATE TABLE IF NOT EXISTS community_admins(user_id INTEGER PRIMARY KEY); CREATE TABLE IF NOT EXISTS community_audit(id INTEGER PRIMARY KEY,actor INTEGER,action TEXT,target TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);')
-        for name,kind in [('parent_id','INTEGER'),('sort_order','INTEGER NOT NULL DEFAULT 0'),('system_key','TEXT')]:
+        for name,kind in [('parent_id','INTEGER'),('sort_order','INTEGER NOT NULL DEFAULT 0'),('system_key','TEXT'),('archived','INTEGER NOT NULL DEFAULT 0')]:
             if name not in cols:db.execute(f'ALTER TABLE community_boards ADD COLUMN {name} {kind}')
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS community_board_system_key ON community_boards(system_key) WHERE system_key IS NOT NULL")
         db.execute("CREATE TABLE IF NOT EXISTS netaq_members(user_id INTEGER PRIMARY KEY,joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,source TEXT NOT NULL DEFAULT 'visit')")
@@ -73,12 +73,12 @@ def admin(uid):
     if str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(','):return True
     with connection() as db:return bool(db.execute('SELECT 1 FROM community_admins WHERE user_id=?',(uid,)).fetchone())
 def permission(db,uid,board,action):
+    if board['archived']:return False
     if board['parent_id']:
         parent=db.execute('SELECT * FROM community_boards WHERE id=?',(board['parent_id'],)).fetchone()
         if not parent or not permission(db,uid,parent,'read'):return False
     flags=[r[0] for r in db.execute('SELECT allowed FROM community_acl WHERE user_id=? AND action=? AND scope IN (?,?)',(uid,action,board['realm'],f"board:{board['id']}"))]
     if 0 in flags:return False
-    if str(uid) in os.getenv('COMMUNITY_ADMINS',os.getenv('STUDENT_CURRICULUM_EDITORS','')).split(',') or db.execute('SELECT 1 FROM community_admins WHERE user_id=?',(uid,)).fetchone():return True
     if board['restricted'] and not db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope=? AND action='read' AND allowed=1",(uid,f"board:{board['id']}")).fetchone():return False
     if board['school']:
         p=db.execute('SELECT school,department,is_student FROM student_profiles WHERE user_id=?',(uid,)).fetchone()
@@ -86,7 +86,7 @@ def permission(db,uid,board,action):
     flags=[r[0] for r in db.execute('SELECT allowed FROM community_acl WHERE user_id=? AND action=? AND scope IN (?,?)',(uid,action,board['realm'],f"board:{board['id']}"))]
     if 0 in flags:return False
     if flags:return True
-    return action in ('read','post','comment') or (action=='manage' and board['creator_id']==uid)
+    return action in ('read','post','comment') or (action=='manage' and (board['creator_id']==uid or (board['parent_id'] and permission(db,uid,parent,'manage'))))
 def board_access(db,uid,bid,action='read'):
     b=db.execute('SELECT * FROM community_boards WHERE id=?',(bid,)).fetchone()
     if not b or not permission(db,uid,b,'read') or not permission(db,uid,b,action):raise HTTPException(403,'이 게시판의 접근 권한이 없습니다.')
@@ -157,11 +157,51 @@ def boards(uid:int=Depends(current_user_id)):
         return {'boards':result,'canAdmin':admin(uid),'canCreate':admin(uid) or bool(db.execute("SELECT 1 FROM community_acl WHERE user_id=? AND scope='other' AND action='create' AND allowed=1",(uid,)).fetchone())}
 @router.post('/boards')
 def create_board(data:BoardCreate,uid:int=Depends(current_user_id)):
-    if not boards(uid)['canCreate']:raise HTTPException(403,'게시판 생성 권한이 필요합니다.')
+    if not data.parent_id and not boards(uid)['canCreate']:raise HTTPException(403,'게시판 생성 권한이 필요합니다.')
     with connection() as db:
-        if data.parent_id:board_access(db,uid,data.parent_id,'manage')
+        if data.parent_id:
+            parent=board_access(db,uid,data.parent_id,'manage')
+            if parent['parent_id'] and not parent['school']:raise HTTPException(400,'채널 안에 채널을 추가할 수 없습니다.')
         bid=db.execute('INSERT INTO community_boards(name,creator_id,parent_id,sort_order) VALUES(?,?,?,?)',(data.name.strip(),uid,data.parent_id,data.sort_order)).lastrowid;db.commit()
     return {'id':bid}
+class BoardSettings(BaseModel):
+    name:str=Field(min_length=1,max_length=80)
+    archived:bool=False
+
+@router.put('/boards/{bid}/settings')
+def board_settings(bid:int,data:BoardSettings,uid:int=Depends(current_user_id)):
+    with connection() as db:
+        board=board_access(db,uid,bid,'manage')
+        if not data.name.strip():raise HTTPException(400,'이름을 입력해주세요.')
+        db.execute('UPDATE community_boards SET name=?,archived=? WHERE id=?',(data.name.strip(),int(data.archived),bid))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.settings',str(bid)));db.commit()
+    return {'saved':True}
+
+@router.put('/boards/{bid}/managers/{member_id}')
+def board_manager(bid:int,member_id:int,data:dict,uid:int=Depends(current_user_id)):
+    enabled=data.get('enabled')
+    if not isinstance(enabled,bool):raise HTTPException(400,'권한을 선택해주세요.')
+    with connection() as db:
+        board_access(db,uid,bid,'manage')
+        if member_id==uid:raise HTTPException(400,'자신의 관리 권한은 여기서 변경할 수 없습니다.')
+        if not db.execute('SELECT 1 FROM netaq_members WHERE user_id=?',(member_id,)).fetchone():raise HTTPException(404,'NETAQ 회원 없음')
+        # Managing a board does not grant access implicitly. Grant read explicitly.
+        if enabled:db.execute("INSERT OR REPLACE INTO community_acl VALUES(?,?,'read',1)",(member_id,f'board:{bid}'))
+        db.execute("INSERT OR REPLACE INTO community_acl VALUES(?,?,'manage',?)",(member_id,f'board:{bid}',int(enabled)))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.manager',f'{bid}:{member_id}:{enabled}'));db.commit()
+    return {'saved':True}
+
+class BoardArchive(BaseModel):
+    archived:bool
+
+@router.put('/admin/boards/{bid}/archive')
+def admin_archive(bid:int,data:BoardArchive,uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    with connection() as db:
+        db.execute('UPDATE community_boards SET archived=? WHERE id=?',(int(data.archived),bid))
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.archive',f'{bid}:{data.archived}'));db.commit()
+    return {'saved':True}
+
 @router.get('/boards/permissions')
 def permissions(uid:int=Depends(current_user_id)):
     if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
@@ -425,3 +465,36 @@ def member_role(member_id:int,data:AdminRole,uid:int=Depends(current_user_id)):
         else:db.execute('DELETE FROM community_admins WHERE user_id=?',(member_id,))
         db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'member.admin',f'{member_id}:{data.enabled}'));db.commit()
     return {'saved':True}
+
+
+@router.get('/boards/{bid}/management')
+def board_management(bid:int,uid:int=Depends(current_user_id)):
+    from auth.userdb import get_connection
+    with connection() as db:
+        board=board_access(db,uid,bid,'manage')
+        ids=[r[0] for r in db.execute('SELECT user_id FROM netaq_members') if permission(db,r[0],board,'read')]
+        managers={member for member in ids if permission(db,member,board,'manage')}
+        archived=[dict(r) for r in db.execute('SELECT id,name FROM community_boards WHERE parent_id=? AND archived=1',(bid,))]
+    with get_connection() as users:
+        members=[{'id':r['id'],'name':r['name'],'manager':r['id'] in managers,'locked':r['id']==uid or r['id']==board['creator_id']} for r in users.execute('SELECT id,name FROM users') if r['id'] in ids]
+    return {'members':members,'archived':archived}
+
+@router.post('/boards/{bid}/channels/{channel_id}/restore')
+def restore_channel(bid:int,channel_id:int,uid:int=Depends(current_user_id)):
+    with connection() as db:
+        board_access(db,uid,bid,'manage')
+        if not db.execute('UPDATE community_boards SET archived=0 WHERE id=? AND parent_id=?',(channel_id,bid)).rowcount:raise HTTPException(404,'채널을 찾을 수 없습니다.')
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'channel.restore',str(channel_id)));db.commit()
+    return {'saved':True}
+
+@router.get('/admin/boards/{bid}/posts')
+def admin_posts(bid:int,page:int=Query(1,ge=1),uid:int=Depends(current_user_id)):
+    if not admin(uid):raise HTTPException(403,'관리자 권한이 필요합니다.')
+    with connection() as db:
+        if not db.execute('SELECT 1 FROM community_boards WHERE id=?',(bid,)).fetchone():raise HTTPException(404,'게시판 없음')
+        total=db.execute('SELECT COUNT(*) FROM community_posts WHERE board_id=?',(bid,)).fetchone()[0]
+        rows=author_names(db.execute('SELECT id,title,plain,author_id,created_at,deleted FROM community_posts WHERE board_id=? ORDER BY id DESC LIMIT 20 OFFSET ?',(bid,(page-1)*20)).fetchall())
+        for row in rows:
+            row['comments']=author_names(db.execute('SELECT author_id,content,created_at,deleted FROM community_comments WHERE post_id=? ORDER BY id',(row['id'],)).fetchall())
+        db.execute('INSERT INTO community_audit(actor,action,target) VALUES(?,?,?)',(uid,'board.inspect',str(bid)));db.commit()
+    return {'posts':rows,'total':total,'page':page}

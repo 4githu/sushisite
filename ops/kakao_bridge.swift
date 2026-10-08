@@ -4,7 +4,9 @@ import ApplicationServices
 import Foundation
 struct Failure: Error { let message: String }
 func fail(_ message: String) throws -> Never { throw Failure(message: message) }
-func attr(_ e: AXUIElement, _ name: String) -> CFTypeRef? { var out: CFTypeRef?; return AXUIElementCopyAttributeValue(e,name as CFString,&out) == .success ? out : nil }
+var readCacheEnabled=false
+var readCache:[String:CFTypeRef]=[:]
+func attr(_ e: AXUIElement, _ name: String) -> CFTypeRef? { let key="\(CFHash(e)):\(name)";if readCacheEnabled,let cached=readCache[key]{return cached};var out: CFTypeRef?;let result=AXUIElementCopyAttributeValue(e,name as CFString,&out) == .success ? out : nil;if readCacheEnabled,let result=result{readCache[key]=result};return result }
 func str(_ e: AXUIElement,_ name:String)->String { attr(e,name) as? String ?? "" }
 func kids(_ e:AXUIElement)->[AXUIElement] { attr(e,kAXChildrenAttribute) as? [AXUIElement] ?? [] }
 func walk(_ e:AXUIElement,_ depth:Int=0)->[AXUIElement] { if depth>12{return []};return [e]+kids(e).prefix(800).flatMap{walk($0,depth+1)} }
@@ -45,10 +47,10 @@ func run() throws -> [String:Any] {
  guard let app=running else {try fail("Mac 카카오톡을 실행하고 로그인해주세요.")}
  let root=AXUIElementCreateApplication(app.processIdentifier);AXUIElementSetMessagingTimeout(root,2)
  let room=req["room"] as? String ?? "";guard !room.isEmpty else {try fail("정확한 채팅방 이름이 필요합니다.")}
- func roomWindow() throws -> AXUIElement {let ws=kids(root).filter{role($0,"AXWindow")&&str($0,kAXTitleAttribute)==room&&composer($0) != nil};guard ws.count==1 else {try fail("정확히 일치하는 채팅방 창 하나가 필요합니다. 중복된 이름의 방은 자동 선택하지 않습니다.")};return ws[0]}
+ func roomWindow() throws -> AXUIElement {let ws=(attr(root,kAXWindowsAttribute) as? [AXUIElement] ?? kids(root)).filter{role($0,"AXWindow")&&str($0,kAXTitleAttribute)==room&&composer($0) != nil};guard ws.count==1 else {try fail("정확히 일치하는 채팅방 창 하나가 필요합니다. 중복된 이름의 방은 자동 선택하지 않습니다.")};return ws[0]}
  if command=="search" {
   if let existing=try? roomWindow() {app.activate();AXUIElementPerformAction(existing,kAXRaiseAction as CFString);return ["opened":true,"room":room]}
-  app.activate();guard let main=kids(root).first(where:{str($0,"AXIdentifier")=="Main Window"}) else{try fail("카카오톡 메인 창을 열어주세요.")}
+  app.activate();usleep(300000);guard let main=kids(root).first(where:{str($0,"AXIdentifier")=="Main Window"}) else{try fail("카카오톡 메인 창을 열어주세요.")}
   AXUIElementPerformAction(main,kAXRaiseAction as CFString)
   if find(main,{role($0,"AXTextField")},true)==nil,let search=find(main,{role($0,"AXButton")&&matches($0,"검색")},true){try press(search);usleep(200000)}
   guard let field=find(main,{role($0,"AXTextField")&&(label($0).contains("검색")||str($0,kAXSubroleAttribute)=="AXSearchField")},true) else {try fail("채팅 목록 검색창을 먼저 열어주세요.")}
@@ -57,8 +59,11 @@ func run() throws -> [String:Any] {
   guard candidates.count==1 else {try fail("일치하는 검색 결과가 \(candidates.count)개입니다. 정확한 방을 직접 열어주세요.")}
   try click(candidates[0],true);usleep(500000);_=try roomWindow();return ["opened":true,"room":room]
  }
- let window=try roomWindow()
+ var candidate=try? roomWindow()
+ if candidate==nil {app.activate();usleep(300000);candidate=try? roomWindow()}
+ guard let window=candidate else {try fail("지정된 채팅방 창을 확인하지 못했습니다. Mac 잠금과 카카오톡 로그인 상태를 확인해주세요.")}
  func rows()->[[String:Any]] {
+  readCache.removeAll();readCacheEnabled=true;defer{readCacheEnabled=false;readCache.removeAll()}
   guard let table=find(window,{role($0,"AXTable")}) else{return []}
   return kids(table).filter{role($0,"AXRow")}.enumerated().map{index,row in
    let ns=walk(row),texts=ns.filter{role($0,"AXTextArea")}.map{str($0,kAXValueAttribute)}
@@ -83,7 +88,8 @@ func run() throws -> [String:Any] {
   // is enough to return a scrolled chat to its live edge without focusing the
   // composer or synthesizing keyboard input.
   if let last=kids(table).last { _=AXUIElementPerformAction(last,"AXScrollToVisible" as CFString) }
-  for bar in walk(window).filter({role($0,"AXScrollBar") && str($0,kAXOrientationAttribute)==kAXVerticalOrientationValue}) {
+  func controls(_ e:AXUIElement,_ depth:Int=0)->[AXUIElement]{if depth>12 || role(e,"AXTable"){return []};return [e]+kids(e).flatMap{controls($0,depth+1)}}
+  for bar in controls(window).filter({role($0,"AXScrollBar") && str($0,kAXOrientationAttribute)==kAXVerticalOrientationValue}) {
    _=AXUIElementSetAttributeValue(bar,kAXValueAttribute as CFString,NSNumber(value:1.0))
   }
   usleep(250000)

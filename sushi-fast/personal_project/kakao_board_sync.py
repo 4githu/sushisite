@@ -142,7 +142,7 @@ def export_posts(route):
                     if resource and resource['mime'] in native_kakao.ALLOWED_IMAGE_TYPES:images.append(rid)
                 body=plain(doc)
                 link=f'https://netaq.chobab.app/personal-project/calendar/boards?board={bid}&post={p["id"]}'
-                payload={'room':route['room'],'text':f'{PREFIX}\n{p["title"]}\n\n{body}\n\n{link}','resources':images,'route_id':route['id'],'post_id':p['id'],'revision':p['revision']}
+                payload={'room':route['room'],'text':f'{p["title"]}\n\n{body}\n\n{link}','resources':images,'route_id':route['id'],'post_id':p['id'],'revision':p['revision']}
                 if len(payload['text'])>10000 or len(images)>10:raise ValueError(f'글 #{p["id"]}: 카톡 전송 한도(본문 1만자/사진 10장)를 초과했습니다. 글을 나눠주세요.')
                 enqueue(db,uid,f'relay:{route["id"]}:post:{p["id"]}',payload)
             db.execute('UPDATE kakao_board_routes SET last_post_id=? WHERE id=?',(p['id'],route['id']))
@@ -191,7 +191,7 @@ def publish_packet(route,fp,packet,ids):
         db.execute("UPDATE kakao_board_messages SET state='published',post_id=?,error=NULL WHERE route_id=? AND fingerprint=?",(pid,route['id'],fp))
         if route['ack']:
             link=f'https://netaq.chobab.app/personal-project/calendar/boards?board={route["board_id"]}&post={pid}'
-            enqueue(db,route['user_id'],f'relay:{route["id"]}:ack:{fp}',{'room':route['room'],'text':f'{PREFIX} 등록 완료\n{packet["title"]}\n{link}','resources':[],'route_id':route['id'],'post_id':pid})
+            enqueue(db,route['user_id'],f'relay:{route["id"]}:ack:{fp}',{'room':route['room'],'text':f'등록 완료\n{packet["title"]}\n{link}','resources':[],'route_id':route['id'],'post_id':pid})
         db.commit()
 
 def observe(route,rows,now=None):

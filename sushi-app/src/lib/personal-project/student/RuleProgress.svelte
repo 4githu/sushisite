@@ -10,13 +10,16 @@
 		equiv = $state<{ canon?: Record<string, string> }>({}),
 		areas = $state<{ codes?: Record<string, string>; exceptions?: Record<string, string> }>({}),
 		general = $state<any>(null);
+	let loadVersion=0;
 	async function load() {
+		const version=++loadVersion;
 		try {
 			const data = await request<{
 				courses: Course[];
 				equivalencies: { canon?: Record<string, string> };
 				areas: { codes?: Record<string, string>; exceptions?: Record<string, string> };
 			}>('/student/completed-details');
+			if(version!==loadVersion)return;
 			courses = data.courses;
 			equiv = data.equivalencies;
 			areas = data.areas;
@@ -46,13 +49,18 @@
 	$effect(() => {
 		const key = rule.general_key;
 		general = null;
+		let active=true;
 		if (track.general && typeof key === 'string')
 			void request(`/student/general/${key}`)
-				.then((v) => (general = v))
-				.catch((e) => (error = String(e)));
+				.then((v) => {if(active)general = v;})
+				.catch((e) => {if(active)error = String(e);});
+		return()=>{active=false;};
 	});
 	function area(c: Course) {
-		return areas.exceptions?.[c.sbjt_cd] || areas.codes?.[c.sbjt_cd.split('.')[0]] || '';
+		const chosen=c.personalTags?.filter(t=>t.kind==='general').map(t=>t.area)||[];
+        const aliases:Record<string,string[]>={'수학':['math','mathematics'],'과학':['science'],'외국어':['foreign_language','language'],'글쓰기':['writing'],'베리타스':['veritas'],'지성의 열쇠':['keys','keys_to_intellectual_life']};
+        const available=(general?.buckets || []).flatMap((b:any)=>b.areas||[]);
+        return [...chosen.map(name=>available.find((a:string)=>a===name||aliases[name]?.includes(a))||name), areas.exceptions?.[c.sbjt_cd] || areas.codes?.[c.sbjt_cd.split('.')[0]] || ''];
 	}
 	const all = $derived(collect(track.required?.all || []));
 	const pool = $derived(collect(track.required?.pool || []));
@@ -67,7 +75,9 @@
 	const counted = $derived(
 		courses.filter(
 			(c) =>
+				c.personalTags?.some(t=>t.kind==='major_required' && t.major===rule.major) ||
 				matches(c, rule.major_required_match) ||
+				c.personalTags?.some(t=>t.kind==='major_select' && t.major===rule.major) ||
 				matches(c, rule.major_select_match) ||
 				collect(track.required).some((r) => canonical(r.code) === canonical(c.sbjt_cd))
 		)
@@ -77,7 +87,8 @@
 		courses
 			.filter(
 				(c) =>
-					matches(c, rule.major_required_match) ||
+					c.personalTags?.some(t=>t.kind==='major_required' && t.major===rule.major) ||
+				matches(c, rule.major_required_match) ||
 					all.some((r) => canonical(r.code) === canonical(c.sbjt_cd))
 			)
 			.reduce((sum, c) => sum + c.credits, 0)
@@ -121,7 +132,7 @@
 					.required?.min_credits || 0}학점
 			</p>{/if}{#if general}<h3>교양 · {general.total_min}학점</h3>
 			{#each general.buckets || [] as bucket}{@const done = courses.filter((c) =>
-					bucket.areas?.includes(area(c))
+					area(c).some(a=>bucket.areas?.includes(a))
 				)}{@const credits = done.reduce((sum, c) => sum + c.credits, 0)}<label
 					>{bucket.name}<strong>{credits} / {bucket.min}학점</strong><progress
 						max={bucket.min || 1}

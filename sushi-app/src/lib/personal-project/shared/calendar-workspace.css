@@ -276,8 +276,8 @@
 }
 .cw-week {
 	display: grid;
-	grid-template-columns: 54px repeat(7, minmax(110px, 1fr));
-	min-width: 830px;
+	grid-template-columns: 44px repeat(7, minmax(0, 1fr));
+	min-width: 0;
 }
 .cw-week-heading,
 .cw-corner {

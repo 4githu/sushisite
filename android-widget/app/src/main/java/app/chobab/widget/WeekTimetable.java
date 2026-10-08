@@ -57,7 +57,7 @@ final class WeekTimetable {
     for(Entry e:entries){if(e.lane!=lane)continue;
      int top=TimelineLayout.pixelAt(e.start,from,to,gridPx),bottom=TimelineLayout.pixelAt(e.end,from,to,gridPx);
      if(top>cursor)laneView.addView(R.id.lane,block(c,top-cursor,"",0));
-     RemoteViews event=block(c,Math.max(1,bottom-top),e.event.getString("title")+String.format(Locale.KOREA,"\n%02d:%02d",(e.start/60)%24,e.start%60),0xffDBE8F4);
+     RemoteViews event=block(c,Math.max(1,bottom-top),e.event.getString("title")+String.format(Locale.KOREA,"\n%02d:%02d",(e.start/60)%24,e.start%60)+CalendarWidget.place(e.event),0xffDBE8F4);
      event.setContentDescription(R.id.block,e.event.getString("title")+" "+String.format(Locale.KOREA,"%02d:%02d",(e.start/60)%24,e.start%60));
      event.setOnClickPendingIntent(R.id.block,CalendarWidget.open(c,dayUrl+"&event="+e.event.getInt("id"),e.event.getInt("id")));
      laneView.addView(R.id.lane,event);cursor=bottom;

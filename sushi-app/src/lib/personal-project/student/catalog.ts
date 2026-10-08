@@ -1,5 +1,6 @@
 export type Slot = { day_index: number | null; start_time: string | null; end_time: string | null };
 export type Course = {
+	personalTags?: {kind:'major_select'|'major_required'|'general';major:string;area:string}[];
 	id: number;
 	name: string;
 	professor: string;

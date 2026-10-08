@@ -24,6 +24,8 @@
 		return editor.getJSON();
 	}
 
+	export function setJSON(value: unknown) { editor.setJSON(value); }
+
 	export function focus() {
 		editor.focus();
 	}

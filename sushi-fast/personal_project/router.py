@@ -555,3 +555,28 @@ def save_round_template(
     return repository.save_round_template(
         user_id, school_id, round_number, data
     )
+
+
+@router.post('/aura/targets/{target_id}/kakao-clinic/jobs',status_code=201)
+def create_clinic_kakao_job(target_id:int,request:Request,user_id:int=Depends(native_kakao_user_id)):
+    require_native_kakao_origin(request)
+    report=repository.get_or_create_target_report(user_id,target_id)
+    try:return native_kakao.create_clinic_job(user_id,target_id,report)
+    except native_kakao.NativeKakaoError as error:raise_native_kakao(error)
+
+@router.post('/aura/targets/{target_id}/kakao-clinic/jobs/{job_id}/send')
+def send_clinic_kakao_job(target_id:int,job_id:str,request:Request,user_id:int=Depends(native_kakao_user_id)):
+    require_native_kakao_origin(request)
+    repository.get_or_create_target_report(user_id,target_id)
+    try:return native_kakao.send_clinic_job(job_id,user_id,target_id)
+    except native_kakao.NativeKakaoError as error:raise_native_kakao(error)
+
+@router.get('/aura/targets/{target_id}/template')
+def target_template(target_id:int,user_id:int=Depends(current_user_id)):
+    with repository.connection() as db:
+        target=repository._target_owner(db,target_id,user_id)
+        _,templates,document=repository._combined_round_template(db,user_id,target)
+        if len(templates)==1 and templates[0]:
+            import json
+            document=json.loads(templates[0]['content_json'])
+        return {'document':document}

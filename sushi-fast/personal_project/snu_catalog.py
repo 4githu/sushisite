@@ -5,19 +5,27 @@ import html
 import re
 from functools import lru_cache
 from pathlib import Path
+from datetime import date
 from fastapi import HTTPException
 
 ROOT = Path(__file__).parent / 'data/snu'
 
 @lru_cache(maxsize=1)
 def metadata():
-    return json.loads((ROOT / 'index.json').read_text())
+    data=json.loads((ROOT / 'index.json').read_text())
+    known={t['id'] for t in data['terms']}
+    for year in range(2000,min(2100,date.today().year+12)+1):
+        for code,label in [('U000200001U000300001','1학기'),('U000200001U000300002','여름 계절'),('U000200002U000300001','2학기'),('U000200002U000300002','겨울 계절')]:
+            key=f'{year}_{code}'
+            if key not in known:data['terms'].append({'id':key,'year':str(year),'term':code,'label':f'{year} {label}','count':0})
+    return data
 
 @lru_cache(maxsize=6)
 def courses(term):
     entry = next((t for t in metadata()['terms'] if t['id'] == term), None)
     if not entry:
         raise HTTPException(404, '해당 학기의 강의 데이터가 없습니다.')
+    if not entry.get('file'):return []
     return json.loads(gzip.decompress((ROOT / entry['file']).read_bytes()))
 
 def search(term, query='', department='', classification='', day=None, offset=0, limit=40):

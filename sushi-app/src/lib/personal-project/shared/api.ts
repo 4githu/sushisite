@@ -282,8 +282,8 @@ export const personalApi = {
 		);
 	},
 	createNativeKakaoJob(targetId: number) {
-		return request<{ jobId: string; maxPages: number; maxPageBytes: number }>(
-			`/aura/targets/${targetId}/kakao-self/jobs`,
+		return request<{ jobId: string; maxPages: number; maxPageBytes: number; destination: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs`,
 			{ method: 'POST' }
 		);
 	},
@@ -314,8 +314,8 @@ export const personalApi = {
 		return response.json() as Promise<{ stored: true; page: number; byteSize: number }>;
 	},
 	sendNativeKakaoJob(targetId: number, jobId: string) {
-		return request<{ sent: true; sentCount: number; destination: '나와의 채팅'; evidence: string }>(
-			`/aura/targets/${targetId}/kakao-self/jobs/${jobId}/send`,
+		return request<{ sent: true; sentCount: number; destination: string; evidence?: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs/${jobId}/send`,
 			{ method: 'POST' }
 		);
 	},

@@ -186,6 +186,11 @@
 				{
 					types: ['paragraph', 'heading', 'codeBlock', 'details', 'table'],
 					attributes: {
+						textAlign: {
+							default: 'left',
+							parseHTML: (el) => ['left', 'center', 'right'].includes(el.style.textAlign) ? el.style.textAlign : 'left',
+							renderHTML: (attrs) => ({ style: `text-align:${['left', 'center', 'right'].includes(attrs.textAlign) ? attrs.textAlign : 'left'}` })
+						},
 						indent: {
 							default: 0,
 							parseHTML: (el) => Math.min(8, Math.max(0, Number(el.dataset.indent) || 0)),
@@ -205,6 +210,20 @@
 			];
 		}
 	});
+	function alignText(textAlign: string) {
+		if (!editor) return;
+		editor.chain().focus().command(({ tr, state }) => {
+			state.doc.nodesBetween(state.selection.from, state.selection.to, (node, pos) => {
+				if (['paragraph', 'heading', 'codeBlock'].includes(node.type.name)) tr.setNodeMarkup(pos, undefined, { ...node.attrs, textAlign });
+			});
+			return true;
+		}).run();
+	}
+	function recentHighlight() {
+		try { const colors = JSON.parse(localStorage.getItem('textediter-recent-highlight') || '[]');
+			return Array.isArray(colors) && /^#[0-9a-f]{6}$/i.test(colors[0]) ? colors[0] : '#fef08a';
+		} catch { return '#fef08a'; }
+	}
 	function indentBlock(out = false) {
 		if (!editor) return false;
 		if (editor.isActive('table'))
@@ -305,6 +324,9 @@
 			props: {
 				decorations(state) {
 					const dec: Decoration[] = [];
+					if (!state.selection.empty) state.doc.nodesBetween(state.selection.from, state.selection.to, (node, pos) => {
+						if (node.type.name === 'image') dec.push(Decoration.node(pos, pos + node.nodeSize, { class: 'selected-media' }));
+					});
 					if (allowFolding) {
 						const headings: { level: number; closed: boolean }[] = [];
 						state.doc.forEach((node, pos) => {
@@ -424,7 +446,7 @@
 											string,
 											string
 										>
-									)[event.code] || '#fff3bf'
+									)[event.code] || recentHighlight()
 							})
 							.run();
 						return true;
@@ -578,21 +600,8 @@
 </script>
 
 <div class="personal-editor" class:compact>
-	{#if !readonly}<div class="json-tools">
-			<button type="button" onclick={exportJSON}>JSON 내보내기</button><button
-				type="button"
-				onclick={() => (jsonOpen = !jsonOpen)}>JSON 가져오기</button
-			><input
-				hidden
-				type="file"
-				accept=".json,application/json"
-				bind:this={jsonInput}
-				onchange={(e) => {
-					void importJSON(e.currentTarget.files?.[0]);
-					e.currentTarget.value = '';
-				}}
-			/>
-		</div>{/if}
+	<input hidden type="file" accept=".json,application/json" bind:this={jsonInput}
+		onchange={(e) => { void importJSON(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }} />
 	{#if jsonOpen && !readonly}<div role="group" aria-label="JSON 가져오기">
 			<button type="button" onclick={() => jsonInput?.click()}>JSON 파일 선택</button><label
 				>또는 JSON 붙여넣기<textarea
@@ -630,6 +639,9 @@
 	{#if !readonly}<EditorToolbar
 			{editor}
 			{inTable}
+			{alignText}
+			exportJSON={exportJSON}
+			importJSON={() => (jsonOpen = !jsonOpen)}
 			{imageSelected}
 			imageWidth={imageAttrs.widthPct || 100}
 			isDrawing={Array.isArray(imageAttrs.drawing)}
@@ -672,6 +684,7 @@
 	/>{/if}
 
 <style>
+	:global(.selected-media) { outline: 3px solid #8b5cf6; opacity: .75; }
 	.personal-editor :global(img.ProseMirror-selectednode) {
 		outline: 2px solid #6686a1;
 		outline-offset: 3px;

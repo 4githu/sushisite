@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import CourseTags from './CourseTags.svelte';
 	import { request } from '../shared/api';
 	import type { Course } from './catalog';
 	import type { CourseProgress } from './progress';
@@ -55,7 +56,7 @@
 							onclick={() => exclude(c.sbjt_cd, !data?.excluded.includes(c.sbjt_cd))}
 							>{data?.excluded.includes(c.sbjt_cd) ? '계산에 다시 포함' : '미이수로 제외'}</button
 						>{/if}
-				</div>{/each}
+				</div><CourseTags code={c.sbjt_cd} initial={c.personalTags} onchange={async()=>{await load();onchange(await request('/student/course-progress'));}} />{/each}
 		</details>{:else}<p>
 			아직 저장한 내 시간표가 없습니다. 학기별 시간표를 만들면 이수 현황에 자동으로 연결됩니다.
 		</p>{/each}
