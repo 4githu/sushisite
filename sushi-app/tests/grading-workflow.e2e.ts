@@ -1,7 +1,12 @@
 import {test,expect} from '@playwright/test';
 import fs from 'node:fs';
-const api=(process.env.STUDENT_TEST_API_URL||'http://127.0.0.1:8015')+'/api/personal/aura/grading';
+const apiOrigin=process.env.STUDENT_TEST_API_URL||'';
+test.skip(!apiOrigin,'Requires the isolated student_test_server.py fixture.');
+const api=apiOrigin+'/api/personal/aura/grading';
 test('답지 문항을 학생 PDF에 적용하고 검수 결과를 내보낸다',async({page,request})=>{
+ await page.route('**/api/personal/**',async r=>{const u=new URL(r.request().url());return r.fulfill({response:await r.fetch({url:apiOrigin+u.pathname+u.search})});});
+ await page.route('**/auth/isjwt?key=mainauth',r=>r.fulfill({json:{sub:'7890',data:{id:'7890',name:'검수 계정',email:'review@example.com'},exp:9999999999}}));
+
  page.on('pageerror',e=>console.log('PAGEERROR',e.message));
  const round=await (await request.post(api,{data:{name:'채점 UI 검증 '+Date.now()}})).json();
  for(const name of ['answer.pdf','student.pdf'])expect((await request.post(`${api}/rounds/${round.id}/files`,{multipart:{file:{name,mimeType:'application/pdf',buffer:fs.readFileSync(new URL('./fixtures/grading.pdf',import.meta.url))}}})).ok()).toBeTruthy();
