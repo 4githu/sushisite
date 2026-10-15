@@ -1,6 +1,5 @@
 <!-- src/lib/odi/components/login/LoginModal.svelte -->
 <script lang="ts">
-    import GoogleLogin from '$lib/personal-project/shared/GoogleLogin.svelte';
 	import { goto } from "$app/navigation";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 	import AuthField from "$lib/odi/components/login/AuthField.svelte";
@@ -122,7 +121,6 @@
 		</div>
 
 		<div class="actions">
-            <GoogleLogin returnTo="/odi" />
 			<Button variant="primary" width="100%" disabled={!canLogin} onclick={login}>
 				로그인
 			</Button>
