@@ -608,11 +608,6 @@ def update_session(user_id: int, session_id: int, data):
                 f"UPDATE events SET {sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
                 (*event_values.values(), session["event_id"], user_id),
             )
-        if values.get("attendance_status") == "completed":
-            conn.execute(
-                "UPDATE events SET status = 'done', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (session["event_id"],),
-            )
         conn.commit()
     return get_session(user_id, session_id)
 
@@ -665,8 +660,7 @@ def update_report(user_id: int, report_id: int, data, submit: bool = False):
                 f"UPDATE aura_reports SET {sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (*values.values(), report_id),
             )
-            if not submit:
-                conn.commit()
+            conn.commit()
         return get_session(user_id, row["aura_session_id"])["report"]
 
 
@@ -1470,11 +1464,6 @@ def update_clinic_round(user_id: int, round_id: int, data):
                            SELECT id FROM aura_round_targets WHERE round_id = ?
                          )""",
                     (item["id"],),
-                )
-            if values.get("attendance_status") == "completed":
-                conn.execute(
-                    "UPDATE events SET status = 'done' WHERE id = ?",
-                    (item["event_id"],),
                 )
         _invalidate_settlement_snapshots(conn, user_id, *affected_starts)
         conn.commit()

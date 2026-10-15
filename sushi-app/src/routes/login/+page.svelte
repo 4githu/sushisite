@@ -1,5 +1,6 @@
 <!-- src/routes/login/+page.svelte -->
 <script lang="ts">
+ import GoogleAuthButton from '$lib/personal-project/shared/GoogleAuthButton.svelte';
 	import { goto } from "$app/navigation";
 
 	import "$lib/odi/styles/globals.css";
@@ -101,6 +102,7 @@
 				required
 			/>
 
+<GoogleAuthButton />
 			{#if errorMessage}
 				<p class="error-message text-caption-medium">{errorMessage}</p>
 			{/if}

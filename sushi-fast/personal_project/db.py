@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import sqlite3
 import os
+import sys
 
 from .academic import (
     STAGE_TERM_PERIOD,
@@ -14,6 +15,11 @@ from .academic import (
 
 
 DB_PATH = Path(os.getenv('PERSONAL_PROJECT_DB_PATH', str(Path(__file__).resolve().parent / "personal_project.db")))
+
+
+# Refuse production access even if another test imports this module before conftest.
+if "pytest" in sys.modules and (not os.getenv("PERSONAL_PROJECT_DB_PATH") or DB_PATH.resolve() == Path(__file__).with_name("personal_project.db").resolve()):
+    raise RuntimeError("Tests must use an explicit isolated PERSONAL_PROJECT_DB_PATH")
 
 
 SCHEMA = """

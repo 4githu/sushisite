@@ -1,4 +1,5 @@
 <script lang="ts">
+ import GoogleAuthButton from '$lib/personal-project/shared/GoogleAuthButton.svelte';
 	import { loginPersonal, type PersonalUser } from './auth';
 
 	let {
@@ -46,6 +47,7 @@
 			<div class="server-message">{serverMessage}</div>
 		{/if}
 
+<GoogleAuthButton />
 		<form onsubmit={submit}>
 			<label for="personal-email">이메일 / Email</label>
 			<input

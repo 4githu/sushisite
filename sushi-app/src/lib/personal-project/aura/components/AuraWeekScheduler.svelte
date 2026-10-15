@@ -19,7 +19,7 @@
 	let anchor = $state<{ day: number; slot: number } | null>(null);
 	let current = $state<{ day: number; slot: number } | null>(null);
 
-	const slots = Array.from({ length: 34 }, (_, index) => index);
+	const slots = Array.from({ length: 36 }, (_, index) => index);
 	const days = $derived(weekDays(weekCursor));
 	const invalidSessions = $derived(
 		sessions.filter((session) => {
@@ -91,8 +91,9 @@
 	}
 
 	function hasCompletedReport(session: ClinicRound) {
-		return session.targets.length > 0 && session.targets.every((target) =>
-			target.report?.status === 'ready' || target.report?.status === 'submitted'
+		return (
+			session.targets.length > 0 &&
+			session.targets.every((target) => target.report?.status === 'submitted')
 		);
 	}
 
@@ -126,7 +127,7 @@
 
 	function timeLabel(slot: number) {
 		const minutes = 8 * 60 + slot * 30;
-		return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+		return `${minutes >= 1440 ? '익일 ' : ''}${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 	}
 
 	onMount(() => {
@@ -149,7 +150,7 @@
 		<div>
 			<p class="eyebrow">Quick schedule</p>
 			<h2>주간 시간표</h2>
-			<span>빈 칸을 30분 단위로 드래그하면 클리닉 등록창이 열립니다.</span>
+			<span>빈 칸을 드래그해 등록하고, 일정을 눌러 수정하거나 리포트를 작성하세요.</span>
 		</div>
 		<div class="week-nav">
 			<button onclick={() => moveWeek(-1)} aria-label="이전 주">‹</button>
@@ -178,7 +179,10 @@
 			<div class="corner"></div>
 			{#each days as day}
 				<div class:today={day.toDateString() === new Date().toDateString()} class="day-head">
-					<button onclick={() => ondate(new Date(day))} aria-label={`${day.toLocaleDateString('ko-KR')} 강의실 배정 요청문 만들기`}>
+					<button
+						onclick={() => ondate(new Date(day))}
+						aria-label={`${day.toLocaleDateString('ko-KR')} 강의실 배정 요청문 만들기`}
+					>
 						<span>{new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(day)}</span>
 						<strong>{day.getDate()}</strong>
 					</button>
@@ -194,6 +198,7 @@
 					<button
 						class:busy={busy.length > 0}
 						class:reportDone={busy.length > 0 && hasCompletedReport(busy[0])}
+						class:reportPending={busy.length > 0 && !hasCompletedReport(busy[0])}
 						class:selected={selected(dayIndex, slot)}
 						class:majorBoundary={slot === 8 || slot === 20}
 						class="slot"
@@ -207,9 +212,17 @@
 							begin(dayIndex, slot);
 						}}
 						onmouseenter={() => extend(dayIndex, slot)}
+						onclick={(event) => {
+							if (event.detail === 0) {
+								if (busy.length) onedit(busy[0]);
+								else onselect(slotDate(dayIndex, slot), slotDate(dayIndex, slot + 1));
+							}
+						}}
 						aria-label={`${days[dayIndex].toLocaleDateString('ko-KR')} ${timeLabel(slot)}`}
 					>
-						{#if busy.length && slot % 2 === 0}<span>{busy[0].schoolName} {busy[0].roundLabel}</span
+						{#if busy.length && slot % 2 === 0}<span
+								>{busy[0].schoolName}
+								{busy[0].roundLabel} · {hasCompletedReport(busy[0]) ? '제출 완료' : '미제출'}</span
 							>{/if}
 					</button>
 				{/each}
@@ -295,7 +308,7 @@
 		position: sticky;
 		top: 0;
 		z-index: 3;
-		background: #f8f7f2;
+		background: #faf9f6;
 		border-bottom: 1px solid var(--pp-line);
 	}
 
@@ -317,7 +330,9 @@
 		cursor: pointer;
 	}
 
-	.day-head button:hover { background: #edf2ed; }
+	.day-head button:hover {
+		background: #f1f0ed;
+	}
 
 	.day-head span {
 		color: var(--pp-muted);
@@ -364,33 +379,37 @@
 	}
 
 	.slot:hover {
-		background: #edf2ed;
+		background: #f1f0ed;
 	}
 
 	.slot.selected {
-		background: #cddccf;
+		background: #dedbd4;
 	}
 
-	.slot.busy {
-		background: #f1dcd1;
+	.slot.busy.reportPending {
+		background: #f3c6b8;
+		box-shadow: inset 3px 0 0 #b74834;
 	}
 
 	.slot.busy.reportDone {
-		background: #d8ebdd;
+		background: #b7d9cf;
+		box-shadow: inset 3px 0 0 #176c5e;
 	}
 
 	.slot.busy span {
 		position: absolute;
 		inset: 2px 4px;
 		overflow: hidden;
-		color: #875b48;
+		color: #572516;
 		font-size: 8px;
 		font-weight: 700;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.slot.busy.reportDone span { color: #3d6b51; }
+	.slot.busy.reportDone span {
+		color: #0d4b41;
+	}
 
 	.time-label.majorBoundary,
 	.slot.majorBoundary {

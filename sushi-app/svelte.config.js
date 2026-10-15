@@ -1,5 +1,6 @@
 import { mdsvex } from 'mdsvex';
 import adapter from '@sveltejs/adapter-vercel';
+import nodeAdapter from '@sveltejs/adapter-node';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -8,7 +9,7 @@ const config = {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
 	kit: {
-		adapter: adapter(),
+		adapter: process.env.BUILD_TARGET === 'node' ? nodeAdapter({ out: process.env.BUILD_OUT || 'build-node', envPrefix: 'SUSHI_' }) : adapter(),
 		typescript: {
 			config: (config) => ({
 				...config,

@@ -33,11 +33,11 @@ export default defineConfig({
 				changeOrigin: false
 			},
 			'/api': {
-				target: 'http://localhost:8000',
+				target: process.env.PERSONAL_API_PROXY || 'http://localhost:8000',
 				changeOrigin: false
 			},
 			'/auth': {
-				target: 'http://localhost:8000',
+				target: process.env.PERSONAL_API_PROXY || 'http://localhost:8000',
 				changeOrigin: false
 			}
 		}

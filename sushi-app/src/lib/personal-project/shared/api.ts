@@ -64,6 +64,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 		);
 	}
 	if (response.status === 401) {
+		if (typeof window !== 'undefined') window.dispatchEvent(new Event('personal-auth-invalid'));
 		throw new PersonalApiError(
 			401,
 			'로그인이 만료되었습니다. 다시 로그인해주세요. / Your session expired. Please sign in again.',
@@ -281,8 +282,8 @@ export const personalApi = {
 		);
 	},
 	createNativeKakaoJob(targetId: number) {
-		return request<{ jobId: string; maxPages: number; maxPageBytes: number }>(
-			`/aura/targets/${targetId}/kakao-self/jobs`,
+		return request<{ jobId: string; maxPages: number; maxPageBytes: number; destination: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs`,
 			{ method: 'POST' }
 		);
 	},
@@ -313,8 +314,8 @@ export const personalApi = {
 		return response.json() as Promise<{ stored: true; page: number; byteSize: number }>;
 	},
 	sendNativeKakaoJob(targetId: number, jobId: string) {
-		return request<{ sent: true; sentCount: number; destination: '나와의 채팅'; evidence: string }>(
-			`/aura/targets/${targetId}/kakao-self/jobs/${jobId}/send`,
+		return request<{ sent: true; sentCount: number; destination: string; evidence?: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs/${jobId}/send`,
 			{ method: 'POST' }
 		);
 	},

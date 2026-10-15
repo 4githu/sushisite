@@ -128,3 +128,26 @@ def test_preflight_distinguishes_backend_accessibility_failure(monkeypatch):
         native_kakao.preflight()
     assert error.value.status_code == 503
     assert error.value.code == "backend_accessibility_missing"
+
+def test_clinic_fallback_stops_on_ambiguous_rooms(monkeypatch):
+    from personal_project import kakao_bridge
+    rooms=[]
+    def invoke(command,**args):
+        rooms.append(args['room']);return {'error':'일치하는 검색 결과가 2개입니다.'}
+    monkeypatch.setattr(kakao_bridge,'invoke',invoke)
+    with pytest.raises(native_kakao.NativeKakaoError):native_kakao.create_clinic_job(3,50,{'schoolName':'26서울','studentName':'학생'})
+    assert rooms==['26서울 학생 생명클리닉']
+
+def test_clinic_contiguous_pages_and_followup_text(monkeypatch):
+    from personal_project import kakao_bridge
+    calls=[]
+    def invoke(command,**args):
+        calls.append((command,args));return {'opened':True} if command=='search' else {'sent':True}
+    monkeypatch.setattr(kakao_bridge,'invoke',invoke)
+    job=native_kakao.create_clinic_job(3,50,{'schoolName':'26서울','studentName':'학생'})
+    native_kakao.store_page(job['jobId'],3,50,1,'image/jpeg',b'\xff\xd8\xffpage')
+    result=native_kakao.send_clinic_job(job['jobId'],3,50)
+    assert result['sentCount']==1 and result['destination']=='26서울 학생 생명클리닉'
+    sends=[args for command,args in calls if command=='send']
+    assert len(sends[0]['files'])==1 and sends[1]['text']=='저번 클리닉 리포트입니다'
+    assert all(args['room']=='26서울 학생 생명클리닉' for args in sends)

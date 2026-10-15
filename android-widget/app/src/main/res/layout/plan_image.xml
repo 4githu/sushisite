@@ -1,0 +1,1 @@
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/plan_image" android:layout_width="match_parent" android:layout_height="match_parent" android:adjustViewBounds="true" android:scaleType="fitCenter" android:contentDescription="필기와 일정이 함께 표시된 일별 계획" />

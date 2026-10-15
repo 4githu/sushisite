@@ -2,13 +2,19 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { checkPersonalAuth, logoutPersonal, type PersonalUser } from './auth';
+	import { request } from './api';
 
 	let user = $state<PersonalUser | null>(null);
 	let open = $state(false);
 	let error = $state('');
+	let canAdmin = $state(false);
 
 	onMount(async () => {
 		user = await checkPersonalAuth().catch(() => null);
+		if (user)
+			canAdmin = await request<{ canAdmin: boolean }>('/boards')
+				.then((v) => v.canAdmin)
+				.catch(() => false);
 	});
 
 	async function logout() {
@@ -36,6 +42,9 @@
 		<div class="account-menu">
 			<p><strong>계정 설정 / Account</strong><span>{user?.data.email}</span></p>
 			<a href="/register">새 계정 만들기 / Create account</a>
+			{#if canAdmin}<a href="/personal-project/calendar/admin" onclick={() => (open = false)}
+					>관리자 페이지</a
+				>{/if}
 			<button onclick={logout}>로그아웃 / Sign out</button>
 			{#if error}<small>{error}</small>{/if}
 		</div>

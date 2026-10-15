@@ -1,0 +1,36 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+const apiOrigin=process.env.STUDENT_TEST_API_URL||'';
+test.skip(!apiOrigin,'Requires the isolated student_test_server.py fixture.');
+const api=apiOrigin+'/api/personal/aura/grading';
+test('답지 문항을 학생 PDF에 적용하고 검수 결과를 내보낸다',async({page,request})=>{
+ await page.route('**/api/personal/**',async r=>{const u=new URL(r.request().url());return r.fulfill({response:await r.fetch({url:apiOrigin+u.pathname+u.search})});});
+ await page.route('**/auth/isjwt?key=mainauth',r=>r.fulfill({json:{sub:'7890',data:{id:'7890',name:'검수 계정',email:'review@example.com'},exp:9999999999}}));
+
+ page.on('pageerror',e=>console.log('PAGEERROR',e.message));
+ const round=await (await request.post(api,{data:{name:'채점 UI 검증 '+Date.now()}})).json();
+ for(const name of ['answer.pdf','student.pdf'])expect((await request.post(`${api}/rounds/${round.id}/files`,{multipart:{file:{name,mimeType:'application/pdf',buffer:fs.readFileSync(new URL('./fixtures/grading.pdf',import.meta.url))}}})).ok()).toBeTruthy();
+ await page.goto('/personal-project/aura/grading');
+ await page.getByRole('button',{name:round.name||/채점 UI 검증/}).first().click();
+ await page.getByRole('combobox',{name:'답지',exact:true}).selectOption({label:'answer.pdf'});
+ await page.getByRole('button',{name:'답지 · answer.pdf',exact:true}).click();
+ await page.getByRole('button',{name:'문항 박스',exact:true}).click();
+ const canvas=page.getByLabel('시험지 필기');await canvas.scrollIntoViewIfNeeded();
+ const rect=(await canvas.boundingBox())!;
+
+ await expect(page.getByRole('button',{name:'임시저장',exact:true})).toBeEnabled();
+ await page.mouse.move(rect.x+40,rect.y+300);await page.mouse.down();await page.mouse.move(rect.x+300,rect.y+460,{steps:12});await page.mouse.up();
+ await expect(page.getByRole('button',{name:'1쪽 1-1 박스 삭제'})).toBeVisible();
+ await page.getByRole('button',{name:'student.pdf',exact:true}).click();
+ await page.getByRole('button',{name:'직접 점수·코멘트 입력',exact:true}).click();
+ await page.getByRole('spinbutton',{name:'감점',exact:true}).fill('1');
+ await page.getByRole('textbox',{name:'1-1 코멘트',exact:true}).fill('풀이 근거 보완');
+ await page.getByRole('checkbox',{name:'인식 결과 확인',exact:true}).check();
+ await page.getByRole('button',{name:'검수 결과 저장',exact:true}).click();
+ await expect.poll(async()=> (await (await request.get(`${api}/rounds/${round.id}/results`)).json())[0]?.total).toBe(4);
+ await page.screenshot({path:'/private/tmp/grading-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
+ await page.screenshot({path:'/private/tmp/grading-mobile.png',fullPage:true});
+ expect((await request.get(`${api}/rounds/${round.id}/xlsx`)).ok()).toBeTruthy();
+});

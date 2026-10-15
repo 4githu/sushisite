@@ -63,6 +63,8 @@ class BundleJob:
     pages: dict[int, Path] = field(default_factory=dict)
     total_bytes: int = 0
     state: str = "uploading"
+    destination: str = SELF_CHAT_TITLE
+    clinic: bool = False
 
 
 _jobs: dict[str, BundleJob] = {}
@@ -247,3 +249,48 @@ def send_job(job_id: str, user_id: int, target_id: int) -> dict:
         _send_lock.release()
         with _jobs_lock:
             _remove_job(job)
+
+
+def create_clinic_job(user_id: int, target_id: int, report: dict) -> dict:
+    from .kakao_bridge import invoke
+    school=' '.join(report['schoolName'].split())
+    student=' '.join(report['studentName'].split())
+    if not school or not student:
+        raise NativeKakaoError(400,'학교와 학생 이름이 필요합니다.','missing_recipient')
+    candidates=[f'{school} {student} 생명클리닉',f'{school} {student} 생명관리방',SELF_CHAT_TITLE]
+    destination=None
+    with _send_lock:
+        for room in candidates:
+            result=invoke('search',room=room)
+            if result.get('opened'):
+                destination=room;break
+            # Only an empty search may fall back. Ambiguous rooms, permissions,
+            # timeouts and UI errors must stop rather than send to someone else.
+            if '검색 결과가 0개' not in result.get('error',''):
+                raise NativeKakaoError(409,result.get('error','채팅방 확인 실패'),'recipient_unverified')
+    if destination is None:raise NativeKakaoError(409,'받는 채팅방을 찾지 못했습니다.','recipient_missing')
+    result=create_job(user_id,target_id)
+    with _jobs_lock:
+        job=_jobs[result['jobId']];job.destination=destination;job.clinic=True
+    return {**result,'destination':destination,'maxPages':10}
+
+def send_clinic_job(job_id: str, user_id: int, target_id: int) -> dict:
+    from .kakao_bridge import invoke
+    job=_owned_job(job_id,user_id,target_id)
+    with _jobs_lock:
+        pages=sorted(job.pages)
+        if not job.clinic or job.state!='uploading' or not pages or pages!=list(range(1,len(pages)+1)) or len(pages)>10:
+            raise NativeKakaoError(409,'전송할 리포트 묶음을 확인해주세요.','invalid_clinic_job')
+        if not _send_lock.acquire(blocking=False):raise NativeKakaoError(409,'다른 카카오 작업이 진행 중입니다.','send_in_progress')
+        job.state='sending'
+    try:
+        opened=invoke('search',room=job.destination)
+        if not opened.get('opened'):raise NativeKakaoError(409,opened.get('error','받는 방 확인 실패'),'recipient_unverified')
+        images=invoke('send',room=job.destination,text='',files=[str(job.pages[n]) for n in pages])
+        if not images.get('sent'):raise NativeKakaoError(409,images.get('error','이미지 전송 확인 실패. 대화방을 확인해주세요.'),'delivery_unverified')
+        note=invoke('send',room=job.destination,text='저번 클리닉 리포트입니다',files=[])
+        if not note.get('sent'):raise NativeKakaoError(409,'이미지는 전송됐지만 안내문 전송을 확인하지 못했습니다. 대화방을 확인해주세요.','partial_delivery')
+        return {'sent':True,'sentCount':len(pages),'destination':job.destination}
+    finally:
+        _send_lock.release()
+        with _jobs_lock:_remove_job(job)

@@ -49,6 +49,7 @@ app.add_middleware(
         "https://rehear.chobab.app",
         "https://calender.chobab.app",
         "https://calendar.chobab.app",
+        "https://netaq.chobab.app",
         "https://territories-tickets-donna-twist.trycloudflare.com",
     ],
     allow_origin_regex=r"https://.*\.trycloudflare\.com",
