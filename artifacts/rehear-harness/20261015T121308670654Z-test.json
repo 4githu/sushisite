@@ -1,0 +1,30 @@
+{
+  "exit_code": 1,
+  "status": "FAIL",
+  "suite": "integrity",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_report_integrity.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 4.141102,
+  "pytest": {
+    "collected": 25,
+    "exitstatus": 1,
+    "passed": 24,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

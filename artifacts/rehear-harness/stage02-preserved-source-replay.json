@@ -1,0 +1,12 @@
+{
+  "provenance": "replay of preserved stage02-start sources after implementation; not a live pre-change run",
+  "processing_s": 5.0,
+  "evidence_time_s": 30.0,
+  "command_start_s": 30.1,
+  "hypothetical_response_clock_s": 35,
+  "hypothetical_lateness_s": 4.899999999999999,
+  "before_stale_actions": [
+    "ACT_08"
+  ],
+  "after_stale_actions": []
+}

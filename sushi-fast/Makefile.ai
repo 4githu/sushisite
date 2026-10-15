@@ -1,0 +1,15 @@
+PYTHON ?= .venv/bin/python
+ENGINE ?= fake
+
+.PHONY: ai-doctor ai-contracts ai-eval ai-compare ai-repeat ai-replay ai-bench ai-test
+ai-doctor ai-contracts:
+	$(PYTHON) -m tools.rehear_cli $(patsubst ai-%,%,$@) $(if $(OUTPUT),--output "$(OUTPUT)")
+
+ai-eval ai-compare ai-repeat ai-bench:
+	$(PYTHON) -m tools.rehear_cli $(patsubst ai-%,%,$@) --input "$(INPUT)" --rubric "$(RUBRIC)" --engine "$(ENGINE)" --output "$(OUTPUT)" $(if $(CONFIG),--config "$(CONFIG)") $(EXTRA_ARGS)
+
+ai-replay:
+	$(PYTHON) -m tools.rehear_cli replay --input "$(INPUT)" --rubric "$(RUBRIC)" --output "$(OUTPUT)" $(EXTRA_ARGS)
+
+ai-test:
+	$(PYTHON) -m pytest -q odi/EVC/tests/test_rehear_assessment_boundary.py

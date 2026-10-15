@@ -1,0 +1,460 @@
+FFFFFFFFFFFFFFFFF                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_rubric_ids_exactly_match_result _____________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:54: in test_rubric_ids_exactly_match_result
+    rubric, evidence = toy_bundle(), pack()
+                       ^^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:24: in toy_bundle
+    return contracts().RubricBundle.model_validate({
+           ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+____________________ test_score_is_strict_int_1_to_5[True] _____________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+____________________ test_score_is_strict_int_1_to_5[False] ____________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+______________________ test_score_is_strict_int_1_to_5[0] ______________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+______________________ test_score_is_strict_int_1_to_5[6] ______________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+_____________________ test_score_is_strict_int_1_to_5[3.5] _____________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+_____________________ test_score_is_strict_int_1_to_5[3.0] _____________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+______________________ test_score_is_strict_int_1_to_5[3] ______________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:83: in test_score_is_strict_int_1_to_5
+    contracts().CriterionAssessment(criterion_id="TEST_ONLY_01", score=score,
+    ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+___________________ test_abstention_and_reference_validation ___________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:88: in test_abstention_and_reference_validation
+    model = contracts().CriterionAssessment
+            ^^^^^^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+______________ test_evidence_preserves_offsets_and_missing_inputs ______________
+odi/EVC/tests/test_rehear_assessment_boundary.py:105: in test_evidence_preserves_offsets_and_missing_inputs
+    evidence = pack()
+               ^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:45: in pack
+    return importlib.import_module("rehear_ai.evidence").build_evidence_pack(raw_case(), source_version="TEST_ONLY-export-v1")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+_____ test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments _____
+odi/EVC/tests/test_rehear_assessment_boundary.py:129: in test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments
+    adapter = importlib.import_module("odi.EVC.assessment_adapter")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.assessment_adapter'
+______________ test_fake_and_core_work_without_gpu_or_openai_key _______________
+odi/EVC/tests/test_rehear_assessment_boundary.py:161: in test_fake_and_core_work_without_gpu_or_openai_key
+    evidence_file.write_text(pack().model_dump_json())
+                             ^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:45: in pack
+    return importlib.import_module("rehear_ai.evidence").build_evidence_pack(raw_case(), source_version="TEST_ONLY-export-v1")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+________ test_local_runtime_is_loaded_once_and_schema_is_research_only _________
+odi/EVC/tests/test_rehear_assessment_boundary.py:179: in test_local_runtime_is_loaded_once_and_schema_is_research_only
+    module = importlib.import_module("rehear_ai.engines.qwen_local")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+______ test_cache_bypass_causes_real_engine_calls_and_identity_isolation _______
+odi/EVC/tests/test_rehear_assessment_boundary.py:202: in test_cache_bypass_causes_real_engine_calls_and_identity_isolation
+    evidence, rubric = pack(), toy_bundle()
+                       ^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:45: in pack
+    return importlib.import_module("rehear_ai.evidence").build_evidence_pack(raw_case(), source_version="TEST_ONLY-export-v1")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+_____________________ test_cli_subprocess_and_json_output ______________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:224: in test_cli_subprocess_and_json_output
+    case.write_text(pack().model_dump_json())
+                    ^^^^^^
+odi/EVC/tests/test_rehear_assessment_boundary.py:45: in pack
+    return importlib.import_module("rehear_ai.evidence").build_evidence_pack(raw_case(), source_version="TEST_ONLY-export-v1")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+____________ test_service_contract_does_not_require_research_result ____________
+odi/EVC/tests/test_rehear_assessment_boundary.py:246: in test_service_contract_does_not_require_research_result
+    adapter = importlib.import_module("odi.EVC.assessment_adapter")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.assessment_adapter'
+_________________ test_tool_removal_leaves_runtime_importable __________________
+odi/EVC/tests/test_rehear_assessment_boundary.py:262: in test_tool_removal_leaves_runtime_importable
+    contracts()
+odi/EVC/tests/test_rehear_assessment_boundary.py:20: in contracts
+    return importlib.import_module("rehear_ai.contracts")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'rehear_ai'
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_rubric_ids_exactly_match_result
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[True]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[False]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[0]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[6]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[3.5]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[3.0]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_score_is_strict_int_1_to_5[3]
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_abstention_and_reference_validation
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_evidence_preserves_offsets_and_missing_inputs
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_fake_and_core_work_without_gpu_or_openai_key
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_local_runtime_is_loaded_once_and_schema_is_research_only
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_cache_bypass_causes_real_engine_calls_and_identity_isolation
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_cli_subprocess_and_json_output
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_service_contract_does_not_require_research_result
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_tool_removal_leaves_runtime_importable
+17 failed in 0.17s
+{
+  "status": "FAIL",
+  "suite": "assessment",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_rehear_assessment_boundary.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 0.343254,
+  "pytest": {
+    "collected": 17,
+    "exitstatus": 1,
+    "passed": 0,
+    "failed": 17,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

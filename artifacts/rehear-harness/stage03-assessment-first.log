@@ -1,0 +1,45 @@
+..........F......                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments _____
+odi/EVC/tests/test_rehear_assessment_boundary.py:138: in test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments
+    assert "SYNTHETIC_MODEL_JUDGMENT" not in dumped and '"evc_state"' not in dumped
+E   assert ('SYNTHETIC_MODEL_JUDGMENT' not in '{"schema_ve...rt_scores"]}'
+E     
+E     'SYNTHETIC_MODEL_JUDGMENT' is contained here:
+E       t_scores"]} and '"evc_state"' not in '{"schema_ve...rt_scores"]}'
+E     
+E     '"evc_state"' is contained here:
+E       on_prose","evc_state","ai_reactions","report_scores"]}
+E     ?           +++++++++++)
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_backend_adapter_reuses_raw_metrics_and_excludes_model_judgments
+1 failed, 16 passed in 0.82s
+{
+  "status": "FAIL",
+  "suite": "assessment",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_rehear_assessment_boundary.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.086993,
+  "pytest": {
+    "collected": 17,
+    "exitstatus": 1,
+    "passed": 16,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

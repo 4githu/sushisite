@@ -1,0 +1,13 @@
+{
+  "collected": 235,
+  "exitstatus": 0,
+  "passed": 235,
+  "failed": 0,
+  "skipped": 0,
+  "error": 0,
+  "xfailed": 0,
+  "xpassed": 0,
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "scope": "all currently present EVC tests; harness --suite all not run because stage04 tests absent"
+}

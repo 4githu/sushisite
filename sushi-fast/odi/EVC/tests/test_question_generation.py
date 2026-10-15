@@ -53,7 +53,7 @@ class Provider:
         return self.result
 
 
-def test_question_provider_validates_count_duplicates_and_source_steps() -> None:
+def test_question_provider_validates_content_and_repairs_metadata() -> None:
     async def scenario() -> None:
         payload = {
             "question_count": 3,
@@ -76,9 +76,48 @@ def test_question_provider_validates_count_duplicates_and_source_steps() -> None
             await generate_questions(payload, provider=Provider(duplicate), retries=0)
 
         invalid_source = question_set()
+        invalid_source.questions[0].id = "wrong-id"
+        invalid_source.questions[0].order = 3
         invalid_source.questions[0].source_steps = [99]
-        with pytest.raises(QuestionGenerationProviderError):
-            await generate_questions(payload, provider=Provider(invalid_source), retries=0)
+        repaired = await generate_questions(
+            payload,
+            provider=Provider(invalid_source),
+            retries=0,
+        )
+        assert repaired.questions[0].id == "q1"
+        assert repaired.questions[0].order == 1
+        assert repaired.questions[0].source_steps == [1]
+
+        mixed_sources = question_set()
+        mixed_sources.questions[0].source_steps = [1, 99, 1]
+        repaired = await generate_questions(
+            payload,
+            provider=Provider(mixed_sources),
+            retries=0,
+        )
+        assert repaired.questions[0].source_steps == [1]
+
+    asyncio.run(scenario())
+
+
+def test_repaired_metadata_does_not_consume_a_retry() -> None:
+    async def scenario() -> None:
+        payload = {
+            "question_count": 3,
+            "transcript_segments": [{"step": 1}, {"step": 2}],
+        }
+        invalid_metadata = question_set()
+        invalid_metadata.questions[0].source_steps = [0, 3]
+        invalid_metadata.questions[1].id = "question-two"
+        invalid_metadata.questions[1].order = 1
+        provider = Provider(invalid_metadata)
+
+        repaired = await generate_questions(payload, provider=provider, retries=2)
+
+        assert provider.calls == 1
+        assert [question.id for question in repaired.questions] == ["q1", "q2", "q3"]
+        assert [question.order for question in repaired.questions] == [1, 2, 3]
+        assert repaired.questions[0].source_steps == [1, 2]
 
     asyncio.run(scenario())
 

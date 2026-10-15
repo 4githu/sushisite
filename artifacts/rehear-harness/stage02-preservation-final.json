@@ -1,0 +1,8 @@
+{
+  "existing_user_files_preserved": {
+    "sushi-fast/odi/EVC/question_generation.py": true,
+    "sushi-fast/odi/EVC/tests/test_question_generation.py": true
+  },
+  "all_existing_tests_and_stage01_golden_unchanged": true,
+  "baseline_sha256": "361158becbb43b4189ff9b8637f1794719717329fab5dbdedbae502cd995aefb"
+}

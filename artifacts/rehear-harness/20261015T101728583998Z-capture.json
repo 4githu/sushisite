@@ -1,0 +1,7 @@
+{
+  "exit_code": 0,
+  "status": "CAPTURED_NOT_PRODUCT_TESTED",
+  "protected_file_count": 1136,
+  "frozen_function_count": 5,
+  "baseline": "artifacts/rehear-harness/baseline.json"
+}

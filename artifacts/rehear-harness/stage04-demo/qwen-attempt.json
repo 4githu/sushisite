@@ -1,0 +1,34 @@
+{
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "tools.rehear_cli",
+    "eval",
+    "--input",
+    "odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+    "--rubric",
+    "odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+    "--allow-test-rubric",
+    "--engine",
+    "qwen_local",
+    "--config",
+    "/Users/user1/sushisite/artifacts/rehear-harness/stage03-demo/TEST_ONLY-qwen-config.json",
+    "--output",
+    "/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/qwen-not-executed.json"
+  ],
+  "exit": 2,
+  "summary": {
+    "status": "assessment_error",
+    "task": "research16",
+    "run_id": "7ef13eee-5613-4c60-9b30-c111e15b0234",
+    "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+    "call_count": 0,
+    "cache_enabled": false,
+    "rubric_purpose": "TEST_ONLY",
+    "criterion_count": 16,
+    "repeat": 1,
+    "failures": 1,
+    "error_type": "LocalRuntimeUnavailable"
+  },
+  "result_exists": false
+}

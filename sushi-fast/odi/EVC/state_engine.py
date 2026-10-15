@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import math
 import random
+from .audience_config import build_audience_layout, validate_audience_count
 from .schema import (
     AudienceProfile,
     AudienceRuntimeState,
@@ -16,14 +17,7 @@ from .schema import (
 )
 
 
-AUDIENCE_LAYOUT = (
-    ("audience_01", "front", "left"),
-    ("audience_02", "front", "right"),
-    ("audience_03", "middle", "left"),
-    ("audience_04", "middle", "right"),
-    ("audience_05", "rear", "left"),
-    ("audience_06", "rear", "right"),
-)
+AUDIENCE_LAYOUT = build_audience_layout(6)
 
 
 def derive_agent_seed(session_seed: int, agent_id: str) -> int:
@@ -31,15 +25,19 @@ def derive_agent_seed(session_seed: int, agent_id: str) -> int:
     return int.from_bytes(digest[:8], byteorder="big", signed=False)
 
 
-def create_agent_rngs(session_seed: int) -> dict[str, random.Random]:
+def create_agent_rngs(session_seed: int, count: int = 6) -> dict[str, random.Random]:
     return {
         agent_id: random.Random(derive_agent_seed(session_seed, agent_id))
-        for agent_id, _, _ in AUDIENCE_LAYOUT
+        for agent_id, _, _ in build_audience_layout(count)
     }
 
 
-def choose_laptop_agents(session_seed: int) -> set[str]:
+def choose_laptop_agents(session_seed: int, count: int = 6) -> set[str]:
+    layout = build_audience_layout(count)
     session_rng = random.Random(session_seed)
+    if count != 6:
+        # One third (rounded down), sampled without replacement; solo has none.
+        return set(session_rng.sample([agent_id for agent_id, _, _ in layout], count // 3))
     return {
         session_rng.choice([f"audience_{index:02d}" for index in range(1, 5)]),
         session_rng.choice(["audience_05", "audience_06"]),
@@ -51,17 +49,19 @@ def initialize_audiences(
     seed: int,
     rngs: dict[str, random.Random] | None = None,
 ) -> list[AudienceRuntimeState]:
-    agent_rngs = rngs if rngs is not None else create_agent_rngs(seed)
-    expected_ids = {agent_id for agent_id, _, _ in AUDIENCE_LAYOUT}
+    count = options.audience_count
+    layout = build_audience_layout(count)
+    agent_rngs = rngs if rngs is not None else create_agent_rngs(seed, count)
+    expected_ids = {agent_id for agent_id, _, _ in layout}
     if set(agent_rngs) != expected_ids:
-        raise ValueError("agent RNG map must contain exactly audience_01 through audience_06")
+        raise ValueError("agent RNG map must match the session audience registry")
 
-    laptop_agents = choose_laptop_agents(seed)
-    interests = distribute_population_trait(options.topic_interest, seed, "topic_interest")
-    knowledge = distribute_population_trait(options.prior_knowledge, seed, "prior_knowledge")
+    laptop_agents = choose_laptop_agents(seed, count)
+    interests = distribute_population_trait(options.topic_interest, seed, "topic_interest", count)
+    knowledge = distribute_population_trait(options.prior_knowledge, seed, "prior_knowledge", count)
     audiences: list[AudienceRuntimeState] = []
 
-    for index, (agent_id, row, seat) in enumerate(AUDIENCE_LAYOUT):
+    for index, (agent_id, row, seat) in enumerate(layout):
         rng = agent_rngs[agent_id]
         # Preserve the independent behavioral-trait RNG sequence for an existing seed.
         rng.uniform(-0.05, 0.05)
@@ -103,21 +103,26 @@ def initialize_audiences(
     return audiences
 
 
-def distribute_population_trait(mean: float, seed: int, trait: str) -> list[float]:
-    """Six bounded, distinct traits whose mean is exactly the web setting (within FP precision).
+def distribute_population_trait(mean: float, seed: int, trait: str, count: int = 6) -> list[float]:
+    """Bounded symmetric pairs plus the mean for an odd population.
 
-    Three positive/negative pairs avoid shifting the mean through clipping. Shuffle
+    Positive/negative pairs avoid shifting the mean through clipping. Shuffle
     interest and knowledge independently so they are not tied to gender or seat order.
     The maximum spread is a tuning parameter, not an extra random EVC perturbation.
     """
+    validate_audience_count(count)
     if not math.isfinite(mean) or not 0.0 <= mean <= 1.0:
         raise ValueError("population mean must be finite and within [0, 1]")
     rng = random.Random(derive_agent_seed(seed, "population:" + trait))
     spread = min(0.20, mean, 1.0 - mean)
     values = []
-    for low, high in ((0.25, 0.45), (0.50, 0.70), (0.75, 0.95)):
+    bands = ((0.25, 0.45), (0.50, 0.70), (0.75, 0.95))
+    for index in range(count // 2):
+        low, high = bands[index % len(bands)]
         offset = spread * rng.uniform(low, high)
         values.extend((mean - offset, mean + offset))
+    if count % 2:
+        values.append(mean)
     rng.shuffle(values)
     return values
 

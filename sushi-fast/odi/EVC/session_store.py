@@ -23,7 +23,8 @@ from .schema import (
     SmartStartOptions,
     TranscriptSegment,
 )
-from .config import EVC_MAX_SESSIONS, EVC_SESSION_TTL_S
+from .config import EVC_MAX_SESSIONS, EVC_SESSION_TTL_S, EVC_MAX_PENDING_UPDATES
+from .playback_policy import TimingTrace
 from .state_engine import create_agent_rngs, initialize_audiences
 from .report_schema import (
     ReportFeedback,
@@ -57,6 +58,7 @@ class SessionRecord:
     topic_interest: float
     prior_knowledge: float
     seed: int
+    audience_count: int
     audiences: list[AudienceRuntimeState]
     rngs: dict[str, random.Random]
     slides: list[SlideInfo]
@@ -69,6 +71,8 @@ class SessionRecord:
     updated_at: datetime
     last_access_monotonic: float
     step: int = 0
+    pending_updates: int = 0
+    timing_traces: OrderedDict[UUID, TimingTrace] = field(default_factory=OrderedDict)
     # Presentation evidence and reaction playback have separate clocks. The report
     # keeps the full analytical state, while the scheduler consumes each fact once
     # per listener without waiting for a slow STT/LLM request's session lock.
@@ -91,6 +95,7 @@ class SessionRecord:
     )
     qa_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
     qa_answers: dict[int, dict] = field(default_factory=dict)
+    qa_audience_bindings: dict[int, str] = field(default_factory=dict)
     report_segments: list[ReportSegmentRecord] = field(default_factory=list)
     report_reactions: list[ReportReactionRecord] = field(default_factory=list)
     report_generation_status: Literal[
@@ -113,11 +118,15 @@ class SessionStore:
         ttl_s: int = 7200,
         max_sessions: int = 100,
         monotonic_clock=time.monotonic,
+        max_pending_updates: int = EVC_MAX_PENDING_UPDATES,
     ) -> None:
         if ttl_s <= 0:
             raise ValueError("ttl_s must be positive")
         if max_sessions <= 0:
             raise ValueError("max_sessions must be positive")
+        if max_pending_updates <= 0:
+            raise ValueError("max_pending_updates must be positive")
+        self.max_pending_updates = max_pending_updates
         self.ttl_s = ttl_s
         self.max_sessions = max_sessions
         self._clock = monotonic_clock
@@ -140,7 +149,7 @@ class SessionStore:
                 raise SessionCapacityError("maximum active EVC session count reached")
 
             seed = options.seed if options.seed is not None else secrets.randbits(31)
-            rngs = create_agent_rngs(seed)
+            rngs = create_agent_rngs(seed, options.audience_count)
             audiences = initialize_audiences(options, seed, rngs=rngs)
             raw_token = secrets.token_urlsafe(32)
             now = datetime.now(timezone.utc)
@@ -151,6 +160,7 @@ class SessionStore:
                 topic_interest=options.topic_interest,
                 prior_knowledge=options.prior_knowledge,
                 seed=seed,
+                audience_count=options.audience_count,
                 audiences=audiences,
                 rngs=rngs,
                 slides=list(slides or []),
@@ -177,6 +187,18 @@ class SessionStore:
             record.last_access_monotonic = self._clock()
             record.updated_at = datetime.now(timezone.utc)
             return record
+
+    @asynccontextmanager
+    async def locked_update(self, session_id: UUID, token: str) -> AsyncIterator[SessionRecord]:
+        record = await self.get_authorized_session(session_id, token)
+        if record.pending_updates >= self.max_pending_updates:
+            raise SessionCapacityError("pending update capacity reached; retry without advancing step")
+        record.pending_updates += 1
+        try:
+            async with self.locked_session(session_id, token) as record:
+                yield record
+        finally:
+            record.pending_updates -= 1
 
     @asynccontextmanager
     async def locked_session(

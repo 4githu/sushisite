@@ -1,0 +1,637 @@
+--- stage04-start/.gitignore
++++ .gitignore
+@@ -33,3 +33,6 @@
+ *:Zone.Identifier
+ 
+ sushi-fast/Legendaryvowels_backup_*/
++
++# Private migration archive: historical transcripts, results and recorded audio.
++/artifacts/rehear-private/
+--- stage04-start/sushi-fast/Makefile.ai
++++ sushi-fast/Makefile.ai
+@@ -1,9 +1,15 @@
+ PYTHON ?= .venv/bin/python
+ ENGINE ?= fake
+ 
+-.PHONY: ai-eval ai-test
+-ai-eval:
+-	$(PYTHON) -m tools.rehear_cli eval --input "$(INPUT)" --rubric "$(RUBRIC)" --engine "$(ENGINE)" --output "$(OUTPUT)" $(if $(CONFIG),--config "$(CONFIG)") $(EXTRA_ARGS)
++.PHONY: ai-doctor ai-contracts ai-eval ai-compare ai-repeat ai-replay ai-bench ai-test
++ai-doctor ai-contracts:
++	$(PYTHON) -m tools.rehear_cli $(patsubst ai-%,%,$@) $(if $(OUTPUT),--output "$(OUTPUT)")
++
++ai-eval ai-compare ai-repeat ai-bench:
++	$(PYTHON) -m tools.rehear_cli $(patsubst ai-%,%,$@) --input "$(INPUT)" --rubric "$(RUBRIC)" --engine "$(ENGINE)" --output "$(OUTPUT)" $(if $(CONFIG),--config "$(CONFIG)") $(EXTRA_ARGS)
++
++ai-replay:
++	$(PYTHON) -m tools.rehear_cli replay --input "$(INPUT)" --rubric "$(RUBRIC)" --output "$(OUTPUT)" $(EXTRA_ARGS)
+ 
+ ai-test:
+ 	$(PYTHON) -m pytest -q odi/EVC/tests/test_rehear_assessment_boundary.py
+--- stage04-start/sushi-fast/odi/EVC/answer_service.py
++++ sushi-fast/odi/EVC/answer_service.py
+@@ -10,6 +10,8 @@
+ 
+ from .question_generation import generate_questions, QuestionGenerationProviderError
+ from .session_store import session_store
++from .qa_persistence import persist_qa_state
++from .schema import GeneratedQuestion
+ 
+ 
+ def checked_question(record, index):
+@@ -49,9 +51,12 @@
+             if entry is None:
+                 entry = {"request_id": str(request_id), "audio_hash": digest,
+                          "question_index": index, "question": question.question,
++                         "question_id": question.id, "source_steps": list(question.source_steps),
++                         "audience_id": record.qa_audience_bindings.get(index) or record.qa_answers.get(index - 1, {}).get("next_audience_id") or None,
+                          "intent": question.intent,
+                          "next_audience_id": next_audience_id, "transcript": "",
+                          "answer_duration_s": answer_duration_s}
++                persist_qa_state(record, answers={**record.qa_answers, index: entry})
+                 record.qa_answers[index] = entry
+ 
+         if not entry["transcript"]:
+@@ -65,11 +70,13 @@
+                 transcript = result.transcript.strip()
+             if not transcript:
+                 async with store.locked_session(session_id, token) as record:
++                    persist_qa_state(record, answers={k: v for k, v in record.qa_answers.items() if k != index})
+                     del record.qa_answers[index]
+                 return {"question_index": index, "request_id": str(request_id),
+                         "saved": False, "transcript": "", "next_question": None}
+             # Keep recognized text even if the LLM fails. Retrying must not re-transcribe.
+             async with store.locked_session(session_id, token) as record:
++                persist_qa_state(record, answers={**record.qa_answers, index: {**entry, "transcript": transcript}})
+                 entry["transcript"] = transcript
+ 
+         async with store.locked_session(session_id, token) as record:
+@@ -88,21 +95,32 @@
+             }
+         next_question = None
+         if index + 1 < total:
+-            generated = await generate_questions(payload, provider=provider)
+-            candidate = generated.questions[0]
++            if entry.get("pending_next_question"):
++                candidate = GeneratedQuestion.model_validate(entry["pending_next_question"])
++            else:
++                generated = await generate_questions(payload, provider=provider)
++                candidate = generated.questions[0]
+             if " ".join(candidate.question.lower().split()) in {
+                 " ".join(h["question"].lower().split()) for h in history
+             }:
+                 raise QuestionGenerationProviderError("Next question repeats an answered question")
+             next_question = candidate.model_copy(update={"id": f"q{index + 2}", "order": index + 2})
++            # Keep this candidate for a retry if the final DB commit fails.
++            entry["pending_next_question"] = next_question.model_dump(mode="json")
+ 
+         async with store.locked_session(session_id, token) as record:
+-            if next_question:
+-                record.generated_questions[index + 1] = next_question
+-                # Initial generation cache must not return the superseded question list.
+-                record.question_response_cache.clear()
+             response = {"question_index": index, "request_id": str(request_id), "saved": True,
+                         "transcript": entry["transcript"], "total": total,
+                         "next_question": next_question.model_dump() if next_question else None}
++            questions = list(record.generated_questions)
++            if next_question:
++                questions[index + 1] = next_question
++            completed = {**entry, "response": response}
++            completed.pop("pending_next_question", None)
++            persist_qa_state(record, questions=questions, answers={**record.qa_answers, index: completed})
++            record.generated_questions = questions
++            if next_question:
++                record.question_response_cache.clear()
++            entry.pop("pending_next_question", None)
+             entry["response"] = response
+             return response
+--- stage04-start/sushi-fast/odi/EVC/pipeline.py
++++ sushi-fast/odi/EVC/pipeline.py
+@@ -336,6 +336,32 @@
+             diagnostics=diagnostics if EVC_INCLUDE_DIAGNOSTICS else None,
+         )
+ 
++        report_segment = ReportSegmentRecord(
++                step=next_step,
++                client_time_s=accepted_time,
++                slide_index=context.current_slide_index,
++                transcript=stt_result.transcript,
++                evaluation=evaluation,
++                speech_metrics=speech_metrics,
++                evc_state=aggregate,
++                context=context,
++                delta=delta,
++                audiences=decisions,
++                commands=commands,
++                warnings=warnings,
++            )
++        if record.pre_session_pin:
++            expires_at = (
++                datetime.now(timezone.utc) + timedelta(days=EVC_TRANSCRIPT_RETENTION_DAYS)
++            ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
++            odidb.upsert_presentation_segment(
++                evc_session_id=str(record.session_id),
++                step=next_step,
++                segment=report_segment.model_dump(mode="json"),
++                owner_user_id=record.owner_user_id,
++                pre_session_pin=record.pre_session_pin,
++                expires_at=expires_at,
++            )
+         record.audiences = working_agents
+         record.rngs = working_rngs
+         record.step = next_step
+@@ -352,32 +378,6 @@
+                 word_count=speech_metrics.word_count,
+             )
+         )
+-        report_segment = ReportSegmentRecord(
+-                step=next_step,
+-                client_time_s=accepted_time,
+-                slide_index=context.current_slide_index,
+-                transcript=stt_result.transcript,
+-                evaluation=evaluation,
+-                speech_metrics=speech_metrics,
+-                evc_state=aggregate,
+-                context=context,
+-                delta=delta,
+-                audiences=decisions,
+-                commands=commands,
+-                warnings=warnings,
+-            )
+-        if record.pre_session_pin:
+-            expires_at = (
+-                datetime.now(timezone.utc) + timedelta(days=EVC_TRANSCRIPT_RETENTION_DAYS)
+-            ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+-            odidb.upsert_presentation_segment(
+-                evc_session_id=str(record.session_id),
+-                step=next_step,
+-                segment=report_segment.model_dump(mode="json"),
+-                owner_user_id=record.owner_user_id,
+-                pre_session_pin=record.pre_session_pin,
+-                expires_at=expires_at,
+-            )
+         record.report_segments.append(report_segment)
+         if record.reaction_scheduler is not None:
+             record.reaction_scheduler.publish(Evidence(next_step, delta.common.model_copy(),
+--- stage04-start/sushi-fast/odi/EVC/question_service.py
++++ sushi-fast/odi/EVC/question_service.py
+@@ -7,6 +7,7 @@
+ from .question_generation import QuestionGenerationProvider, generate_questions
+ from .schema import QuestionGenerationResponse, QuestionListResponse
+ from .session_store import SessionStore, session_store
++from .qa_persistence import persist_qa_state
+ 
+ 
+ class QuestionGenerationError(RuntimeError):
+@@ -82,6 +83,13 @@
+ 
+     async with store.locked_session(session_id, token) as record:
+         generated_at = datetime.now(timezone.utc)
++        try:
++            persist_qa_state(record, questions=generated.questions, generated_at=generated_at)
++        except Exception as exc:
++            record.question_generation_status = "failed"
++            record.question_generation_error = type(exc).__name__
++            record.presentation_status = "finished"
++            raise
+         record.generated_questions = generated.questions
+         record.question_generated_at = generated_at
+         record.presentation_status = "finished"
+--- stage04-start/sushi-fast/odi/EVC/report_v2/report_aggregation.py
++++ sushi-fast/odi/EVC/report_v2/report_aggregation.py
+@@ -100,25 +100,30 @@
+         "content.supporting_material": content["supporting_material"],
+         "content.cer_validity": content["cer_validity"],
+         "delivery.language_clarity": delivery["language_clarity"],
+-        "delivery.gaze_delivery": delivery["gaze_delivery"],
++        "delivery.gaze_delivery": delivery.get("gaze_delivery"),
+         "delivery.vocal_delivery": delivery["vocal_delivery"],
+         "derived.filler_score": filler_score,
+         "derived.time_score": time_score,
+     }
+ 
++    valid_gaze = [s for s in segments if "gaze_delivery_score" not in s.evaluation.missing_inputs]
++
+     def item(spec: DetailMetricSpec) -> DetailMetricFeedback:
+         score = metric_scores.get(spec.source)
+         available = score is not None
++        reason = (_description(spec.label, score) if available
++                  else spec.unavailable_reason or "현재 세션에서 평가에 필요한 입력이 수집되지 않았습니다.")
++        ids = _metric_evidence_ids(evidence, spec.axis) if available else []
++        if spec.id == "gaze":
++            reason += f" 시선 입력 {len(valid_gaze)}/{len(segments)} 구간; 유효 구간만 집계했습니다."
++            valid_steps = {s.step for s in valid_gaze}
++            ids = _metric_evidence_ids([e for e in evidence if e.source_step in valid_steps], spec.axis)
+         return DetailMetricFeedback(
+             id=spec.id,
+             label=spec.label,
+             score=score,
+-            reason=(
+-                _description(spec.label, score)
+-                if available
+-                else spec.unavailable_reason or "현재 세션에서 평가에 필요한 입력이 수집되지 않았습니다."
+-            ),
+-            evidence_ids=_metric_evidence_ids(evidence, spec.axis) if available else [],
++            reason=reason,
++            evidence_ids=ids,
+             coaching=spec.coaching if available else None,
+         )
+ 
+@@ -291,6 +296,12 @@
+         key: _to_score(_weighted_average(segments, lambda item, key=key: getattr(item.evaluation.delivery, key)))
+         for key in DELIVERY_KEYS
+     }
++    valid_gaze = [s for s in segments if "gaze_delivery_score" not in s.evaluation.missing_inputs]
++    # Compatibility-only analysis fields must not impute missing gaze to 50 either.
++    if valid_gaze:
++        delivery["gaze_delivery"] = _to_score(_weighted_average(valid_gaze, lambda s: s.evaluation.delivery.gaze_delivery))
++    else:
++        delivery.pop("gaze_delivery")
+     engagement = _to_score(_weighted_average(segments, lambda item: item.evc_state.E))
+     clarity = round((content["organization"] + content["central_message"] + delivery["language_clarity"] + delivery["slide_speech_alignment"]) / 4)
+     credibility = round((content["supporting_material"] + content["cer_validity"] + _to_score(_weighted_average(segments, lambda item: item.evc_state.V))) / 3)
+@@ -329,6 +340,7 @@
+         for item in timeline
+     ]
+     warnings = list(dict.fromkeys([
++        f"gaze_coverage:{len(valid_gaze)}/{len(segments)}:valid_segments_only",
+         *(extra_warnings or []),
+         *(warning for segment in segments for warning in segment.warnings),
+         *(missing for segment in segments for missing in segment.evaluation.missing_inputs),
+--- stage04-start/sushi-fast/odi/EVC/report_v2/report_generation.py
++++ sushi-fast/odi/EVC/report_v2/report_generation.py
+@@ -6,6 +6,7 @@
+ import os
+ from collections import OrderedDict
+ from typing import Any, Protocol
++from uuid import uuid4
+ 
+ from ..config import (
+     EVC_LLM_TIMEOUT_S,
+@@ -33,9 +34,32 @@
+ 
+ 
+ def _insight_cache_key(payload: dict[str, Any], provider: object) -> str:
+-    model = str(getattr(provider, "model", type(provider).__name__))
+-    normalized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+-    return hashlib.sha256(f"presentation-report-v2\n{model}\n{normalized}".encode("utf-8")).hexdigest()
++    # Custom provider instances are isolated even when their class/model match.
++    namespace = getattr(provider, "_report_cache_namespace", None)
++    if namespace is None:
++        namespace = uuid4().hex
++        try:
++            setattr(provider, "_report_cache_namespace", namespace)
++        except (AttributeError, TypeError):
++            pass  # Unassignable providers safely miss the shared cache.
++    identity = {name: getattr(provider, name, None) for name in (
++        "provider", "provider_id", "model", "model_revision", "adapter", "adapter_revision",
++        "prompt_version", "rubric_version", "policy_version", "inference_settings")}
++    identity.update(namespace=namespace, provider_class=f"{type(provider).__module__}.{type(provider).__qualname__}",
++                    service_prompt="report-narrative-v2", validation_policy="references-and-null-v1")
++    normalized = json.dumps({"identity": identity, "payload": payload}, ensure_ascii=False,
++                            sort_keys=True, separators=(",", ":"), allow_nan=False)
++    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
++
++
++def _validate_references(result, payload):
++    allowed = {s["evidence_id"] for s in payload.get("segments", []) if "evidence_id" in s}
++    insight = result.ai_insight if isinstance(result, ReportNarrativeOutput) else result
++    items = [*insight.strengths, *insight.improvements]
++    if isinstance(result, ReportNarrativeOutput):
++        items.extend(result.metric_narratives)
++    if any(ref not in allowed for item in items for ref in item.evidence_ids):
++        raise ReportInsightProviderError("invalid_evidence_reference")
+ 
+ 
+ class ReportInsightProvider(Protocol):
+@@ -46,6 +70,7 @@
+     def __init__(self, api_key: str | None = None, model: str = OPENAI_EVC_MODEL) -> None:
+         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+         self.model = model
++        self._report_cache_namespace = hashlib.sha256((self.api_key or "unconfigured").encode()).hexdigest()
+ 
+     def generate(self, payload: dict[str, Any]) -> ReportNarrativeOutput:
+         if not self.api_key:
+@@ -205,6 +230,7 @@
+             result = await asyncio.wait_for(
+                 asyncio.to_thread(selected.generate, payload), timeout=timeout_s
+             )
++            _validate_references(result, payload)
+             _INSIGHT_CACHE[cache_key] = result.model_copy(deep=True)
+             _INSIGHT_CACHE.move_to_end(cache_key)
+             while len(_INSIGHT_CACHE) > _INSIGHT_CACHE_LIMIT:
+@@ -214,4 +240,5 @@
+             last_error = exc
+         if attempt < retries:
+             await asyncio.sleep(0)
+-    raise ReportInsightProviderError(str(last_error or "report insight generation failed"))
++    code = "invalid_evidence_reference" if isinstance(last_error, ReportInsightProviderError) and str(last_error) == "invalid_evidence_reference" else "report_insight_generation_failed"
++    raise ReportInsightProviderError(code) from last_error
+--- stage04-start/sushi-fast/odi/EVC/report_v2/report_service.py
++++ sushi-fast/odi/EVC/report_v2/report_service.py
+@@ -77,10 +77,15 @@
+ 
+ def _apply_metric_narratives(report: ReportFeedback, narrative: ReportNarrativeOutput) -> None:
+     allowed_evidence = {item.evidence_id for item in report.evidence}
++    if any(ref not in allowed_evidence for item in narrative.metric_narratives for ref in item.evidence_ids):
++        raise ReportInsightProviderError("invalid_evidence_reference")
+     narratives = {item.id: item for item in narrative.metric_narratives}
+     for metric in report.detail_analysis.content_metrics + report.detail_analysis.delivery_metrics:
+         generated = narratives.get(metric.id)
+-        if generated is None:
++        if generated is None or metric.score is None:
++            continue
++        if metric.id == "gaze" and any("gaze_delivery_score" in e.missing_inputs for e in report.evidence):
++            # Keep deterministic coverage/policy wording and observed-only references.
+             continue
+         metric.reason = generated.reason
+         metric.coaching = generated.coaching
+@@ -139,10 +144,6 @@
+         if not record.report_segments:
+             raise ReportSourceMissingError("no analyzed presentation segments are available")
+ 
+-        record.presentation_status = "finishing"
+-        record.report_generation_status = "generating"
+-        record.report_generation_request_id = payload.request_id
+-        record.report_generation_error = None
+         qa_history = [QuestionAnswerEvidence(
+                           question_index=k,
+                           question=v["question"],
+@@ -178,6 +179,10 @@
+                     )
+                     _cache_response(record, payload.request_id, response)
+                     return response
++        record.presentation_status = "finishing"
++        record.report_generation_status = "generating"
++        record.report_generation_request_id = payload.request_id
++        record.report_generation_error = None
+ 
+     narrative = None
+     warnings: list[str] = []
+@@ -322,16 +327,26 @@
+     ]
+     if not segments:
+         raise ReportSourceMissingError("persisted presentation segments do not exist")
++    qa_state = odidb.get_presentation_qa(evc_session_id, owner_user_id=owner_user_id, pre_session_pin=pin_code)
++    answers = (qa_state or {}).get("answers", {})
++    if any(not answer.get("response") for answer in answers.values()):
++        raise ReportGenerationInProgressError("persisted Q&A answer processing is not complete")
++    qa_history = [QuestionAnswerEvidence(question_index=int(k), question=v["question"],
++        intent=v.get("intent"), answer=v["transcript"], answer_duration_sec=v.get("answer_duration_s"))
++        for k, v in sorted(answers.items(), key=lambda item: int(item[0]))]
+     environment = (pre_session.get("template_snapshot") or template_record.get("template") or {}).get("environment") or {}
+     title = str(environment.get("title") or "발표")
+     odidb.start_report_job(evc_session_id=evc_session_id, request_id=str(request_id))
+     narrative = None
+     warnings = ["recovered_from_persistent_segments"]
++    if qa_state is None:
++        warnings.append("qa_history_unavailable")
+     generator = "deterministic-v2-recovery"
+     if provider is not None or os.getenv("OPENAI_API_KEY"):
+         try:
+             narrative = await generate_report_insight(
+-                build_report_insight_payload(title, [], segments, reactions), provider=provider
++                {**build_report_insight_payload(title, [], segments, reactions),
++                 "qa_history": [q.model_dump() for q in qa_history]}, provider=provider
+             )
+             generator += "+openai-insight"
+         except ReportInsightProviderError:
+@@ -348,6 +363,8 @@
+         )
+         if isinstance(narrative, ReportNarrativeOutput):
+             _apply_metric_narratives(report, narrative)
++        report.qa_history = qa_history
++        report.qa_feedback = _build_qa_feedback(qa_history, report.duration.actual_seconds)
+         persistent_session_id = odidb.finish_linked_pre_session(
+             pin_code=pin_code,
+             user_id=owner_user_id,
+--- stage04-start/sushi-fast/odi/EVC/router.py
++++ sushi-fast/odi/EVC/router.py
+@@ -456,6 +456,8 @@
+                 raise HTTPException(422, "Valid audience and voice profile required")
+             if index != sum(bool(v.get("response")) for v in record.qa_answers.values()):
+                 raise HTTPException(409, "Question is not the current turn")
++            from .qa_persistence import bind_question_audience
++            bind_question_audience(record, index, x_audience_id)
+             text = question.question
+         audio = await synthesize(text, x_speech_voice)
+         return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+--- stage04-start/sushi-fast/odi/EVC/session_store.py
++++ sushi-fast/odi/EVC/session_store.py
+@@ -95,6 +95,7 @@
+     )
+     qa_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+     qa_answers: dict[int, dict] = field(default_factory=dict)
++    qa_audience_bindings: dict[int, str] = field(default_factory=dict)
+     report_segments: list[ReportSegmentRecord] = field(default_factory=list)
+     report_reactions: list[ReportReactionRecord] = field(default_factory=list)
+     report_generation_status: Literal[
+--- stage04-start/sushi-fast/odi/db/odidb.py
++++ sushi-fast/odi/db/odidb.py
+@@ -620,6 +620,46 @@
+         )
+ 
+ 
++def _check_qa_owner(conn, owner_user_id: str, pre_session_pin: str) -> None:
++    owned = conn.execute(
++        """SELECT 1 FROM pre_sessions p JOIN templates t ON p.template_id=t.template_id
++           WHERE p.pin_code=? AND t.owner_id=?""", (pre_session_pin, owner_user_id)
++    ).fetchone()
++    if owned is None:
++        raise PermissionError("Q&A source is not owned by the user")
++
++
++def save_presentation_qa(*, evc_session_id: str, owner_user_id: str, pre_session_pin: str,
++                         state: dict[str, Any], expires_at: str | None = None,
++                         db_path: Path = DB_PATH) -> None:
++    ensure_report_schema(db_path)
++    with get_conn(db_path) as conn:
++        conn.execute("BEGIN IMMEDIATE")
++        _check_qa_owner(conn, owner_user_id, pre_session_pin)
++        existing = conn.execute("SELECT owner_user_id, pre_session_pin FROM presentation_qa WHERE evc_session_id=?",
++                                (evc_session_id,)).fetchone()
++        if existing and (existing["owner_user_id"] != owner_user_id or existing["pre_session_pin"] != pre_session_pin):
++            raise PermissionError("Q&A session binding differs")
++        conn.execute("""INSERT INTO presentation_qa
++            (evc_session_id, owner_user_id, pre_session_pin, state_json, expires_at, updated_at)
++            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(evc_session_id) DO UPDATE SET
++            state_json=excluded.state_json, expires_at=excluded.expires_at, updated_at=excluded.updated_at""",
++            (evc_session_id, owner_user_id, pre_session_pin, json_dumps(state), expires_at, utc_now()))
++
++
++def get_presentation_qa(evc_session_id: str, *, owner_user_id: str, pre_session_pin: str,
++                        db_path: Path = DB_PATH) -> dict[str, Any] | None:
++    ensure_report_schema(db_path)
++    with get_conn(db_path) as conn:
++        _check_qa_owner(conn, owner_user_id, pre_session_pin)
++        row = conn.execute("SELECT * FROM presentation_qa WHERE evc_session_id=?", (evc_session_id,)).fetchone()
++    if row is None:
++        return None
++    if row["owner_user_id"] != owner_user_id or row["pre_session_pin"] != pre_session_pin:
++        raise PermissionError("Q&A session binding differs")
++    return json.loads(row["state_json"])
++
++
+ def list_presentation_segments(evc_session_id: str, db_path: Path = DB_PATH) -> list[dict[str, Any]]:
+     ensure_report_schema(db_path)
+     with get_conn(db_path) as conn:
+@@ -800,7 +840,8 @@
+         deleted_reactions = conn.execute(
+             "DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,)
+         ).rowcount
+-    return deleted_segments + deleted_reactions
++        deleted_qa = conn.execute("DELETE FROM presentation_qa WHERE evc_session_id=?", (evc_session_id,)).rowcount
++    return deleted_segments + deleted_reactions + deleted_qa
+ 
+ 
+ def get_report_job_by_pre_session_pin(
+@@ -849,6 +890,7 @@
+         report_count = conn.execute(
+             "DELETE FROM presentation_reports WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
+         ).rowcount
++        conn.execute("DELETE FROM presentation_qa WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+     return {"segments": segment_count, "reactions": reaction_count, "reports": report_count}
+ 
+ 
+@@ -1209,6 +1251,7 @@
+         for row in evc_rows:
+             evc_session_id = row["evc_session_id"]
+             conn.execute("DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,))
++            conn.execute("DELETE FROM presentation_qa WHERE evc_session_id = ?", (evc_session_id,))
+             conn.execute("DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,))
+             conn.execute("DELETE FROM presentation_report_jobs WHERE evc_session_id = ?", (evc_session_id,))
+             conn.execute("DELETE FROM presentation_reports WHERE evc_session_id = ?", (evc_session_id,))
+--- stage04-start/sushi-fast/odi/db/schema.sql
++++ sushi-fast/odi/db/schema.sql
+@@ -204,3 +204,12 @@
+     CHECK(state IN ('queued','analyzing','completed','failed'))
+ );
+ CREATE INDEX IF NOT EXISTS idx_practice_user ON practice_attempts(user_id,created_at);
++-- Internal Q&A recovery source; no new public report fields.
++CREATE TABLE IF NOT EXISTS presentation_qa (
++    evc_session_id TEXT PRIMARY KEY,
++    owner_user_id TEXT NOT NULL,
++    pre_session_pin TEXT NOT NULL,
++    state_json TEXT NOT NULL,
++    expires_at TEXT,
++    updated_at TEXT NOT NULL
++);
+--- stage04-start/sushi-fast/tools/rehear_cli/__main__.py
++++ sushi-fast/tools/rehear_cli/__main__.py
+@@ -5,56 +5,71 @@
+ 
+ from pydantic import ValidationError
+ 
+-from rehear_ai.contracts import EvidencePack, RubricBundle
+-from rehear_ai.factory import EngineConfig, create_engine
+-from rehear_ai.engines.base import AssessmentEngineError
++from .runs import contract_schemas, environment, execute, write_json
++
++
++def parser():
++    cli = argparse.ArgumentParser(description="Independent Research16 tools; fake does not score presentations")
++    commands = cli.add_subparsers(dest="command", required=True)
++    for command in ("doctor", "contracts"):
++        commands.add_parser(command).add_argument("--output", type=Path)
++    for command in ("eval", "repeat", "compare", "replay", "bench"):
++        sub = commands.add_parser(command)
++        for name in ("input", "rubric", "output"):
++            sub.add_argument("--" + name, type=Path, required=True)
++        sub.add_argument("--allow-test-rubric", action="store_true")
++        sub.add_argument("--input-format", choices=("evidence", "legacy-post"), default="evidence")
++        if command == "replay":
++            sub.add_argument("--result", type=Path, help="validate an existing result without inference")
++        else:
++            sub.add_argument("--engine", choices=("fake", "qwen_local"))
++            sub.add_argument("--config", type=Path)
++            sub.add_argument("--repeat", type=int, default=3 if command in {"repeat", "bench"} else 1)
++        if command == "compare":
++            sub.add_argument("--other-engine", choices=("fake", "qwen_local"))
++            sub.add_argument("--other-config", type=Path)
++    return cli
+ 
+ 
+ def main(argv=None):
+-    parser = argparse.ArgumentParser(description="Independent Research16 assessment; fake is not a scoring model")
+-    commands = parser.add_subparsers(dest="command", required=True)
+-    evaluate = commands.add_parser("eval")
+-    for name in ("input", "rubric", "output"):
+-        evaluate.add_argument("--" + name, type=Path, required=True)
+-    evaluate.add_argument("--engine", choices=("fake", "qwen_local"))
+-    evaluate.add_argument("--config", type=Path)
+-    evaluate.add_argument("--allow-test-rubric", action="store_true")
+-    evaluate.add_argument("--repeat", type=int, default=1)
+-    args = parser.parse_args(argv)
++    args = parser().parse_args(argv)
+     try:
+-        if not 1 <= args.repeat <= 100:
+-            raise ValueError("repeat must be 1–100")
+-        if args.output.exists():
+-            raise ValueError("output already exists; choose a new result path")
+-        evidence = EvidencePack.model_validate_json(args.input.read_text(encoding="utf-8"))
+-        rubric = RubricBundle.model_validate_json(args.rubric.read_text(encoding="utf-8"))
+-        if rubric.purpose == "TEST_ONLY" and not args.allow_test_rubric:
+-            raise ValueError("TEST_ONLY rubric requires --allow-test-rubric; it is not official research data")
+-        raw_config = json.loads(args.config.read_text(encoding="utf-8")) if args.config else {}
+-        if not isinstance(raw_config, dict):
+-            raise ValueError("engine config must be a JSON object")
+-        if args.engine is not None:
+-            raw_config["engine"] = args.engine
+-        engine = create_engine(EngineConfig.model_validate(raw_config))
+-        for _ in range(args.repeat):
+-            result = engine.assess(evidence, rubric)
+-        args.output.parent.mkdir(parents=True, exist_ok=True)
+-        with args.output.open("x", encoding="utf-8") as target:
+-            target.write(result.model_dump_json(indent=2) + "\n")
+-        print(json.dumps({"status": "fake_contract_only" if engine.config.engine == "fake" else "local_generation_completed_not_quality_verified",
+-            "schema_version": result.schema_version, "criterion_count": len(result.criteria),
+-            "call_count": engine.call_count, "repeat": args.repeat, "cache_enabled": engine.config.cache_enabled,
+-            "rubric_purpose": rubric.purpose, "output": str(args.output)}, ensure_ascii=False))
+-        return 0
+-    except (ValidationError, ValueError, OSError, AssessmentEngineError, ImportError) as exc:
++        metadata_path = args.output.with_suffix(args.output.suffix + ".run.json") if args.command == "eval" else None
++        if args.output and (args.output.exists() or (metadata_path and metadata_path.exists())):
++            raise ValueError("output already exists")
++        if args.command in {"doctor", "contracts"}:
++            document = environment() if args.command == "doctor" else contract_schemas()
++            if args.output:
++                write_json(args.output, document)
++            print(json.dumps(document, ensure_ascii=False))
++            return 0
++        document = execute(args)
++        failed = any(run["metadata"]["failures"] for run in document["runs"])
++        first = document["runs"][0]
++        meta = first["metadata"]
++        if args.command == "eval":
++            # Retain stage03's AssessmentResult file contract; run data is a sidecar.
++            write_json(metadata_path, {**document, "runs": [{"metadata": r["metadata"]} for r in document["runs"]]})
++            if not failed:
++                write_json(args.output, first["results"][-1])
++        else:
++            write_json(args.output, document)
++        summary = {"status": "assessment_error" if failed else meta["status"], "task": "research16",
++            "run_id": document["run_id"], "input_hash": document["input_hash"],
++            "call_count": sum(r["metadata"]["call_count"] for r in document["runs"]),
++            "cache_enabled": meta["cache_enabled"], "rubric_purpose": meta["rubric_purpose"],
++            "criterion_count": 16, "repeat": getattr(args, "repeat", 0),
++            "failures": sum(r["metadata"]["failures"] for r in document["runs"])}
++        if failed:
++            summary["error_type"] = next(r["metadata"]["error_type"] for r in document["runs"] if r["metadata"]["failures"])
++        print(json.dumps(summary), file=sys.stderr if failed else sys.stdout)
++        return 2 if failed else 0
++    except (ValueError, OSError, ImportError, KeyError, TypeError, IndexError) as exc:
++        error = {"status": "assessment_error", "error_type": type(exc).__name__,
++                 "message": "input/output, contract or optional runtime unavailable; no raw input is logged"}
+         if isinstance(exc, ValidationError):
+-            error = {"message": "input/result contract validation failed",
+-                "locations": [list(item["loc"]) for item in exc.errors(include_input=False)]}
+-        elif isinstance(exc, (OSError, ImportError)):
+-            error = {"message": "input/output or optional runtime unavailable; verify paths and pinned dependencies"}
+-        else:
+-            error = {"message": str(exc)}
+-        print(json.dumps({"status": "assessment_error", "error_type": type(exc).__name__, **error}), file=sys.stderr)
++            error["locations"] = [list(item["loc"]) for item in exc.errors(include_input=False)]
++        print(json.dumps(error), file=sys.stderr)
+         return 2
+ 
+ 

@@ -1,0 +1,50 @@
+[
+  {
+    "case_number": 1,
+    "exit": 0,
+    "summary": {
+      "status": "offline_replay",
+      "task": "research16",
+      "run_id": "d3ef62cf-08cb-438d-9053-a13c3087acfe",
+      "input_hash": "5365703c4326b37e318d57ecceac6fa478aed8ca13bafd7f918acb9102499ddb",
+      "call_count": 0,
+      "cache_enabled": false,
+      "rubric_purpose": "TEST_ONLY",
+      "criterion_count": 16,
+      "repeat": 0,
+      "failures": 0
+    }
+  },
+  {
+    "case_number": 2,
+    "exit": 0,
+    "summary": {
+      "status": "offline_replay",
+      "task": "research16",
+      "run_id": "6c6e7176-4620-4e1c-ae5a-844d65d99c7a",
+      "input_hash": "9a4beb206e5a00192711dbe25dd329ddc020c95353706bb12a581fc363c92fed",
+      "call_count": 0,
+      "cache_enabled": false,
+      "rubric_purpose": "TEST_ONLY",
+      "criterion_count": 16,
+      "repeat": 0,
+      "failures": 0
+    }
+  },
+  {
+    "case_number": 3,
+    "exit": 0,
+    "summary": {
+      "status": "offline_replay",
+      "task": "research16",
+      "run_id": "a1666fd3-e6ba-464d-81f1-3324bf80deb0",
+      "input_hash": "7933284d525b4acf17bd4e0e4f3dc29863833d81dd809e9f6c24646e84705f53",
+      "call_count": 0,
+      "cache_enabled": false,
+      "rubric_purpose": "TEST_ONLY",
+      "criterion_count": 16,
+      "repeat": 0,
+      "failures": 0
+    }
+  }
+]

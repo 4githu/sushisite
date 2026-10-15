@@ -1,0 +1,77 @@
+{
+  "schema_version": "research-run.v1",
+  "task": "research16",
+  "run_id": "7ef13eee-5613-4c60-9b30-c111e15b0234",
+  "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+  "runs": [
+    {
+      "metadata": {
+        "run_id": "ce2cd185-ff83-40cc-b99e-bdd1e90770a5",
+        "task": "research16",
+        "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+        "rubric_version": "TEST_ONLY-rubric-v1",
+        "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+        "policy_version": "TEST_ONLY-policy-v1",
+        "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+        "rubric_purpose": "TEST_ONLY",
+        "engine": "qwen_local",
+        "model": "TEST_ONLY-base",
+        "adapter": "TEST_ONLY-lora",
+        "prompt_version": "research16-json-v1",
+        "cache_enabled": false,
+        "settings": {
+          "engine": "qwen_local",
+          "model": "TEST_ONLY-base",
+          "model_revision": "TEST_ONLY-base-r1",
+          "tokenizer": "TEST_ONLY-tokenizer",
+          "tokenizer_revision": "TEST_ONLY-tokenizer-r1",
+          "adapter": "TEST_ONLY-lora",
+          "adapter_revision": "TEST_ONLY-lora-r1",
+          "model_family": "qwen3",
+          "runtime_versions": {
+            "torch": "TEST_ONLY",
+            "transformers": "TEST_ONLY",
+            "peft": "TEST_ONLY"
+          },
+          "prompt_version": "research16-json-v1",
+          "cache_enabled": false,
+          "temperature": 0.0,
+          "max_new_tokens": 4096,
+          "max_input_tokens": 16384,
+          "timeout_s": 120.0,
+          "retries": 0,
+          "device": "cpu",
+          "dtype": "float32"
+        },
+        "call_count": 0,
+        "retry_count": 0,
+        "cache_hits": 0,
+        "failures": 1,
+        "elapsed_s": 0.002618208061903715,
+        "status": "assessment_error",
+        "real_model_verified": false,
+        "error_type": "LocalRuntimeUnavailable",
+        "failed_attempts": 0,
+        "completed": 0,
+        "requested": 1,
+        "identity": {
+          "provider": "qwen_local",
+          "runtime_binding": "transformers_local",
+          "model": "TEST_ONLY-base",
+          "model_revision": "TEST_ONLY-base-r1",
+          "tokenizer": "TEST_ONLY-tokenizer",
+          "tokenizer_revision": "TEST_ONLY-tokenizer-r1",
+          "adapter": "TEST_ONLY-lora",
+          "adapter_revision": "TEST_ONLY-lora-r1",
+          "runtime_versions": {
+            "rehear_ai": "0.1.0",
+            "torch": "TEST_ONLY",
+            "transformers": "TEST_ONLY",
+            "peft": "TEST_ONLY"
+          }
+        },
+        "local_generation_executed": false
+      }
+    }
+  ]
+}

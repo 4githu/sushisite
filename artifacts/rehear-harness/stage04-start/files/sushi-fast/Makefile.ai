@@ -1,0 +1,9 @@
+PYTHON ?= .venv/bin/python
+ENGINE ?= fake
+
+.PHONY: ai-eval ai-test
+ai-eval:
+	$(PYTHON) -m tools.rehear_cli eval --input "$(INPUT)" --rubric "$(RUBRIC)" --engine "$(ENGINE)" --output "$(OUTPUT)" $(if $(CONFIG),--config "$(CONFIG)") $(EXTRA_ARGS)
+
+ai-test:
+	$(PYTHON) -m pytest -q odi/EVC/tests/test_rehear_assessment_boundary.py

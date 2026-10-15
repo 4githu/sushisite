@@ -1,0 +1,672 @@
+{
+  "schema_version": "research-run.v1",
+  "task": "research16",
+  "run_id": "ca904a01-701b-4ce2-b14c-43bda2626b73",
+  "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+  "runs": [
+    {
+      "metadata": {
+        "run_id": "955fb659-2aa7-4fb5-9489-bca2221bf0f6",
+        "task": "research16",
+        "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+        "rubric_version": "TEST_ONLY-rubric-v1",
+        "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+        "policy_version": "TEST_ONLY-policy-v1",
+        "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+        "rubric_purpose": "TEST_ONLY",
+        "engine": "fake",
+        "model": "fake-abstain",
+        "adapter": null,
+        "prompt_version": "research16-json-v1",
+        "cache_enabled": false,
+        "call_count": 3,
+        "retry_count": 0,
+        "cache_hits": 0,
+        "failures": 0,
+        "elapsed_s": 0.005766208982095122,
+        "status": "fake_contract_only",
+        "real_model_verified": false,
+        "load_kind": "no_model_fake",
+        "load_completed": true,
+        "cold_load_s": 6.670597940683365e-07,
+        "failed_attempts": 0,
+        "completed": 3,
+        "requested": 3,
+        "identity": {
+          "provider": "fake",
+          "runtime_binding": "builtin_fake",
+          "model": "fake-abstain",
+          "model_revision": "builtin-v1",
+          "tokenizer": "none",
+          "tokenizer_revision": "builtin-v1",
+          "adapter": null,
+          "adapter_revision": null,
+          "runtime_versions": {
+            "rehear_ai": "0.1.0"
+          }
+        },
+        "local_generation_executed": false,
+        "first_generation_s": 0.0025171670131385326,
+        "warm_generation_s": [
+          0.001423124922439456,
+          0.0014188338536769152
+        ],
+        "generation_timing": "assess wall time including validation/retries; excludes prior cold load"
+      },
+      "results": [
+        {
+          "criteria": [
+            {
+              "criterion_id": "TEST_ONLY_01",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_02",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_03",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_04",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_05",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_06",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_07",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_08",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_09",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_10",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_11",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_12",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_13",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_14",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_15",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_16",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            }
+          ],
+          "schema_version": "research-assessment.v1",
+          "rubric_version": "TEST_ONLY-rubric-v1",
+          "policy_version": "TEST_ONLY-policy-v1",
+          "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+          "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+          "rubric_purpose": "TEST_ONLY",
+          "prompt_version": "research16-json-v1",
+          "evidence_schema_version": "evidence-pack.v1",
+          "evidence_source_version": "TEST_ONLY-export-v1",
+          "evidence_digest": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+          "identity": {
+            "provider": "fake",
+            "runtime_binding": "builtin_fake",
+            "model": "fake-abstain",
+            "model_revision": "builtin-v1",
+            "tokenizer": "none",
+            "tokenizer_revision": "builtin-v1",
+            "adapter": null,
+            "adapter_revision": null,
+            "runtime_versions": {
+              "rehear_ai": "0.1.0"
+            }
+          },
+          "coverage": {
+            "scored_criteria": 0,
+            "abstained_criteria": 16,
+            "evidence": {
+              "available_sources": 1,
+              "total_sources": 2,
+              "omitted_source_ids": [
+                "segment-omitted"
+              ],
+              "truncated": true,
+              "truncation_unknown": false
+            },
+            "missing_inputs": [
+              "f0",
+              "volume",
+              "gaze_time_series",
+              "slide_timeline",
+              "external_fact_sources",
+              "gaze_delivery_score",
+              "gaze_scalar",
+              "qa_history"
+            ]
+          },
+          "inference": {
+            "call_count": 1,
+            "cache_enabled": false,
+            "cache_hit": false,
+            "elapsed_s": 7.966696284711361e-05,
+            "settings": {
+              "engine": "fake",
+              "model": "fake-abstain",
+              "model_revision": "builtin-v1",
+              "tokenizer": "none",
+              "tokenizer_revision": "builtin-v1",
+              "adapter": null,
+              "adapter_revision": null,
+              "model_family": "qwen3",
+              "runtime_versions": {},
+              "prompt_version": "research16-json-v1",
+              "cache_enabled": false,
+              "temperature": 0.0,
+              "max_new_tokens": 4096,
+              "max_input_tokens": 16384,
+              "timeout_s": 120.0,
+              "retries": 0,
+              "device": "cpu",
+              "dtype": "float32"
+            }
+          }
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "TEST_ONLY_01",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_02",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_03",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_04",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_05",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_06",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_07",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_08",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_09",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_10",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_11",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_12",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_13",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_14",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_15",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_16",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            }
+          ],
+          "schema_version": "research-assessment.v1",
+          "rubric_version": "TEST_ONLY-rubric-v1",
+          "policy_version": "TEST_ONLY-policy-v1",
+          "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+          "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+          "rubric_purpose": "TEST_ONLY",
+          "prompt_version": "research16-json-v1",
+          "evidence_schema_version": "evidence-pack.v1",
+          "evidence_source_version": "TEST_ONLY-export-v1",
+          "evidence_digest": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+          "identity": {
+            "provider": "fake",
+            "runtime_binding": "builtin_fake",
+            "model": "fake-abstain",
+            "model_revision": "builtin-v1",
+            "tokenizer": "none",
+            "tokenizer_revision": "builtin-v1",
+            "adapter": null,
+            "adapter_revision": null,
+            "runtime_versions": {
+              "rehear_ai": "0.1.0"
+            }
+          },
+          "coverage": {
+            "scored_criteria": 0,
+            "abstained_criteria": 16,
+            "evidence": {
+              "available_sources": 1,
+              "total_sources": 2,
+              "omitted_source_ids": [
+                "segment-omitted"
+              ],
+              "truncated": true,
+              "truncation_unknown": false
+            },
+            "missing_inputs": [
+              "f0",
+              "volume",
+              "gaze_time_series",
+              "slide_timeline",
+              "external_fact_sources",
+              "gaze_delivery_score",
+              "gaze_scalar",
+              "qa_history"
+            ]
+          },
+          "inference": {
+            "call_count": 2,
+            "cache_enabled": false,
+            "cache_hit": false,
+            "elapsed_s": 5.8582983911037445e-05,
+            "settings": {
+              "engine": "fake",
+              "model": "fake-abstain",
+              "model_revision": "builtin-v1",
+              "tokenizer": "none",
+              "tokenizer_revision": "builtin-v1",
+              "adapter": null,
+              "adapter_revision": null,
+              "model_family": "qwen3",
+              "runtime_versions": {},
+              "prompt_version": "research16-json-v1",
+              "cache_enabled": false,
+              "temperature": 0.0,
+              "max_new_tokens": 4096,
+              "max_input_tokens": 16384,
+              "timeout_s": 120.0,
+              "retries": 0,
+              "device": "cpu",
+              "dtype": "float32"
+            }
+          }
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "TEST_ONLY_01",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_02",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_03",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_04",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_05",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_06",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_07",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_08",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_09",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_10",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_11",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_12",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_13",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_14",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_15",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            },
+            {
+              "criterion_id": "TEST_ONLY_16",
+              "score": null,
+              "reason": "Fake engine: no model inference or substantive scoring performed.",
+              "evidence_ids": [],
+              "abstained": true,
+              "abstain_reason": "fake_engine_not_a_scoring_model"
+            }
+          ],
+          "schema_version": "research-assessment.v1",
+          "rubric_version": "TEST_ONLY-rubric-v1",
+          "policy_version": "TEST_ONLY-policy-v1",
+          "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+          "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+          "rubric_purpose": "TEST_ONLY",
+          "prompt_version": "research16-json-v1",
+          "evidence_schema_version": "evidence-pack.v1",
+          "evidence_source_version": "TEST_ONLY-export-v1",
+          "evidence_digest": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb",
+          "identity": {
+            "provider": "fake",
+            "runtime_binding": "builtin_fake",
+            "model": "fake-abstain",
+            "model_revision": "builtin-v1",
+            "tokenizer": "none",
+            "tokenizer_revision": "builtin-v1",
+            "adapter": null,
+            "adapter_revision": null,
+            "runtime_versions": {
+              "rehear_ai": "0.1.0"
+            }
+          },
+          "coverage": {
+            "scored_criteria": 0,
+            "abstained_criteria": 16,
+            "evidence": {
+              "available_sources": 1,
+              "total_sources": 2,
+              "omitted_source_ids": [
+                "segment-omitted"
+              ],
+              "truncated": true,
+              "truncation_unknown": false
+            },
+            "missing_inputs": [
+              "f0",
+              "volume",
+              "gaze_time_series",
+              "slide_timeline",
+              "external_fact_sources",
+              "gaze_delivery_score",
+              "gaze_scalar",
+              "qa_history"
+            ]
+          },
+          "inference": {
+            "call_count": 3,
+            "cache_enabled": false,
+            "cache_hit": false,
+            "elapsed_s": 6.404099985957146e-05,
+            "settings": {
+              "engine": "fake",
+              "model": "fake-abstain",
+              "model_revision": "builtin-v1",
+              "tokenizer": "none",
+              "tokenizer_revision": "builtin-v1",
+              "adapter": null,
+              "adapter_revision": null,
+              "model_family": "qwen3",
+              "runtime_versions": {},
+              "prompt_version": "research16-json-v1",
+              "cache_enabled": false,
+              "temperature": 0.0,
+              "max_new_tokens": 4096,
+              "max_input_tokens": 16384,
+              "timeout_s": 120.0,
+              "retries": 0,
+              "device": "cpu",
+              "dtype": "float32"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

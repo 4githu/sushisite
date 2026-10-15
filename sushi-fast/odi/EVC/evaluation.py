@@ -6,6 +6,7 @@ import os
 from typing import Any, Protocol
 
 from .config import EVC_LLM_TIMEOUT_S, EVC_PROVIDER_RETRIES, OPENAI_EVC_MODEL
+from .provider_execution import ProviderCapacityError, provider_executor
 from .schema import (
     ContentScores,
     DeliveryScores,
@@ -206,10 +207,11 @@ async def request_segment_evaluation(
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(selected.evaluate, payload),
-                timeout=timeout_s,
-            )
+            return await provider_executor.run(lambda: selected.evaluate(payload), timeout_s=timeout_s)
+        except ProviderCapacityError:
+            if last_error is not None:
+                raise last_error
+            raise
         except asyncio.TimeoutError as exc:
             last_error = EvaluationProviderError(
                 f"segment evaluation timed out after {timeout_s} seconds"

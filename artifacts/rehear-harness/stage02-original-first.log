@@ -1,0 +1,57 @@
+......................................................................F. [ 55%]
+.........................................................                [100%]
+=================================== FAILURES ===================================
+________ test_selection_failure_rolls_back_consumption_and_random_state ________
+odi/EVC/tests/test_reaction_scheduler.py:95: in test_selection_failure_rolls_back_consumption_and_random_state
+    with pytest.raises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'ValueError'>
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_reaction_scheduler.py::test_selection_failure_rolls_back_consumption_and_random_state
+1 failed, 128 passed in 1.31s
+{
+  "status": "FAIL",
+  "suite": "original",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_answer_service.py",
+    "odi/EVC/tests/test_behavior_candidates.py",
+    "odi/EVC/tests/test_behavior_selection.py",
+    "odi/EVC/tests/test_clip_pool.py",
+    "odi/EVC/tests/test_command_pipeline_api.py",
+    "odi/EVC/tests/test_diversity_acceptance.py",
+    "odi/EVC/tests/test_e2e_scenarios.py",
+    "odi/EVC/tests/test_evaluation.py",
+    "odi/EVC/tests/test_inputs_stt.py",
+    "odi/EVC/tests/test_question_generation.py",
+    "odi/EVC/tests/test_reaction_scheduler.py",
+    "odi/EVC/tests/test_report_followup.py",
+    "odi/EVC/tests/test_report_generation.py",
+    "odi/EVC/tests/test_schema.py",
+    "odi/EVC/tests/test_security_observability.py",
+    "odi/EVC/tests/test_session_initialization.py",
+    "odi/EVC/tests/test_state_engine.py",
+    "odi/EVC/tests/test_unity_rehearsal.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.489319,
+  "pytest": {
+    "collected": 129,
+    "exitstatus": 1,
+    "passed": 128,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

@@ -1,0 +1,791 @@
+{
+  "0": {
+    "initial": [
+      {
+        "agent_id": "audience_01",
+        "profile": {
+          "row": "front",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.6038938395514739,
+          "prior_knowledge": 0.6093308617480925,
+          "responsiveness": 0.4754443456158,
+          "expressivity": 0.5730317711049884,
+          "critical_bias": 0.25747326922456215,
+          "channel_preference": {
+            "face": 0.5191403916007474,
+            "body": 0.13799466975701227,
+            "gaze_head": 0.3428649386422403
+          }
+        },
+        "state": {
+          "E": 0.20778767910294782,
+          "V": 0.0,
+          "C": 0.21866172349618496
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_02",
+        "profile": {
+          "row": "front",
+          "seat": "right",
+          "has_laptop": false,
+          "topic_interest": 0.39610616044852615,
+          "prior_knowledge": 0.5614389964296749,
+          "responsiveness": 0.41044681119504844,
+          "expressivity": 0.6979552504600408,
+          "critical_bias": 0.6289082330778827,
+          "channel_preference": {
+            "face": 0.2805955785483788,
+            "body": 0.25057777783206897,
+            "gaze_head": 0.46882664361955223
+          }
+        },
+        "state": {
+          "E": -0.2077876791029477,
+          "V": 0.0,
+          "C": 0.12287799285934975
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_03",
+        "profile": {
+          "row": "middle",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.5794026249809212,
+          "prior_knowledge": 0.4385610035703251,
+          "responsiveness": 0.7003668796693111,
+          "expressivity": 0.3367593075276904,
+          "critical_bias": 0.4384109980495194,
+          "channel_preference": {
+            "face": 0.30709826598446804,
+            "body": 0.37765068331875823,
+            "gaze_head": 0.31525105069677367
+          }
+        },
+        "state": {
+          "E": 0.15880524996184242,
+          "V": 0.0,
+          "C": -0.12287799285934975
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_04",
+        "profile": {
+          "row": "middle",
+          "seat": "right",
+          "has_laptop": true,
+          "topic_interest": 0.337313569939516,
+          "prior_knowledge": 0.3126063050864878,
+          "responsiveness": 0.44006461125096785,
+          "expressivity": 0.6955456485023623,
+          "critical_bias": 0.6874053915704748,
+          "channel_preference": {
+            "face": 0.2866362882596765,
+            "body": 0.266086524563227,
+            "gaze_head": 0.4472771871770965
+          }
+        },
+        "state": {
+          "E": -0.325372860120968,
+          "V": 0.0,
+          "C": -0.3747873898270244
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_05",
+        "profile": {
+          "row": "rear",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.662686430060484,
+          "prior_knowledge": 0.6873936949135122,
+          "responsiveness": 0.507660077935999,
+          "expressivity": 0.6477919282434385,
+          "critical_bias": 0.6996205764986805,
+          "channel_preference": {
+            "face": 0.26888832278724967,
+            "body": 0.3293827228315654,
+            "gaze_head": 0.401728954381185
+          }
+        },
+        "state": {
+          "E": 0.325372860120968,
+          "V": 0.0,
+          "C": 0.3747873898270244
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_06",
+        "profile": {
+          "row": "rear",
+          "seat": "right",
+          "has_laptop": true,
+          "topic_interest": 0.42059737501907885,
+          "prior_knowledge": 0.3906691382519075,
+          "responsiveness": 0.430301252563504,
+          "expressivity": 0.35892004354031687,
+          "critical_bias": 0.2723520671904635,
+          "channel_preference": {
+            "face": 0.3711170313697245,
+            "body": 0.28222386990447457,
+            "gaze_head": 0.3466590987258009
+          }
+        },
+        "state": {
+          "E": -0.1588052499618423,
+          "V": 0.0,
+          "C": -0.21866172349618496
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      }
+    ],
+    "rng_next": {
+      "audience_01": [
+        0.7635526491789744,
+        0.9450113926697445,
+        0.8171404597989343,
+        0.7196559015232066
+      ],
+      "audience_02": [
+        0.5126472446632586,
+        0.620467858772936,
+        0.39632634000955447,
+        0.6033259839659081
+      ],
+      "audience_03": [
+        0.6239380612845359,
+        0.10669070748778697,
+        0.3303027737513794,
+        0.5019515482087339
+      ],
+      "audience_04": [
+        0.9023291139925907,
+        0.2141894029957977,
+        0.1968313904103477,
+        0.7305922165455463
+      ],
+      "audience_05": [
+        0.9986321501641032,
+        0.7902895799671954,
+        0.26924966449119825,
+        0.7849583935813035
+      ],
+      "audience_06": [
+        0.70170869610636,
+        0.6491230421765146,
+        0.8464025443503648,
+        0.8324355217353807
+      ]
+    },
+    "updates_sha256": "e361bb4ab6307044fd385b18a315212b1db2dc1b46f487d708b376c9b19d0429",
+    "final_actors_sha256": "60664c3c97f7703432077b82d82dddf84b3c275dbc7b792d73a7fcc4aa8d96ed",
+    "final_rng_next": {
+      "audience_01": [
+        0.8548052449335326,
+        0.9323138633229167,
+        0.5783367900915403,
+        0.7471501713722759
+      ],
+      "audience_02": [
+        0.251062199442202,
+        0.5052768969711413,
+        0.876892143782064,
+        0.9322473700421215
+      ],
+      "audience_03": [
+        0.9180550923491362,
+        0.29020317661888884,
+        0.8378107533825968,
+        0.16749079278830314
+      ],
+      "audience_04": [
+        0.013514220114350883,
+        0.19529069998742887,
+        0.46873417645280835,
+        0.5055303253166042
+      ],
+      "audience_05": [
+        0.04408040857267426,
+        0.5342364976377689,
+        0.42461560415287625,
+        0.6612177733698509
+      ],
+      "audience_06": [
+        0.6578380550264024,
+        0.9788543116563685,
+        0.7950347934961198,
+        0.2487940919812679
+      ]
+    },
+    "reactions_sha256": "36bfa9301b0c57aed259d7148c7c44594cf86f3e64ac7eab55377ad1e59bc98f"
+  },
+  "1": {
+    "initial": [
+      {
+        "agent_id": "audience_01",
+        "profile": {
+          "row": "front",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.3901314935311767,
+          "prior_knowledge": 0.3704256532565064,
+          "responsiveness": 0.5903926205020691,
+          "expressivity": 0.33864594289481564,
+          "critical_bias": 0.5794623083633723,
+          "channel_preference": {
+            "face": 0.47270056637882163,
+            "body": 0.28231130573747304,
+            "gaze_head": 0.24498812788370533
+          }
+        },
+        "state": {
+          "E": -0.21973701293764658,
+          "V": 0.0,
+          "C": -0.2591486934869872
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_02",
+        "profile": {
+          "row": "front",
+          "seat": "right",
+          "has_laptop": true,
+          "topic_interest": 0.6802615335294029,
+          "prior_knowledge": 0.6619312813168281,
+          "responsiveness": 0.6588706836917346,
+          "expressivity": 0.32899199120605843,
+          "critical_bias": 0.46831967211411696,
+          "channel_preference": {
+            "face": 0.3144212457710913,
+            "body": 0.3539059043718019,
+            "gaze_head": 0.33167284985710677
+          }
+        },
+        "state": {
+          "E": 0.36052306705880577,
+          "V": 0.0,
+          "C": 0.3238625626336562
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_03",
+        "profile": {
+          "row": "middle",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.4445365189755637,
+          "prior_knowledge": 0.4268555018131954,
+          "responsiveness": 0.7097634930075698,
+          "expressivity": 0.42834664009050094,
+          "critical_bias": 0.4843385307472992,
+          "channel_preference": {
+            "face": 0.4389602535691169,
+            "body": 0.1915742849159199,
+            "gaze_head": 0.3694654615149633
+          }
+        },
+        "state": {
+          "E": -0.11092696204887265,
+          "V": 0.0,
+          "C": -0.14628899637360915
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_04",
+        "profile": {
+          "row": "middle",
+          "seat": "right",
+          "has_laptop": false,
+          "topic_interest": 0.6098685064688233,
+          "prior_knowledge": 0.5731444981868046,
+          "responsiveness": 0.46395519677481706,
+          "expressivity": 0.6711750724927694,
+          "critical_bias": 0.3838775020505809,
+          "channel_preference": {
+            "face": 0.14721724528491245,
+            "body": 0.4917084335756415,
+            "gaze_head": 0.3610743211394461
+          }
+        },
+        "state": {
+          "E": 0.21973701293764658,
+          "V": 0.0,
+          "C": 0.14628899637360915
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_05",
+        "profile": {
+          "row": "rear",
+          "seat": "left",
+          "has_laptop": true,
+          "topic_interest": 0.5554634810244363,
+          "prior_knowledge": 0.3380687186831719,
+          "responsiveness": 0.5801281696121061,
+          "expressivity": 0.5220318992632813,
+          "critical_bias": 0.6629541423731644,
+          "channel_preference": {
+            "face": 0.32435746850120667,
+            "body": 0.37425657734508044,
+            "gaze_head": 0.30138595415371283
+          }
+        },
+        "state": {
+          "E": 0.11092696204887265,
+          "V": 0.0,
+          "C": -0.3238625626336562
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_06",
+        "profile": {
+          "row": "rear",
+          "seat": "right",
+          "has_laptop": false,
+          "topic_interest": 0.3197384664705971,
+          "prior_knowledge": 0.6295743467434936,
+          "responsiveness": 0.5074002565416845,
+          "expressivity": 0.5995864167838056,
+          "critical_bias": 0.2903248880482482,
+          "channel_preference": {
+            "face": 0.27640422946629434,
+            "body": 0.3451866281537855,
+            "gaze_head": 0.37840914237992024
+          }
+        },
+        "state": {
+          "E": -0.36052306705880577,
+          "V": 0.0,
+          "C": 0.2591486934869871
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      }
+    ],
+    "rng_next": {
+      "audience_01": [
+        0.31857934914771635,
+        0.2610179295606647,
+        0.8049289540561051,
+        0.8990535785575205
+      ],
+      "audience_02": [
+        0.32223290747055977,
+        0.8700459168563733,
+        0.7947598732144485,
+        0.60299289676908
+      ],
+      "audience_03": [
+        0.029973972565857876,
+        0.7061808224500374,
+        0.6278102050749889,
+        0.9082056104371787
+      ],
+      "audience_04": [
+        0.900001288039322,
+        0.1606235514894514,
+        0.07053430972037456,
+        0.3146688343095909
+      ],
+      "audience_05": [
+        0.15035063807028715,
+        0.8197274447098432,
+        0.9666667495476958,
+        0.9427535514640006
+      ],
+      "audience_06": [
+        0.4786255752998734,
+        0.9539827406874278,
+        0.7628647758093667,
+        0.812718109685828
+      ]
+    },
+    "updates_sha256": "8c27e905976dd22992909b0c47e1d54c526cf7aa674b33fa34909fea1bacab9e",
+    "final_actors_sha256": "deca8bf34648f48aaf61208502c064d75fc5c18b53f552b3043a1552200e0a7f",
+    "final_rng_next": {
+      "audience_01": [
+        0.7022469815745794,
+        0.611588218528526,
+        0.4673726304137068,
+        0.731489969033368
+      ],
+      "audience_02": [
+        0.2855776964324588,
+        0.025535420515513052,
+        0.6090764225051555,
+        0.5428160106624029
+      ],
+      "audience_03": [
+        0.7311217772286969,
+        0.9157523681063473,
+        0.37315831761511975,
+        0.9004658898907595
+      ],
+      "audience_04": [
+        0.4334269449490904,
+        0.03631530591866561,
+        0.7787604654554053,
+        0.7463728922453742
+      ],
+      "audience_05": [
+        0.5659932315335819,
+        0.422418666135543,
+        0.3518684361274894,
+        0.8109857112323492
+      ],
+      "audience_06": [
+        0.12836799260479215,
+        0.9875062524997691,
+        0.7088085810591026,
+        0.7679424843135413
+      ]
+    },
+    "reactions_sha256": "a80780c6bb186eeea1f0390d1ed5f355868e4741c85ddecdd1eef129d8da5c24"
+  },
+  "2026": {
+    "initial": [
+      {
+        "agent_id": "audience_01",
+        "profile": {
+          "row": "front",
+          "seat": "left",
+          "has_laptop": true,
+          "topic_interest": 0.6527038664572327,
+          "prior_knowledge": 0.6096791943806262,
+          "responsiveness": 0.5145514985765112,
+          "expressivity": 0.41917389992246046,
+          "critical_bias": 0.5486993425772309,
+          "channel_preference": {
+            "face": 0.20862348483798535,
+            "body": 0.5139956147068676,
+            "gaze_head": 0.2773809004551471
+          }
+        },
+        "state": {
+          "E": 0.3054077329144653,
+          "V": 0.0,
+          "C": 0.21935838876125247
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_02",
+        "profile": {
+          "row": "front",
+          "seat": "right",
+          "has_laptop": false,
+          "topic_interest": 0.5894841026444888,
+          "prior_knowledge": 0.6551617248328502,
+          "responsiveness": 0.5400902169661821,
+          "expressivity": 0.5980631707049286,
+          "critical_bias": 0.26898272217018593,
+          "channel_preference": {
+            "face": 0.23361546962099522,
+            "body": 0.4223132089015947,
+            "gaze_head": 0.3440713214774101
+          }
+        },
+        "state": {
+          "E": 0.1789682052889776,
+          "V": 0.0,
+          "C": 0.31032344966570036
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_03",
+        "profile": {
+          "row": "middle",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.6276572320737488,
+          "prior_knowledge": 0.3448382751671498,
+          "responsiveness": 0.5262312782242438,
+          "expressivity": 0.40475479200960207,
+          "critical_bias": 0.5587928026690048,
+          "channel_preference": {
+            "face": 0.3698730101045224,
+            "body": 0.1609782117146231,
+            "gaze_head": 0.46914877818085443
+          }
+        },
+        "state": {
+          "E": 0.2553144641474976,
+          "V": 0.0,
+          "C": -0.31032344966570036
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_04",
+        "profile": {
+          "row": "middle",
+          "seat": "right",
+          "has_laptop": false,
+          "topic_interest": 0.37234276792625126,
+          "prior_knowledge": 0.5821625240420465,
+          "responsiveness": 0.6086738180917382,
+          "expressivity": 0.6031286807707134,
+          "critical_bias": 0.7211118371989698,
+          "channel_preference": {
+            "face": 0.17820700014451646,
+            "body": 0.365654165225947,
+            "gaze_head": 0.4561388346295366
+          }
+        },
+        "state": {
+          "E": -0.2553144641474975,
+          "V": 0.0,
+          "C": 0.16432504808409298
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_05",
+        "profile": {
+          "row": "rear",
+          "seat": "left",
+          "has_laptop": false,
+          "topic_interest": 0.34729613354276734,
+          "prior_knowledge": 0.3903208056193738,
+          "responsiveness": 0.5836082623973328,
+          "expressivity": 0.4870320369083536,
+          "critical_bias": 0.6841257987101317,
+          "channel_preference": {
+            "face": 0.14600875954218856,
+            "body": 0.4682443669541391,
+            "gaze_head": 0.38574687350367226
+          }
+        },
+        "state": {
+          "E": -0.3054077329144653,
+          "V": 0.0,
+          "C": -0.21935838876125235
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      },
+      {
+        "agent_id": "audience_06",
+        "profile": {
+          "row": "rear",
+          "seat": "right",
+          "has_laptop": true,
+          "topic_interest": 0.41051589735551125,
+          "prior_knowledge": 0.4178374759579535,
+          "responsiveness": 0.566358898216131,
+          "expressivity": 0.45549193668619237,
+          "critical_bias": 0.7477497518852017,
+          "channel_preference": {
+            "face": 0.47963380344945994,
+            "body": 0.35804104476588455,
+            "gaze_head": 0.1623251517846555
+          }
+        },
+        "state": {
+          "E": -0.1789682052889775,
+          "V": 0.0,
+          "C": -0.16432504808409298
+        },
+        "previous_dominant_axis": null,
+        "core_history": [],
+        "action_history": [],
+        "cooldowns": {},
+        "consecutive_low_engagement": 0,
+        "consecutive_low_arousal": 0,
+        "last_body_command_time": 0.0
+      }
+    ],
+    "rng_next": {
+      "audience_01": [
+        0.3155001135884542,
+        0.7234426364104293,
+        0.5349200166115448,
+        0.433236432160356
+      ],
+      "audience_02": [
+        0.4037561484744614,
+        0.028844211759901706,
+        0.13931204995460422,
+        0.8568887543528995
+      ],
+      "audience_03": [
+        0.7817845331316667,
+        0.12099039522378763,
+        0.10328239136702266,
+        0.7400133243277278
+      ],
+      "audience_04": [
+        0.018076495441562423,
+        0.6100973237756668,
+        0.3457639153305373,
+        0.39933309522511007
+      ],
+      "audience_05": [
+        0.8327414400732803,
+        0.498919324069361,
+        0.6340473372875304,
+        0.06342808801023414
+      ],
+      "audience_06": [
+        0.7778424266487471,
+        0.190559154082662,
+        0.43662552958591927,
+        0.7875683037439072
+      ]
+    },
+    "updates_sha256": "e921f2683b199413ad151f88c6da6dc4c438b2c916fe314c6494bfb666e37e8a",
+    "final_actors_sha256": "dac93e076b4f374b8f477b65de5a0c77326a900914c06877a6816b2e5bb17a19",
+    "final_rng_next": {
+      "audience_01": [
+        0.2146074221732952,
+        0.3200436641563411,
+        0.1851720142561586,
+        0.717246946508783
+      ],
+      "audience_02": [
+        0.3187105207615233,
+        0.6276393092817996,
+        0.7452289178053356,
+        0.5872202636445906
+      ],
+      "audience_03": [
+        0.15599735365572098,
+        0.5978881887846123,
+        0.7620654208246865,
+        0.440501595504612
+      ],
+      "audience_04": [
+        0.2104659241088459,
+        0.5973801718571425,
+        0.9778764771505984,
+        0.1634931577080262
+      ],
+      "audience_05": [
+        0.9735237584714749,
+        0.6047326729505258,
+        0.20735346647797925,
+        0.9141946973067248
+      ],
+      "audience_06": [
+        0.05963550116917249,
+        0.5260234669382501,
+        0.4710268926105916,
+        0.8188789800155375
+      ]
+    },
+    "reactions_sha256": "fb6172a5a1ee197447b155750bf16d435b5516535186941032c14b8bc8172405"
+  }
+}

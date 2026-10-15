@@ -1,0 +1,152 @@
+FFFFFFFFF.                                                               [100%]
+=================================== FAILURES ===================================
+___________________ test_all_missing_gaze_is_null_not_fifty ____________________
+odi/EVC/tests/test_report_integrity.py:43: in test_all_missing_gaze_is_null_not_fifty
+    assert gaze.score is None and gaze.coaching is None and gaze.evidence_ids == []
+E   AssertionError: assert (50 is None)
+E    +  where 50 = DetailMetricFeedback(id='gaze', score=50, reason='시선 처리을(를) 우선 개선하면 발표의 전달 효과가 크게 좋아질 수 있습니다.', evidence_ids=['segment-1'], coaching='문장이 끝날 때 화면 대신 청중을 바라보는 습관을 연습해 보세요.', label='시선 처리', rank_label=None, status=None).score
+____________________ test_partial_gaze_coverage_is_explicit ____________________
+odi/EVC/tests/test_report_integrity.py:51: in test_partial_gaze_coverage_is_explicit
+    assert gaze.score == 90  # use observed segments only, never impute missing to 50
+    ^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 70 == 90
+E    +  where 70 = DetailMetricFeedback(id='gaze', score=70, reason='시선 처리은(는) 대체로 양호하지만 일부 구간을 더 명확하게 다듬을 수 있습니다.', evidence_ids=['segment-2'], coaching='문장이 끝날 때 화면 대신 청중을 바라보는 습관을 연습해 보세요.', label='시선 처리', rank_label=None, status=None).score
+_____________ test_unmeasured_pronunciation_reason_not_overwritten _____________
+odi/EVC/tests/test_report_integrity.py:63: in test_unmeasured_pronunciation_reason_not_overwritten
+    assert metric(report, "pronunciation").model_dump() == before
+E   AssertionError: assert {'coaching': ... 결과입니다.', ...} == {'coaching': ... 않았습니다.', ...}
+E     
+E     Omitting 2 identical items, use -vv to show
+E     Differing items:
+E     {'evidence_ids': ['segment-1']} != {'evidence_ids': []}
+E     {'reason': '측정된 결과입니다.'} != {'reason': '현재 STT 결과에는 발음 정확도 평가값이 포함되지 않아 점수를 산정하지 않았습니다.'}
+E     {'coaching': '측정값을 개선하세요.'} != {'coaching': None}
+E     Use -v to get more diff
+_________________ test_report_cache_isolated_between_providers _________________
+odi/EVC/tests/test_report_integrity.py:83: in test_report_cache_isolated_between_providers
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:77: in run
+    assert (await generate_report_insight(payload, provider=b)).title == "B"
+E   AssertionError: assert 'A' == 'B'
+E     
+E     - B
+E     + A
+_____________ test_invalid_reference_rejected_and_failure_visible ______________
+odi/EVC/tests/test_report_integrity.py:104: in test_invalid_reference_rejected_and_failure_visible
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:92: in run
+    with pytest.raises(ReportInsightProviderError, match="invalid_evidence_reference"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'odi.EVC.report_v2.report_generation.ReportInsightProviderError'>
+_____________________ test_recovery_restores_qa_and_order ______________________
+odi/EVC/tests/test_report_integrity.py:158: in test_recovery_restores_qa_and_order
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:129: in run
+    from odi.EVC.qa_persistence import restore_qa_state
+E   ModuleNotFoundError: No module named 'odi.EVC.qa_persistence'
+_________________________ test_qa_retry_is_idempotent __________________________
+odi/EVC/tests/test_report_integrity.py:189: in test_qa_retry_is_idempotent
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:165: in run
+    template, pin = bind_db(monkeypatch, tmp_path / "retry.db")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:118: in bind_db
+    original = getattr(odidb, name)
+               ^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'odi.db.odidb' has no attribute 'save_presentation_qa'
+_______ test_db_failure_does_not_advance_step_without_committed_response _______
+odi/EVC/tests/test_report_integrity.py:220: in test_db_failure_does_not_advance_step_without_committed_response
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:212: in run
+    assert record.step == 0 and not record.request_cache and not record.report_segments
+E   AssertionError: assert (1 == 0)
+E    +  where 1 = SessionRecord(session_id=UUID('85db1663-4b04-47f5-aa65-d9057511ff02'), token_digest=b'K\xfd\x19I\x18jc#\x19W\xb6X[n\xb...=None, report_feedback=None, report_generated_at=None, persistent_session_id=None, report_response_cache=OrderedDict()).step
+_________________ test_migrated_case_and_measurement_inventory _________________
+odi/EVC/tests/test_report_integrity.py:224: in test_migrated_case_and_measurement_inventory
+    from tools.rehear_cli.migration import verify_inventory
+E   ModuleNotFoundError: No module named 'tools.rehear_cli.migration'
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_report_integrity.py::test_all_missing_gaze_is_null_not_fifty
+FAILED odi/EVC/tests/test_report_integrity.py::test_partial_gaze_coverage_is_explicit
+FAILED odi/EVC/tests/test_report_integrity.py::test_unmeasured_pronunciation_reason_not_overwritten
+FAILED odi/EVC/tests/test_report_integrity.py::test_report_cache_isolated_between_providers
+FAILED odi/EVC/tests/test_report_integrity.py::test_invalid_reference_rejected_and_failure_visible
+FAILED odi/EVC/tests/test_report_integrity.py::test_recovery_restores_qa_and_order
+FAILED odi/EVC/tests/test_report_integrity.py::test_qa_retry_is_idempotent - ...
+FAILED odi/EVC/tests/test_report_integrity.py::test_db_failure_does_not_advance_step_without_committed_response
+FAILED odi/EVC/tests/test_report_integrity.py::test_migrated_case_and_measurement_inventory
+9 failed, 1 passed in 1.33s
+{
+  "status": "FAIL",
+  "suite": "integrity",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_report_integrity.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.683617,
+  "pytest": {
+    "collected": 10,
+    "exitstatus": 1,
+    "passed": 1,
+    "failed": 9,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

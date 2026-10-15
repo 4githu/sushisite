@@ -1,0 +1,92 @@
+........F.FFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+_________________ test_migrated_case_and_measurement_inventory _________________
+odi/EVC/tests/test_report_integrity.py:224: in test_migrated_case_and_measurement_inventory
+    from tools.rehear_cli.migration import verify_inventory
+E   ModuleNotFoundError: No module named 'tools.rehear_cli.migration'
+________________ test_offline_cli_commands_and_metadata[doctor] ________________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'doctor' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'doctor'], retu...e: __main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'doctor' (choose from 'eval')\n").returncode
+______________ test_offline_cli_commands_and_metadata[contracts] _______________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'contracts' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'contracts'], r...__main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'contracts' (choose from 'eval')\n").returncode
+________________ test_offline_cli_commands_and_metadata[replay] ________________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'replay' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'replay', '--in...e: __main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'replay' (choose from 'eval')\n").returncode
+________________ test_offline_cli_commands_and_metadata[repeat] ________________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'repeat' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'repeat', '--in...e: __main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'repeat' (choose from 'eval')\n").returncode
+_______________ test_offline_cli_commands_and_metadata[compare] ________________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'compare' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'compare', '--i...: __main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'compare' (choose from 'eval')\n").returncode
+________________ test_offline_cli_commands_and_metadata[bench] _________________
+odi/EVC/tests/test_report_integrity.py:259: in test_offline_cli_commands_and_metadata
+    assert result.returncode == 0, result.stderr
+E   AssertionError: usage: __main__.py [-h] {eval} ...
+E     __main__.py: error: argument command: invalid choice: 'bench' (choose from 'eval')
+E     
+E   assert 2 == 0
+E    +  where 2 = CompletedProcess(args=['/Users/user1/sushisite/sushi-fast/.venv/bin/python', '-m', 'tools.rehear_cli', 'bench', '--inp...ge: __main__.py [-h] {eval} ...\n__main__.py: error: argument command: invalid choice: 'bench' (choose from 'eval')\n").returncode
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_report_integrity.py::test_migrated_case_and_measurement_inventory
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[doctor]
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[contracts]
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[replay]
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[repeat]
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[compare]
+FAILED odi/EVC/tests/test_report_integrity.py::test_offline_cli_commands_and_metadata[bench]
+7 failed, 9 passed in 1.68s
+{
+  "status": "FAIL",
+  "suite": "integrity",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_report_integrity.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.930917,
+  "pytest": {
+    "collected": 16,
+    "exitstatus": 1,
+    "passed": 9,
+    "failed": 7,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

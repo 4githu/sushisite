@@ -9,6 +9,7 @@ from typing import Any, Literal, Protocol
 
 from .config import DEEPGRAM_PRIMARY_MODEL, EVC_PROVIDER_RETRIES, EVC_STT_TIMEOUT_S
 from .schema import SpeechTextResult, SpeechWord
+from .provider_execution import ProviderCapacityError, provider_executor
 
 
 class STTProviderError(RuntimeError):
@@ -154,10 +155,12 @@ async def transcribe_audio(
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(selected.transcribe, file_path, language),
-                timeout=timeout_s,
-            )
+            return await provider_executor.run(
+                lambda: selected.transcribe(file_path, language), timeout_s=timeout_s)
+        except ProviderCapacityError:
+            if last_error is not None:
+                raise last_error
+            raise
         except asyncio.TimeoutError as exc:
             last_error = STTProviderError(f"STT timed out after {timeout_s} seconds")
             last_error.__cause__ = exc

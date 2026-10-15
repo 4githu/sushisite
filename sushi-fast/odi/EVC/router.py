@@ -8,10 +8,14 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile, Re
 from pydantic import ValidationError
 from fastapi.responses import Response
 from .answer_service import submit_answer, checked_question
+from .audience_config import resolve_audience_count
 from .azure_speech import synthesize, VOICES, MAX_WAV_BYTES
 
 from .config import EVC_TRANSCRIPT_RETENTION_DAYS, EVC_UPLOAD_DIR
 from .reaction_scheduler import ReactionRequest, ReactionResponse
+from .playback_policy import PlaybackClockError
+from .provider_execution import ProviderCapacityError
+from .observability import record_reaction_tick
 from .report_schema import ReportReactionRecord
 from odi.db import odidb
 from .evaluation import EvaluationProviderError
@@ -120,7 +124,11 @@ async def smart_start(
                 raise HTTPException(404, detail={"code": "template_not_found", "message": "pre-session template does not exist"})
             owner_user_id = str(template_record["owner_id"])
             template_id = str(pre_session["template_id"])
-            snapshot = pre_session.get("template_snapshot") or template_record["template"]
+            snapshot = pre_session.get("template_snapshot")
+            options.audience_count = resolve_audience_count(snapshot)
+            # Preserve legacy title/material/trait fallback; count above comes
+            # exclusively from the PIN-bound snapshot, even when it is absent.
+            snapshot = snapshot or template_record["template"]
             environment = snapshot.get("environment") or {}
             audience = snapshot.get("audience") or {}
             options.presentation_title = str(environment.get("title") or environment.get("company_name") or presentation_title)
@@ -194,12 +202,15 @@ async def poll_reactions(
         scheduler = record.reaction_scheduler
         if scheduler is None:
             raise HTTPException(409, detail={"code": "independent_reactions_not_enabled"})
-        if record.presentation_status != "running":
+        cached = body.request_id in scheduler.cache
+        if record.presentation_status != "running" and not cached:
             return ReactionResponse(session_id=session_id, request_id=body.request_id,
                                     sequence=scheduler.sequence)
         # No await/mutation of analysis state: a slow provider cannot freeze the
         # reaction clock, and a retry gets the exact cached decision/command IDs.
         response = scheduler.tick(session_id, body)
+        if not cached:
+            record_reaction_tick(session_id, body.request_id, response.sequence, scheduler.last_tick_metadata)
         if response.audiences or response.commands:
             reaction = ReportReactionRecord(
                 sequence=response.sequence,
@@ -385,6 +396,10 @@ def _http_error(exc: Exception) -> HTTPException:
         return HTTPException(413, detail={"code": "payload_too_large", "message": str(exc)})
     if isinstance(exc, UnsupportedMediaTypeError):
         return HTTPException(415, detail={"code": "unsupported_media_type", "message": str(exc)})
+    if isinstance(exc, PlaybackClockError):
+        return HTTPException(409, detail={"code": "playback_clock_discontinuity", "message": str(exc)})
+    if isinstance(exc, ProviderCapacityError):
+        return HTTPException(429, detail={"code": "provider_capacity_exceeded", "message": str(exc)})
     if isinstance(exc, SessionCapacityError):
         return HTTPException(429, detail={"code": "session_capacity_exceeded", "message": str(exc)})
     if isinstance(exc, STTProviderConfigurationError):
@@ -441,6 +456,8 @@ async def question_speech(session_id: UUID, index: int,
                 raise HTTPException(422, "Valid audience and voice profile required")
             if index != sum(bool(v.get("response")) for v in record.qa_answers.values()):
                 raise HTTPException(409, "Question is not the current turn")
+            from .qa_persistence import bind_question_audience
+            bind_question_audience(record, index, x_audience_id)
             text = question.question
         audio = await synthesize(text, x_speech_voice)
         return Response(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})

@@ -1,0 +1,613 @@
+FFFFFFFFFFFFFFFFFFFF...FFFFFFFFFFFFFFFFFF                                [100%]
+=================================== FAILURES ===================================
+___________________ test_count_resolution_strict_and_missing ___________________
+odi/EVC/tests/test_audience_count_contract.py:116: in test_count_resolution_strict_and_missing
+    module = importlib.import_module("odi.EVC.audience_config")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.audience_config'
+_________________________ test_pin_uses_bound_snapshot _________________________
+odi/EVC/tests/test_audience_count_contract.py:149: in test_pin_uses_bound_snapshot
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:139: in run
+    assert len(response.json()["audiences"]) == 12
+E   AssertionError: assert 6 == 12
+E    +  where 6 = len([{'agent_id': 'audience_01', 'profile': {'channel_preference': {'Body': 0.13799466975701227, 'Face': 0.519140391600747...35892004354031687, 'has_laptop': True, ...}, 'state': {'C': -0.21866172349618496, 'E': -0.1588052499618423, 'V': 0.0}}])
+____________ test_invalid_pin_count_is_422_before_claim[snapshot0] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"3764187b-7443-40c8-925e-50e533b8e896","session_token":"Nk_UrBYe15eSJNbBMYqSE96YEphY3FEZv9aZQu8QYx4","seed":113278217,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.42772541746761394,"prior_knowledge":0.33193137967147013,"responsiveness":0.6866178376063913,"expressivity":0.6024940472199651,"critical_bias":0.5060078708344857,"channel_preference":{"Face":0.30810588398111494,"Body":0.45677820930068747,"GazeHead":0.2351159067181976}},"state":{"E":-0.1445491650647721,"V":0.0,"C":-0.33613724065705974}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.6574575852715734,"prior_knowledge":0.44220096614420323,"responsiveness":0.5669872678509844,"expressivity":0.6959829860759339,"critical_bias":0.5004650930737832,"channel_preference":{"Face":0.34000367524371455,"Body":0.17475720499224254,"GazeHead":0.4852391197640429}},"state":{"E":0.31491517054314677,"V":0.0,"C":-0.11559806771159353}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":true,"topic_interest":0.3425424147284266,"prior_knowledge":0.5577990338557968,"responsiveness":0.7369915160340528,"expressivity":0.6144266382990968,"critical_bias":0.686758662397994,"channel_preference":{"Face":0.2447211139660044,"Body":0.37976092389335264,"GazeHead":0.375517962140643}},"state":{"E":-0.31491517054314677,"V":0.0,"C":0.11559806771159353}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.5722745825323861,"prior_knowledge":0.6061569548840215,"responsiveness":0.42050062937686106,"expressivity":0.3151957597695811,"critical_bias":0.5395519454187766,"channel_preference":{"Face":0.3769958820947507,"Body":0.20962727605992454,"GazeHead":0.4133768418453247}},"state":{"E":0.1445491650647721,"V":0.0,"C":0.2123139097680431}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.3925954050091409,"prior_knowledge":0.6680686203285299,"responsiveness":0.6044746857922755,"expressivity":0.6908415679294869,"critical_bias":0.6137331847549183,"channel_preference":{"Face":0.21534451200414678,"Body":0.39485051200377413,"GazeHead":0.38980497599207903}},"state":{"E":-0.21480918998171816,"V":0.0,"C":0.33613724065705974}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.6074045949908591,"prior_knowledge":0.3938430451159785,"responsiveness":0.6846024976772889,"expressivity":0.5211126952494121,"critical_bias":0.6111134956966088,"channel_preference":{"Face":0.44511493279630093,"Body":0.2493458398223737,"GazeHead":0.30553922738132544}},"state":{"E":0.21480918998171816,"V":0.0,"C":-0.21231390976804299}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot1] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"67abd605-92cc-4eae-b820-fca0038c3c0f","session_token":"SwIWyjGTI0ExiqqZ6aLuAYBI---yBt87ht3arinmV1A","seed":1588072838,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":-1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":true,"topic_interest":0.3482393697142234,"prior_knowledge":0.6875191653667265,"responsiveness":0.7285627989251307,"expressivity":0.5370258222348814,"critical_bias":0.33918517396468434,"channel_preference":{"Face":0.2975395155268332,"Body":0.31560755542449154,"GazeHead":0.38685292904867524}},"state":{"E":-0.30352126057155315,"V":0.0,"C":0.37503833073345305}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.5645011410594184,"prior_knowledge":0.6269847060166441,"responsiveness":0.6536607070756905,"expressivity":0.6466953249614009,"critical_bias":0.5609706317440952,"channel_preference":{"Face":0.21364838272559264,"Body":0.38784829334228593,"GazeHead":0.39850332393212146}},"state":{"E":0.1290022821188368,"V":0.0,"C":0.25396941203328827}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.6152715009448592,"prior_knowledge":0.5559623884517737,"responsiveness":0.5242780233903668,"expressivity":0.5796766315383961,"critical_bias":0.60498226002541,"channel_preference":{"Face":0.42566907456751446,"Body":0.3738379059063488,"GazeHead":0.20049301952613674}},"state":{"E":0.23054300188971832,"V":0.0,"C":0.11192477690354741}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.38472849905514084,"prior_knowledge":0.4440376115482263,"responsiveness":0.7025703339696286,"expressivity":0.6694491721685001,"critical_bias":0.31331846275075576,"channel_preference":{"Face":0.32182310330542196,"Body":0.3950952066796528,"GazeHead":0.2830816900149252}},"state":{"E":-0.23054300188971832,"V":0.0,"C":-0.11192477690354741}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":false,"topic_interest":0.6517606302857766,"prior_knowledge":0.3124808346332734,"responsiveness":0.5675679782938456,"expressivity":0.40675889020220435,"critical_bias":0.5130731293450058,"channel_preference":{"Face":0.3600046922685792,"Body":0.3366538135898502,"GazeHead":0.3033414941415707}},"state":{"E":0.30352126057155315,"V":0.0,"C":-0.37503833073345316}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":true,"topic_interest":0.4354988589405816,"prior_knowledge":0.37301529398335587,"responsiveness":0.7301919328965443,"expressivity":0.3208210925445695,"critical_bias":0.31596739967299986,"channel_preference":{"Face":0.34541337722796245,"Body":0.3049401595033396,"GazeHead":0.349646463268698}},"state":{"E":-0.1290022821188368,"V":0.0,"C":-0.25396941203328827}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot2] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"5ef4b0e7-dd33-4ba4-8727-ece2b63dcb37","session_token":"YSP4Wyv4Eq_dLKppT6WwmI8DqTmUcTIFZceTfs85wEg","seed":1231535012,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":true,"topic_interest":0.3361579894478003,"prior_knowledge":0.4173975498374153,"responsiveness":0.6243019029013719,"expressivity":0.38826170742106686,"critical_bias":0.4974886526045582,"channel_preference":{"Face":0.4468174581178363,"Body":0.2389305286873618,"GazeHead":0.31425201319480184}},"state":{"E":-0.3276840211043994,"V":0.0,"C":-0.16520490032516943}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.6638420105521997,"prior_knowledge":0.34367265074874387,"responsiveness":0.5365360016454145,"expressivity":0.6740020297671372,"critical_bias":0.49782079231577636,"channel_preference":{"Face":0.2599601815154927,"Body":0.3003641161059909,"GazeHead":0.4396757023785164}},"state":{"E":0.3276840211043994,"V":0.0,"C":-0.31265469850251226}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.6087368194563886,"prior_knowledge":0.3846988262819791,"responsiveness":0.6613800996881903,"expressivity":0.5498333916226285,"critical_bias":0.442755902524725,"channel_preference":{"Face":0.25222613303827546,"Body":0.2640757758820928,"GazeHead":0.48369809107963174}},"state":{"E":0.21747363891277716,"V":0.0,"C":-0.2306023474360418}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.4273703384494302,"prior_knowledge":0.615301173718021,"responsiveness":0.6331134849033626,"expressivity":0.41162545272974466,"critical_bias":0.5995041873305196,"channel_preference":{"Face":0.3137974314443509,"Body":0.40018306787807695,"GazeHead":0.28601950067757215}},"state":{"E":-0.14525932310113965,"V":0.0,"C":0.2306023474360419}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.3912631805436114,"prior_knowledge":0.5826024501625847,"responsiveness":0.5712960124111851,"expressivity":0.4732095761227564,"critical_bias":0.5159544017338024,"channel_preference":{"Face":0.3352127769967101,"Body":0.30613373090255974,"GazeHead":0.3586534921007301}},"state":{"E":-0.21747363891277716,"V":0.0,"C":0.16520490032516943}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.5726296615505698,"prior_knowledge":0.6563273492512561,"responsiveness":0.6549603277557807,"expressivity":0.5933730890489659,"critical_bias":0.5046330890407906,"channel_preference":{"Face":0.18144548428693183,"Body":0.48757545204645014,"GazeHead":0.330979063666618}},"state":{"E":0.14525932310113965,"V":0.0,"C":0.31265469850251226}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot3] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"9104fa61-8d8a-4d7e-80a4-d05b53499f60","session_token":"qp3Q19iyH02v4vGzj_6WrD-5q7qtufb5R2__ursbGBo","seed":1738273250,"presentation_title":"Invalid count","initial_evc_state":{"E":-1.850371707708594e-17,"V":0.0,"C":-3.700743415417188e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.3960861009688771,"prior_knowledge":0.348110415892255,"responsiveness":0.4373634868066024,"expressivity":0.5202712878015805,"critical_bias":0.2565490722718534,"channel_preference":{"Face":0.30122621595891796,"Body":0.3894514335940927,"GazeHead":0.30932235044698936}},"state":{"E":-0.20782779806224583,"V":0.0,"C":-0.30377916821549}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":true,"topic_interest":0.6039138990311229,"prior_knowledge":0.5625049389779868,"responsiveness":0.5830508787525394,"expressivity":0.6446404293435599,"critical_bias":0.7155468493868327,"channel_preference":{"Face":0.4015069597891562,"Body":0.38245183912503233,"GazeHead":0.21604120108581149}},"state":{"E":0.20782779806224583,"V":0.0,"C":0.12500987795597363}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.5771871274316609,"prior_knowledge":0.43749506102201313,"responsiveness":0.603034340973597,"expressivity":0.6481273701670115,"critical_bias":0.5275115110939037,"channel_preference":{"Face":0.46689391354345705,"Body":0.36219495527181705,"GazeHead":0.17091113118472584}},"state":{"E":0.1543742548633218,"V":0.0,"C":-0.12500987795597374}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.6578837840446157,"prior_knowledge":0.6383367790756942,"responsiveness":0.626441114643172,"expressivity":0.39232085651833815,"critical_bias":0.43307095681997343,"channel_preference":{"Face":0.3342086128524148,"Body":0.43654961241607243,"GazeHead":0.2292417747315127}},"state":{"E":0.31576756808923134,"V":0.0,"C":0.2766735581513884}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.34211621595538433,"prior_knowledge":0.36166322092430575,"responsiveness":0.5589594954385131,"expressivity":0.3259919860894701,"critical_bias":0.5922631305675106,"channel_preference":{"Face":0.28613001930625076,"Body":0.32932537790403893,"GazeHead":0.38454460278971025}},"state":{"E":-0.31576756808923134,"V":0.0,"C":-0.2766735581513885}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.42281287256833905,"prior_knowledge":0.651889584107745,"responsiveness":0.43138276809352044,"expressivity":0.6645095748287211,"critical_bias":0.3175823164292347,"channel_preference":{"Face":0.2045095746690493,"Body":0.22309799996382204,"GazeHead":0.5723924253671286}},"state":{"E":-0.1543742548633219,"V":0.0,"C":0.30377916821549}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot4] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"b5b037ef-7171-4e79-bf1b-2faf0240fa46","session_token":"fPgvp4O1Q90C4nH_xFv3gQjmyj26o9hYFOcU4W2yas4","seed":715451307,"presentation_title":"Invalid count","initial_evc_state":{"E":1.850371707708594e-17,"V":0.0,"C":0.0},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.6051347146872573,"prior_knowledge":0.4200442269943313,"responsiveness":0.5281032754815088,"expressivity":0.5062239151021451,"critical_bias":0.45530898857219326,"channel_preference":{"Face":0.4111689168652889,"Body":0.35197038122882474,"GazeHead":0.23686070190588637}},"state":{"E":0.21026942937451465,"V":0.0,"C":-0.1599115460113374}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":true,"topic_interest":0.5660471470519737,"prior_knowledge":0.6762640124332454,"responsiveness":0.6646300127223134,"expressivity":0.6428567875811736,"critical_bias":0.5176112820841137,"channel_preference":{"Face":0.13320011630466308,"Body":0.3902342825364788,"GazeHead":0.4765656011588581}},"state":{"E":0.13209429410394735,"V":0.0,"C":0.3525280248664908}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.3311775021111073,"prior_knowledge":0.5799557730056687,"responsiveness":0.5640542224573644,"expressivity":0.45021196538641206,"critical_bias":0.47555429857241116,"channel_preference":{"Face":0.4322941833469727,"Body":0.33599372623211987,"GazeHead":0.23171209042090746}},"state":{"E":-0.3376449957777854,"V":0.0,"C":0.1599115460113374}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.6688224978888927,"prior_knowledge":0.3237359875667546,"responsiveness":0.5356962096250066,"expressivity":0.4739166948181469,"critical_bias":0.3634488720721411,"channel_preference":{"Face":0.3716655955801285,"Body":0.24986638558511565,"GazeHead":0.3784680188347559}},"state":{"E":0.3376449957777854,"V":0.0,"C":-0.3525280248664908}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.3948652853127427,"prior_knowledge":0.6341488510791787,"responsiveness":0.5483962301986329,"expressivity":0.3147827826258273,"critical_bias":0.7270677018215677,"channel_preference":{"Face":0.203965415236368,"Body":0.4926210518858506,"GazeHead":0.3034135328777814}},"state":{"E":-0.21026942937451465,"V":0.0,"C":0.26829770215835747}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.4339528529480264,"prior_knowledge":0.36585114892082127,"responsiveness":0.49155005735393137,"expressivity":0.3422081412231238,"critical_bias":0.6826147322417149,"channel_preference":{"Face":0.44836437414156555,"Body":0.4321050351178563,"GazeHead":0.1195305907405782}},"state":{"E":-0.13209429410394724,"V":0.0,"C":-0.26829770215835747}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot5] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"5f7d0cd4-0b28-4986-9a48-5b876c3d9082","session_token":"Ouu8CrPxPSNOQ9kvNqw8VhqlyQPE11-x1m7K-gCX3sk","seed":1356392538,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":0.0},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":true,"topic_interest":0.6053515192839677,"prior_knowledge":0.33136226323812934,"responsiveness":0.6119399567713004,"expressivity":0.6912019444953328,"critical_bias":0.36877650602826867,"channel_preference":{"Face":0.2297019763708898,"Body":0.38033256618137373,"GazeHead":0.3899654574477364}},"state":{"E":0.21070303856793537,"V":0.0,"C":-0.3372754735237413}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.4104216868520082,"prior_knowledge":0.4313705390615572,"responsiveness":0.4075318361004029,"expressivity":0.4466336675605001,"critical_bias":0.6156180461376841,"channel_preference":{"Face":0.26996102162266133,"Body":0.3654987897236669,"GazeHead":0.36454018865367177}},"state":{"E":-0.1791566262959836,"V":0.0,"C":-0.1372589218768856}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.6586952986811044,"prior_knowledge":0.5686294609384428,"responsiveness":0.6234636472424604,"expressivity":0.5192456496188003,"critical_bias":0.28113933130832264,"channel_preference":{"Face":0.23395320593079827,"Body":0.36463498854601056,"GazeHead":0.40141180552319117}},"state":{"E":0.31739059736220887,"V":0.0,"C":0.1372589218768856}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.3946484807160323,"prior_knowledge":0.6686377367618707,"responsiveness":0.5104723946324,"expressivity":0.40578810032126233,"critical_bias":0.2507248624392213,"channel_preference":{"Face":0.20706934873755514,"Body":0.37275589514854535,"GazeHead":0.42017475611389954}},"state":{"E":-0.21070303856793537,"V":0.0,"C":0.3372754735237413}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":false,"topic_interest":0.34130470131889556,"prior_knowledge":0.6093729521691003,"responsiveness":0.5614686535599726,"expressivity":0.41772570284937777,"critical_bias":0.6075630950709691,"channel_preference":{"Face":0.4240097919096867,"Body":0.4143504696123252,"GazeHead":0.16163973847798813}},"state":{"E":-0.31739059736220887,"V":0.0,"C":0.21874590433820051}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":true,"topic_interest":0.5895783131479918,"prior_knowledge":0.39062704783089974,"responsiveness":0.4818428676935418,"expressivity":0.47237238233833934,"critical_bias":0.27671119311820036,"channel_preference":{"Face":0.45416737289649145,"Body":0.3570759652187604,"GazeHead":0.18875666188474816}},"state":{"E":0.1791566262959836,"V":0.0,"C":-0.21874590433820051}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot6] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"3bc375b6-35fa-41c1-ac64-ad7611622c3a","session_token":"8HpeD9QYDSmRuAHq-_RtREDN82oHmd4p-hdcHc--dkQ","seed":461423551,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":-3.700743415417188e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.6345440590628505,"prior_knowledge":0.328637885111026,"responsiveness":0.6710381701102444,"expressivity":0.4789342545655222,"critical_bias":0.7385819998176415,"channel_preference":{"Face":0.29401684420513274,"Body":0.33813519565296796,"GazeHead":0.3678479601418993}},"state":{"E":0.269088118125701,"V":0.0,"C":-0.34272422977794803}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":true,"topic_interest":0.33343438462437136,"prior_knowledge":0.44040459060000264,"responsiveness":0.6564783169698722,"expressivity":0.37717816717678887,"critical_bias":0.5753033959482237,"channel_preference":{"Face":0.3720107020649909,"Body":0.28961251533366933,"GazeHead":0.3383767826013398}},"state":{"E":-0.3331312307512573,"V":0.0,"C":-0.11919081879999471}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.44628757160384824,"prior_knowledge":0.671362114888974,"responsiveness":0.7351221177924305,"expressivity":0.6601705045937982,"critical_bias":0.4748014245179645,"channel_preference":{"Face":0.201380979884877,"Body":0.32631795045150325,"GazeHead":0.47230106966361973}},"state":{"E":-0.10742485679230351,"V":0.0,"C":0.34272422977794803}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.6665656153756286,"prior_knowledge":0.36679129544658945,"responsiveness":0.6301026496742868,"expressivity":0.5056558197930796,"critical_bias":0.5770692464096416,"channel_preference":{"Face":0.10610297882490413,"Body":0.4273468527699215,"GazeHead":0.4665501684051743}},"state":{"E":0.3331312307512573,"V":0.0,"C":-0.2664174091068211}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.3654559409371495,"prior_knowledge":0.5595954093999973,"responsiveness":0.7176780782294663,"expressivity":0.69402852235345,"critical_bias":0.35345197334253325,"channel_preference":{"Face":0.3973628451744576,"Body":0.38326351162474026,"GazeHead":0.21937364320080222}},"state":{"E":-0.269088118125701,"V":0.0,"C":0.1191908187999946}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.5537124283961518,"prior_knowledge":0.6332087045534105,"responsiveness":0.6400856357489539,"expressivity":0.3852921536272724,"critical_bias":0.42701791290797636,"channel_preference":{"Face":0.27302703800078354,"Body":0.3667912552536914,"GazeHead":0.3601817067455251}},"state":{"E":0.10742485679230351,"V":0.0,"C":0.266417409106821}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot7] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"ed650929-0d1b-40f2-9149-024b4928f118","session_token":"BUfK2R9kSgfN4kPWmRr5lPYKEKTBY-ldgqMXOp-9TWI","seed":420662959,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":0.0},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.6393337281491389,"prior_knowledge":0.6868249522655545,"responsiveness":0.7404663869819383,"expressivity":0.5991066667139704,"critical_bias":0.363933732151267,"channel_preference":{"Face":0.3415290124859655,"Body":0.23243553737580402,"GazeHead":0.4260354501382304}},"state":{"E":0.2786674562982778,"V":0.0,"C":0.373649904531109}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.3355243862031729,"prior_knowledge":0.5760261447750317,"responsiveness":0.7372821593141066,"expressivity":0.4486481701298982,"critical_bias":0.735890727416816,"channel_preference":{"Face":0.38676069462850216,"Body":0.2736352136551437,"GazeHead":0.33960409171635414}},"state":{"E":-0.32895122759365425,"V":0.0,"C":0.15205228955006334}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.36066627185086114,"prior_knowledge":0.31317504773444543,"responsiveness":0.5393518016063978,"expressivity":0.40990910389325336,"critical_bias":0.2751726697906854,"channel_preference":{"Face":0.29819540015531576,"Body":0.3951989779460416,"GazeHead":0.30660562189864266}},"state":{"E":-0.2786674562982777,"V":0.0,"C":-0.37364990453110913}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":true,"topic_interest":0.417377797877144,"prior_knowledge":0.42397385522496833,"responsiveness":0.4498626977001271,"expressivity":0.5216292753203191,"critical_bias":0.41067315423842154,"channel_preference":{"Face":0.32840339912407207,"Body":0.23492752259451505,"GazeHead":0.43666907828141294}},"state":{"E":-0.16524440424571196,"V":0.0,"C":-0.15205228955006334}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.582622202122856,"prior_knowledge":0.6066075623601661,"responsiveness":0.635340377303157,"expressivity":0.49024137652397554,"critical_bias":0.6316471890009137,"channel_preference":{"Face":0.36473980627156755,"Body":0.4709251171296324,"GazeHead":0.16433507659880003}},"state":{"E":0.16524440424571196,"V":0.0,"C":0.21321512472033222}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.6644756137968271,"prior_knowledge":0.39339243763983395,"responsiveness":0.5969294134551412,"expressivity":0.304221814121039,"critical_bias":0.646890982848824,"channel_preference":{"Face":0.2530804745558713,"Body":0.4137466550262509,"GazeHead":0.33317287041787785}},"state":{"E":0.32895122759365414,"V":0.0,"C":-0.2132151247203321}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot8] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"07b50ff6-916f-47de-abb6-47d8042f1653","session_token":"J119JNGWAOFjYtjOGZcUBdbns7xAf6Bwbq10122CkJI","seed":1303906530,"presentation_title":"Invalid count","initial_evc_state":{"E":1.850371707708594e-17,"V":0.0,"C":-1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.42235520807959964,"prior_knowledge":0.6051982487119212,"responsiveness":0.6928394294040141,"expressivity":0.3738108841523442,"critical_bias":0.5615025552473107,"channel_preference":{"Face":0.3075287053644519,"Body":0.28089892355247964,"GazeHead":0.4115723710830684}},"state":{"E":-0.15528958384080072,"V":0.0,"C":0.21039649742384237}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":true,"topic_interest":0.6598142787234954,"prior_knowledge":0.41655616973497145,"responsiveness":0.6635563485058714,"expressivity":0.3819953135265261,"critical_bias":0.33921609405493364,"channel_preference":{"Face":0.3669468970546551,"Body":0.2382250857959966,"GazeHead":0.3948280171493483}},"state":{"E":0.3196285574469908,"V":0.0,"C":-0.1668876605300571}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.6167913565734177,"prior_knowledge":0.6893771803201205,"responsiveness":0.5681211424811777,"expressivity":0.33222621210840886,"critical_bias":0.6697440326968671,"channel_preference":{"Face":0.4132157888537141,"Body":0.3950342988274907,"GazeHead":0.19174991231879518}},"state":{"E":0.23358271314683532,"V":0.0,"C":0.37875436064024104}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.38320864342658234,"prior_knowledge":0.3106228196798795,"responsiveness":0.6758676837377067,"expressivity":0.30448196006685363,"critical_bias":0.30337958374746626,"channel_preference":{"Face":0.16419185505001113,"Body":0.4404919819137876,"GazeHead":0.3953161630362013}},"state":{"E":-0.23358271314683532,"V":0.0,"C":-0.37875436064024104}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.3401857212765046,"prior_knowledge":0.5834438302650286,"responsiveness":0.6484172369683604,"expressivity":0.38143265457539816,"critical_bias":0.34433525830928025,"channel_preference":{"Face":0.22424801425126717,"Body":0.351278933152664,"GazeHead":0.4244730525960688}},"state":{"E":-0.3196285574469908,"V":0.0,"C":0.1668876605300571}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.5776447919204004,"prior_knowledge":0.39480175128807876,"responsiveness":0.4720860158113329,"expressivity":0.47277158221455196,"critical_bias":0.28020886246599475,"channel_preference":{"Face":0.2043996579625234,"Body":0.36323992969530594,"GazeHead":0.4323604123421707}},"state":{"E":0.15528958384080083,"V":0.0,"C":-0.21039649742384248}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot9] _____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"61b994f6-5b72-4f83-ad3e-5bcb0b9f86bd","session_token":"Kn3sb-n7Uy3UCL-kNyrlAi-uHBgENrIDhXNiHmA3AGg","seed":1171815490,"presentation_title":"Invalid count","initial_evc_state":{"E":-1.850371707708594e-17,"V":0.0,"C":1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.37574060365942397,"prior_knowledge":0.5753218661504143,"responsiveness":0.6952914798554324,"expressivity":0.45111106723601363,"critical_bias":0.26119566796800137,"channel_preference":{"Face":0.2954787630785512,"Body":0.47400402688482907,"GazeHead":0.2305172100366198}},"state":{"E":-0.24851879268115207,"V":0.0,"C":0.1506437323008285}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":true,"topic_interest":0.44913539428627597,"prior_knowledge":0.38184493834900674,"responsiveness":0.5882008530116407,"expressivity":0.5788141454626667,"critical_bias":0.49019365576074714,"channel_preference":{"Face":0.4065537221319034,"Body":0.3393165334903408,"GazeHead":0.2541297443777559}},"state":{"E":-0.10172921142744806,"V":0.0,"C":-0.23631012330198653}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":false,"topic_interest":0.34206610170134844,"prior_knowledge":0.42467813384958575,"responsiveness":0.6530183695997027,"expressivity":0.6762696420391698,"critical_bias":0.5817540562511654,"channel_preference":{"Face":0.4189412657016624,"Body":0.21199490445756441,"GazeHead":0.3690638298407731}},"state":{"E":-0.31586779659730313,"V":0.0,"C":-0.1506437323008285}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.550864605713724,"prior_knowledge":0.6565866663268939,"responsiveness":0.6500353158040991,"expressivity":0.5640574736985303,"critical_bias":0.5529572652649062,"channel_preference":{"Face":0.3677349168019081,"Body":0.41977181746115144,"GazeHead":0.21249326573694038}},"state":{"E":0.10172921142744795,"V":0.0,"C":0.3131733326537878}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":false,"topic_interest":0.6579338982986516,"prior_knowledge":0.6181550616509933,"responsiveness":0.7357368325025224,"expressivity":0.5535908950292829,"critical_bias":0.492830115770464,"channel_preference":{"Face":0.2824329219783706,"Body":0.4626888445064991,"GazeHead":0.25487823351513034}},"state":{"E":0.31586779659730313,"V":0.0,"C":0.23631012330198664}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":true,"topic_interest":0.624259396340576,"prior_knowledge":0.3434133336731061,"responsiveness":0.43261330182945085,"expressivity":0.5193754573642042,"critical_bias":0.7407212799714071,"channel_preference":{"Face":0.3400697871621663,"Body":0.3803187253897555,"GazeHead":0.27961148744807823}},"state":{"E":0.24851879268115207,"V":0.0,"C":-0.3131733326537878}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot10] ____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"a5e4c717-524d-4de0-9052-1039637ad41e","session_token":"aIa6UueVZkEEtjZfXZzvY4tCpQTdzqB3g1II5HMvSj4","seed":1374553341,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.36548548439754547,"prior_knowledge":0.6694671388567511,"responsiveness":0.6285683930334403,"expressivity":0.5199194326426462,"critical_bias":0.28701101386509387,"channel_preference":{"Face":0.37191071079364685,"Body":0.12126011002956297,"GazeHead":0.5068291791767903}},"state":{"E":-0.26902903120490906,"V":0.0,"C":0.33893427771350226}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.4108055008939848,"prior_knowledge":0.3836521658531826,"responsiveness":0.680054298908331,"expressivity":0.4567928291472641,"critical_bias":0.29090533763027565,"channel_preference":{"Face":0.2832088015048014,"Body":0.44728533677692384,"GazeHead":0.26950586171827484}},"state":{"E":-0.17838899821203036,"V":0.0,"C":-0.23269566829363475}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":true,"topic_interest":0.6345145156024545,"prior_knowledge":0.5764063936041472,"responsiveness":0.675131793891548,"expressivity":0.4438999453213696,"critical_bias":0.34610025711447884,"channel_preference":{"Face":0.4498921459435088,"Body":0.19074510826555477,"GazeHead":0.3593627457909364}},"state":{"E":0.26902903120490906,"V":0.0,"C":0.1528127872082945}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.5891944991060152,"prior_knowledge":0.4235936063958528,"responsiveness":0.6475306539226476,"expressivity":0.5504670242644982,"critical_bias":0.3268068087720434,"channel_preference":{"Face":0.2761080611275054,"Body":0.5419756477885005,"GazeHead":0.1819162910839941}},"state":{"E":0.17838899821203036,"V":0.0,"C":-0.1528127872082944}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.32928600450495693,"prior_knowledge":0.6163478341468174,"responsiveness":0.5916156502418494,"expressivity":0.42363582246359405,"critical_bias":0.4302471841283085,"channel_preference":{"Face":0.4156459013748461,"Body":0.19711985067271012,"GazeHead":0.38723424795244377}},"state":{"E":-0.34142799099008614,"V":0.0,"C":0.23269566829363475}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.6707139954950431,"prior_knowledge":0.33053286114324887,"responsiveness":0.5319472561120852,"expressivity":0.6820885100900281,"critical_bias":0.252369205072083,"channel_preference":{"Face":0.40308481682432556,"Body":0.2967422488169239,"GazeHead":0.3001729343587506}},"state":{"E":0.34142799099008614,"V":0.0,"C":-0.33893427771350226}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot11] ____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"detail":{"code":"internal_pipeline_error","message":"EVC pipeline failed"}}
+E   assert 500 == 422
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+____________ test_invalid_pin_count_is_422_before_claim[snapshot12] ____________
+odi/EVC/tests/test_audience_count_contract.py:165: in test_invalid_pin_count_is_422_before_claim
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:162: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"independent_reactions":false,"api_version":"2.0","session_id":"9268f1cf-a544-4ce2-8c08-d45f6468693f","session_token":"UFIYXiwvu-_vmqH8BUSO18R-d4jvsNefQlhuBNvDlwM","seed":1626274510,"presentation_title":"Invalid count","initial_evc_state":{"E":0.0,"V":0.0,"C":-1.850371707708594e-17},"topic_interest":0.5,"prior_knowledge":0.5,"audiences":[{"agent_id":"audience_01","profile":{"row":"front","seat":"left","has_laptop":false,"topic_interest":0.4309523193366079,"prior_knowledge":0.41309305741005475,"responsiveness":0.40131073532973577,"expressivity":0.6351077897048399,"critical_bias":0.31700877365604346,"channel_preference":{"Face":0.19294681442866743,"Body":0.31928172102212726,"GazeHead":0.4877714645492053}},"state":{"E":-0.13809536132678424,"V":0.0,"C":-0.1738138851798905}},{"agent_id":"audience_02","profile":{"row":"front","seat":"right","has_laptop":false,"topic_interest":0.6856165244221195,"prior_knowledge":0.6196180052783068,"responsiveness":0.4227237331867582,"expressivity":0.5904958652224797,"critical_bias":0.4451579269649314,"channel_preference":{"Face":0.5702024779736173,"Body":0.19688512394868424,"GazeHead":0.23291239807769842}},"state":{"E":0.371233048844239,"V":0.0,"C":0.2392360105566136}},{"agent_id":"audience_03","profile":{"row":"middle","seat":"left","has_laptop":true,"topic_interest":0.3143834755778805,"prior_knowledge":0.6682568835433118,"responsiveness":0.6248964617025541,"expressivity":0.6394218167630951,"critical_bias":0.5924141999054753,"channel_preference":{"Face":0.3219563593089302,"Body":0.2958904439243768,"GazeHead":0.382153196766693}},"state":{"E":-0.371233048844239,"V":0.0,"C":0.3365137670866236}},{"agent_id":"audience_04","profile":{"row":"middle","seat":"right","has_laptop":false,"topic_interest":0.379211607461548,"prior_knowledge":0.3803819947216932,"responsiveness":0.7232473138561777,"expressivity":0.664797233660097,"critical_bias":0.2519300514813913,"channel_preference":{"Face":0.24734616837162188,"Body":0.5403290535811218,"GazeHead":0.21232477804725636}},"state":{"E":-0.24157678507690405,"V":0.0,"C":-0.2392360105566136}},{"agent_id":"audience_05","profile":{"row":"rear","seat":"left","has_laptop":true,"topic_interest":0.5690476806633921,"prior_knowledge":0.5869069425899452,"responsiveness":0.4657207854489406,"expressivity":0.5967140216385356,"critical_bias":0.6108753798892987,"channel_preference":{"Face":0.3652473966136475,"Body":0.2598793559412902,"GazeHead":0.37487324744506223}},"state":{"E":0.13809536132678413,"V":0.0,"C":0.1738138851798905}},{"agent_id":"audience_06","profile":{"row":"rear","seat":"right","has_laptop":false,"topic_interest":0.6207883925384521,"prior_knowledge":0.33174311645668814,"responsiveness":0.5701659343335403,"expressivity":0.3030998030418895,"critical_bias":0.5479033394664187,"channel_preference":{"Face":0.39601025505511916,"Body":0.27629306952892835,"GazeHead":0.32769667541595243}},"state":{"E":0.24157678507690417,"V":0.0,"C":-0.3365137670866237}}],"step":0,"expires_in_s":7199,"slide_count":0,"slides":[],"stt_provider":"deepgram"}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+_____________________ test_population_counts_and_traits[1] _____________________
+odi/EVC/tests/test_audience_count_contract.py:170: in test_population_counts_and_traits
+    options = SmartStartOptions(presentation_title="Population", audience_count=count, seed=2026)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+_____________________ test_population_counts_and_traits[3] _____________________
+odi/EVC/tests/test_audience_count_contract.py:170: in test_population_counts_and_traits
+    options = SmartStartOptions(presentation_title="Population", audience_count=count, seed=2026)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=3, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+_____________________ test_population_counts_and_traits[6] _____________________
+odi/EVC/tests/test_audience_count_contract.py:170: in test_population_counts_and_traits
+    options = SmartStartOptions(presentation_title="Population", audience_count=count, seed=2026)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=6, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________________ test_population_counts_and_traits[12] _____________________
+odi/EVC/tests/test_audience_count_contract.py:170: in test_population_counts_and_traits
+    options = SmartStartOptions(presentation_title="Population", audience_count=count, seed=2026)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=12, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________________ test_population_counts_and_traits[50] _____________________
+odi/EVC/tests/test_audience_count_contract.py:170: in test_population_counts_and_traits
+    options = SmartStartOptions(presentation_title="Population", audience_count=count, seed=2026)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=50, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_start_read_update_return_exact_registry[False-1] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01']
+E     
+E     Left contains 5 more items, first extra item: 'audience_02'
+E     Use -v to get more diff
+____________ test_start_read_update_return_exact_registry[False-6] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:229: in run
+    assert record.audience_count == count and set(record.rngs) == set(ids)
+           ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'SessionRecord' object has no attribute 'audience_count'
+____________ test_start_read_update_return_exact_registry[False-12] ____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01...ence_06', ...]
+E     
+E     Right contains 6 more items, first extra item: 'audience_07'
+E     Use -v to get more diff
+____________ test_start_read_update_return_exact_registry[False-50] ____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01...ence_06', ...]
+E     
+E     Right contains 44 more items, first extra item: 'audience_07'
+E     Use -v to get more diff
+_____________ test_start_read_update_return_exact_registry[True-1] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01']
+E     
+E     Left contains 5 more items, first extra item: 'audience_02'
+E     Use -v to get more diff
+_____________ test_start_read_update_return_exact_registry[True-6] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:229: in run
+    assert record.audience_count == count and set(record.rngs) == set(ids)
+           ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'SessionRecord' object has no attribute 'audience_count'
+____________ test_start_read_update_return_exact_registry[True-12] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01...ence_06', ...]
+E     
+E     Right contains 6 more items, first extra item: 'audience_07'
+E     Use -v to get more diff
+____________ test_start_read_update_return_exact_registry[True-50] _____________
+odi/EVC/tests/test_audience_count_contract.py:241: in test_start_read_update_return_exact_registry
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:212: in run
+    assert [a["agent_id"] for a in started["audiences"]] == ids
+E   AssertionError: assert ['audience_01...'audience_06'] == ['audience_01...ence_06', ...]
+E     
+E     Right contains 44 more items, first extra item: 'audience_07'
+E     Use -v to get more diff
+______ test_questions_reject_out_of_session_id[1-audience_02-audience_01] ______
+odi/EVC/tests/test_audience_count_contract.py:265: in test_questions_reject_out_of_session_id
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:248: in run
+    record, token = await store.create_session(SmartStartOptions(presentation_title="Questions", audience_count=count))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+_____ test_questions_reject_out_of_session_id[12-audience_13-audience_12] ______
+odi/EVC/tests/test_audience_count_contract.py:265: in test_questions_reject_out_of_session_id
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:248: in run
+    record, token = await store.create_session(SmartStartOptions(presentation_title="Questions", audience_count=count))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=12, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+_____________ test_last_answer_rejects_supplied_out_of_session_id ______________
+odi/EVC/tests/test_audience_count_contract.py:280: in test_last_answer_rejects_supplied_out_of_session_id
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:278: in run
+    assert response.status_code == 422, response.text
+E   AssertionError: {"question_index":0,"request_id":"b35e108d-1e92-49d8-be04-1834fb19bd48","saved":true,"transcript":"Synthetic answer evidence","total":1,"next_question":null}
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+____________ test_rear_pairing_uses_valid_deterministic_partner[1] _____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_rear_pairing_uses_valid_deterministic_partner[3] _____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=3, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_rear_pairing_uses_valid_deterministic_partner[6] _____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=6, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_rear_pairing_uses_valid_deterministic_partner[12] ____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=12, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_rear_pairing_uses_valid_deterministic_partner[15] ____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=15, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+____________ test_rear_pairing_uses_valid_deterministic_partner[50] ____________
+odi/EVC/tests/test_audience_count_contract.py:288: in test_rear_pairing_uses_valid_deterministic_partner
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Rear pairs", audience_count=count), 2026)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=50, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+______________ test_single_actor_has_no_phantom_partner_or_laptop ______________
+odi/EVC/tests/test_audience_count_contract.py:309: in test_single_actor_has_no_phantom_partner_or_laptop
+    actors = initialize_audiences(SmartStartOptions(presentation_title="Solo", audience_count=1), 0)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for SmartStartOptions
+E   audience_count
+E     Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+E       For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_count_resolution_strict_and_missing
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_pin_uses_bound_snapshot
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot0]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot1]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot2]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot3]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot4]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot5]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot6]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot7]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot8]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot9]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot10]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot11]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_invalid_pin_count_is_422_before_claim[snapshot12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_population_counts_and_traits[1]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_population_counts_and_traits[3]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_population_counts_and_traits[6]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_population_counts_and_traits[12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_population_counts_and_traits[50]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[False-1]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[False-6]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[False-12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[False-50]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[True-1]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[True-6]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[True-12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_start_read_update_return_exact_registry[True-50]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_questions_reject_out_of_session_id[1-audience_02-audience_01]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_questions_reject_out_of_session_id[12-audience_13-audience_12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_last_answer_rejects_supplied_out_of_session_id
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[1]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[3]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[6]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[12]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[15]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_rear_pairing_uses_valid_deterministic_partner[50]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_single_actor_has_no_phantom_partner_or_laptop
+38 failed, 3 passed in 0.91s
+{
+  "status": "FAIL",
+  "suite": "audience",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_audience_count_contract.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.115842,
+  "pytest": {
+    "collected": 41,
+    "exitstatus": 1,
+    "passed": 3,
+    "failed": 38,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

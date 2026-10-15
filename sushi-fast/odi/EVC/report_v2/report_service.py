@@ -77,10 +77,15 @@ def _build_qa_feedback(
 
 def _apply_metric_narratives(report: ReportFeedback, narrative: ReportNarrativeOutput) -> None:
     allowed_evidence = {item.evidence_id for item in report.evidence}
+    if any(ref not in allowed_evidence for item in narrative.metric_narratives for ref in item.evidence_ids):
+        raise ReportInsightProviderError("invalid_evidence_reference")
     narratives = {item.id: item for item in narrative.metric_narratives}
     for metric in report.detail_analysis.content_metrics + report.detail_analysis.delivery_metrics:
         generated = narratives.get(metric.id)
-        if generated is None:
+        if generated is None or metric.score is None:
+            continue
+        if metric.id == "gaze" and any("gaze_delivery_score" in e.missing_inputs for e in report.evidence):
+            # Keep deterministic coverage/policy wording and observed-only references.
             continue
         metric.reason = generated.reason
         metric.coaching = generated.coaching
@@ -139,10 +144,6 @@ async def finish_session_with_report(
         if not record.report_segments:
             raise ReportSourceMissingError("no analyzed presentation segments are available")
 
-        record.presentation_status = "finishing"
-        record.report_generation_status = "generating"
-        record.report_generation_request_id = payload.request_id
-        record.report_generation_error = None
         qa_history = [QuestionAnswerEvidence(
                           question_index=k,
                           question=v["question"],
@@ -178,6 +179,10 @@ async def finish_session_with_report(
                     )
                     _cache_response(record, payload.request_id, response)
                     return response
+        record.presentation_status = "finishing"
+        record.report_generation_status = "generating"
+        record.report_generation_request_id = payload.request_id
+        record.report_generation_error = None
 
     narrative = None
     warnings: list[str] = []
@@ -322,16 +327,26 @@ async def recover_pre_session_report(
     ]
     if not segments:
         raise ReportSourceMissingError("persisted presentation segments do not exist")
+    qa_state = odidb.get_presentation_qa(evc_session_id, owner_user_id=owner_user_id, pre_session_pin=pin_code)
+    answers = (qa_state or {}).get("answers", {})
+    if any(not answer.get("response") for answer in answers.values()):
+        raise ReportGenerationInProgressError("persisted Q&A answer processing is not complete")
+    qa_history = [QuestionAnswerEvidence(question_index=int(k), question=v["question"],
+        intent=v.get("intent"), answer=v["transcript"], answer_duration_sec=v.get("answer_duration_s"))
+        for k, v in sorted(answers.items(), key=lambda item: int(item[0]))]
     environment = (pre_session.get("template_snapshot") or template_record.get("template") or {}).get("environment") or {}
     title = str(environment.get("title") or "발표")
     odidb.start_report_job(evc_session_id=evc_session_id, request_id=str(request_id))
     narrative = None
     warnings = ["recovered_from_persistent_segments"]
+    if qa_state is None:
+        warnings.append("qa_history_unavailable")
     generator = "deterministic-v2-recovery"
     if provider is not None or os.getenv("OPENAI_API_KEY"):
         try:
             narrative = await generate_report_insight(
-                build_report_insight_payload(title, [], segments, reactions), provider=provider
+                {**build_report_insight_payload(title, [], segments, reactions),
+                 "qa_history": [q.model_dump() for q in qa_history]}, provider=provider
             )
             generator += "+openai-insight"
         except ReportInsightProviderError:
@@ -348,6 +363,8 @@ async def recover_pre_session_report(
         )
         if isinstance(narrative, ReportNarrativeOutput):
             _apply_metric_narratives(report, narrative)
+        report.qa_history = qa_history
+        report.qa_feedback = _build_qa_feedback(qa_history, report.duration.actual_seconds)
         persistent_session_id = odidb.finish_linked_pre_session(
             pin_code=pin_code,
             user_id=owner_user_id,

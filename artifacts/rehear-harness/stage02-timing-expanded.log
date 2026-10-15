@@ -1,0 +1,40 @@
+..................F.....                                                 [100%]
+=================================== FAILURES ===================================
+______ test_command_budget_defers_whole_actor_without_consuming_evidence _______
+odi/EVC/tests/test_playback_freshness.py:349: in test_command_budget_defers_whole_actor_without_consuming_evidence
+    assert len(first.audiences) == 2 and len(first.commands) == 8
+E   AssertionError: assert (4 == 2)
+E    +  where 4 = len([AudienceDecision(agent_id='audience_01', previous_state=AudienceState(E=-0.30536463611491915, V=0.0, C=-0.16461234299...6), dominant_axis=None, direction=None, core_behavior=None, action_overlay=None, no_op_reason='synchronization_limit')])
+E    +    where [AudienceDecision(agent_id='audience_01', previous_state=AudienceState(E=-0.30536463611491915, V=0.0, C=-0.16461234299...6), dominant_axis=None, direction=None, core_behavior=None, action_overlay=None, no_op_reason='synchronization_limit')] = ReactionResponse(session_id=UUID('311d6b18-8b1a-4bf8-a2ed-a2e08ae47e71'), request_id=UUID('145681e3-25c9-4a3b-9714-c2b...ected_variation_id='CT_01.stable_comprehension', priority=50, blend_mode='override', intensity=1.0)], source_steps=[1]).audiences
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_playback_freshness.py::test_command_budget_defers_whole_actor_without_consuming_evidence
+1 failed, 23 passed in 4.09s
+{
+  "status": "FAIL",
+  "suite": "timing",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_playback_freshness.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 4.286676,
+  "pytest": {
+    "collected": 24,
+    "exitstatus": 1,
+    "passed": 23,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

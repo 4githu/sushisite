@@ -1,0 +1,28 @@
+{
+  "status": "READY_FOR_OFFLINE_TESTS",
+  "python": "3.13.15",
+  "dependencies": {
+    "pytest": {
+      "available": true,
+      "version": "8.4.2"
+    },
+    "fastapi": {
+      "available": true,
+      "version": "0.141.1"
+    },
+    "httpx": {
+      "available": true,
+      "version": "0.28.1"
+    },
+    "pydantic": {
+      "available": true,
+      "version": "2.13.4"
+    },
+    "numpy": {
+      "available": true,
+      "version": "2.4.3"
+    }
+  },
+  "baseline_exists": true,
+  "model_or_unity_tested": false
+}

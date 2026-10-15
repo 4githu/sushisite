@@ -1,0 +1,12 @@
+{
+  "status": "offline_environment_only",
+  "python": "3.13.15",
+  "packages": {
+    "pydantic": "2.13.4",
+    "torch": null,
+    "transformers": null,
+    "peft": null
+  },
+  "model_loaded": false,
+  "real_model_verified": false
+}

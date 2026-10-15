@@ -6,6 +6,7 @@ import json
 import os
 from collections import OrderedDict
 from typing import Any, Protocol
+from uuid import uuid4
 
 from ..config import (
     EVC_LLM_TIMEOUT_S,
@@ -33,9 +34,32 @@ _INSIGHT_CACHE_LIMIT = 128
 
 
 def _insight_cache_key(payload: dict[str, Any], provider: object) -> str:
-    model = str(getattr(provider, "model", type(provider).__name__))
-    normalized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(f"presentation-report-v2\n{model}\n{normalized}".encode("utf-8")).hexdigest()
+    # Custom provider instances are isolated even when their class/model match.
+    namespace = getattr(provider, "_report_cache_namespace", None)
+    if namespace is None:
+        namespace = uuid4().hex
+        try:
+            setattr(provider, "_report_cache_namespace", namespace)
+        except (AttributeError, TypeError):
+            pass  # Unassignable providers safely miss the shared cache.
+    identity = {name: getattr(provider, name, None) for name in (
+        "provider", "provider_id", "model", "model_revision", "adapter", "adapter_revision",
+        "prompt_version", "rubric_version", "policy_version", "inference_settings")}
+    identity.update(namespace=namespace, provider_class=f"{type(provider).__module__}.{type(provider).__qualname__}",
+                    service_prompt="report-narrative-v2", validation_policy="references-and-null-v1")
+    normalized = json.dumps({"identity": identity, "payload": payload}, ensure_ascii=False,
+                            sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _validate_references(result, payload):
+    allowed = {s["evidence_id"] for s in payload.get("segments", []) if "evidence_id" in s}
+    insight = result.ai_insight if isinstance(result, ReportNarrativeOutput) else result
+    items = [*insight.strengths, *insight.improvements]
+    if isinstance(result, ReportNarrativeOutput):
+        items.extend(result.metric_narratives)
+    if any(ref not in allowed for item in items for ref in item.evidence_ids):
+        raise ReportInsightProviderError("invalid_evidence_reference")
 
 
 class ReportInsightProvider(Protocol):
@@ -46,6 +70,7 @@ class OpenAIReportInsightProvider:
     def __init__(self, api_key: str | None = None, model: str = OPENAI_EVC_MODEL) -> None:
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model = model
+        self._report_cache_namespace = hashlib.sha256((self.api_key or "unconfigured").encode()).hexdigest()
 
     def generate(self, payload: dict[str, Any]) -> ReportNarrativeOutput:
         if not self.api_key:
@@ -205,6 +230,7 @@ async def generate_report_insight(
             result = await asyncio.wait_for(
                 asyncio.to_thread(selected.generate, payload), timeout=timeout_s
             )
+            _validate_references(result, payload)
             _INSIGHT_CACHE[cache_key] = result.model_copy(deep=True)
             _INSIGHT_CACHE.move_to_end(cache_key)
             while len(_INSIGHT_CACHE) > _INSIGHT_CACHE_LIMIT:
@@ -214,4 +240,5 @@ async def generate_report_insight(
             last_error = exc
         if attempt < retries:
             await asyncio.sleep(0)
-    raise ReportInsightProviderError(str(last_error or "report insight generation failed"))
+    code = "invalid_evidence_reference" if isinstance(last_error, ReportInsightProviderError) and str(last_error) == "invalid_evidence_reference" else "report_insight_generation_failed"
+    raise ReportInsightProviderError(code) from last_error

@@ -1,0 +1,47 @@
+.........................................FF.......                       [100%]
+=================================== FAILURES ===================================
+_____________ test_unpaired_rear_cannot_admit_side_conversation[3] _____________
+odi/EVC/tests/test_audience_count_contract.py:332: in test_unpaired_rear_cannot_admit_side_conversation
+    assert not action_clip_matches(clip, agent, context, context.event_signals, "E", "negative", 10)
+E   AssertionError: assert not True
+E    +  where True = <function action_clip_matches at 0x10aeb1a80>(ActionClipSpec(behavior_id='ACT_08', variation_id='ACT_08.side_conversation', event_triggers={'nearby_interaction'}, s...de'), UnityActionSpec(layer='GazeHead', action_id='gaze_head.side_conversation', duration=4.0, blend_mode='override')]), AudienceRuntimeState(agent_id='audience_03', profile=AudienceProfile(row='rear', seat='left', has_laptop=False, topic_..., action_history=[], cooldowns={}, consecutive_low_engagement=0, consecutive_low_arousal=0, last_body_command_time=0.0), SegmentContext(current_slide_index=0, utterance_position='silence_or_pause', language='ko-KR', gaze_delivery_score=Non...ed_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), client_time_s=10.0), EventSignals(information_dense=0.0, slide_reference=0.0, repeated_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), 'E', 'negative', 10)
+E    +    where EventSignals(information_dense=0.0, slide_reference=0.0, repeated_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1) = SegmentContext(current_slide_index=0, utterance_position='silence_or_pause', language='ko-KR', gaze_delivery_score=Non...ed_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), client_time_s=10.0).event_signals
+____________ test_unpaired_rear_cannot_admit_side_conversation[15] _____________
+odi/EVC/tests/test_audience_count_contract.py:332: in test_unpaired_rear_cannot_admit_side_conversation
+    assert not action_clip_matches(clip, agent, context, context.event_signals, "E", "negative", 10)
+E   AssertionError: assert not True
+E    +  where True = <function action_clip_matches at 0x10aeb1a80>(ActionClipSpec(behavior_id='ACT_08', variation_id='ACT_08.side_conversation', event_triggers={'nearby_interaction'}, s...de'), UnityActionSpec(layer='GazeHead', action_id='gaze_head.side_conversation', duration=4.0, blend_mode='override')]), AudienceRuntimeState(agent_id='audience_15', profile=AudienceProfile(row='rear', seat='left', has_laptop=True, topic_i..., action_history=[], cooldowns={}, consecutive_low_engagement=0, consecutive_low_arousal=0, last_body_command_time=0.0), SegmentContext(current_slide_index=0, utterance_position='silence_or_pause', language='ko-KR', gaze_delivery_score=Non...ed_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), client_time_s=10.0), EventSignals(information_dense=0.0, slide_reference=0.0, repeated_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), 'E', 'negative', 10)
+E    +    where EventSignals(information_dense=0.0, slide_reference=0.0, repeated_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1) = SegmentContext(current_slide_index=0, utterance_position='silence_or_pause', language='ko-KR', gaze_delivery_score=Non...ed_disengagement=0.0, low_arousal=0.0, long_static_posture=0.0, tension=0.0, nearby_interaction=1), client_time_s=10.0).event_signals
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_unpaired_rear_cannot_admit_side_conversation[3]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_unpaired_rear_cannot_admit_side_conversation[15]
+2 failed, 48 passed in 1.37s
+{
+  "status": "FAIL",
+  "suite": "audience",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_audience_count_contract.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.606082,
+  "pytest": {
+    "collected": 50,
+    "exitstatus": 1,
+    "passed": 48,
+    "failed": 2,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

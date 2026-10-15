@@ -10,6 +10,8 @@ from fastapi import HTTPException
 
 from .question_generation import generate_questions, QuestionGenerationProviderError
 from .session_store import session_store
+from .qa_persistence import persist_qa_state
+from .schema import GeneratedQuestion
 
 
 def checked_question(record, index):
@@ -44,14 +46,17 @@ async def submit_answer(*, session_id, token, index, request_id: UUID, audio: by
             if index != sum(bool(v.get("response")) for v in record.qa_answers.values()):
                 raise HTTPException(409, "Answer the current question first")
             next_actor = next((a for a in record.audiences if a.agent_id == next_audience_id), None)
-            if index + 1 < len(record.generated_questions) and next_actor is None:
+            if next_actor is None and (next_audience_id or index + 1 < len(record.generated_questions)):
                 raise HTTPException(422, "Next question audience is required")
             if entry is None:
                 entry = {"request_id": str(request_id), "audio_hash": digest,
                          "question_index": index, "question": question.question,
+                         "question_id": question.id, "source_steps": list(question.source_steps),
+                         "audience_id": record.qa_audience_bindings.get(index) or record.qa_answers.get(index - 1, {}).get("next_audience_id") or None,
                          "intent": question.intent,
                          "next_audience_id": next_audience_id, "transcript": "",
                          "answer_duration_s": answer_duration_s}
+                persist_qa_state(record, answers={**record.qa_answers, index: entry})
                 record.qa_answers[index] = entry
 
         if not entry["transcript"]:
@@ -65,11 +70,13 @@ async def submit_answer(*, session_id, token, index, request_id: UUID, audio: by
                 transcript = result.transcript.strip()
             if not transcript:
                 async with store.locked_session(session_id, token) as record:
+                    persist_qa_state(record, answers={k: v for k, v in record.qa_answers.items() if k != index})
                     del record.qa_answers[index]
                 return {"question_index": index, "request_id": str(request_id),
                         "saved": False, "transcript": "", "next_question": None}
             # Keep recognized text even if the LLM fails. Retrying must not re-transcribe.
             async with store.locked_session(session_id, token) as record:
+                persist_qa_state(record, answers={**record.qa_answers, index: {**entry, "transcript": transcript}})
                 entry["transcript"] = transcript
 
         async with store.locked_session(session_id, token) as record:
@@ -88,21 +95,32 @@ async def submit_answer(*, session_id, token, index, request_id: UUID, audio: by
             }
         next_question = None
         if index + 1 < total:
-            generated = await generate_questions(payload, provider=provider)
-            candidate = generated.questions[0]
+            if entry.get("pending_next_question"):
+                candidate = GeneratedQuestion.model_validate(entry["pending_next_question"])
+            else:
+                generated = await generate_questions(payload, provider=provider)
+                candidate = generated.questions[0]
             if " ".join(candidate.question.lower().split()) in {
                 " ".join(h["question"].lower().split()) for h in history
             }:
                 raise QuestionGenerationProviderError("Next question repeats an answered question")
             next_question = candidate.model_copy(update={"id": f"q{index + 2}", "order": index + 2})
+            # Keep this candidate for a retry if the final DB commit fails.
+            entry["pending_next_question"] = next_question.model_dump(mode="json")
 
         async with store.locked_session(session_id, token) as record:
-            if next_question:
-                record.generated_questions[index + 1] = next_question
-                # Initial generation cache must not return the superseded question list.
-                record.question_response_cache.clear()
             response = {"question_index": index, "request_id": str(request_id), "saved": True,
                         "transcript": entry["transcript"], "total": total,
                         "next_question": next_question.model_dump() if next_question else None}
+            questions = list(record.generated_questions)
+            if next_question:
+                questions[index + 1] = next_question
+            completed = {**entry, "response": response}
+            completed.pop("pending_next_question", None)
+            persist_qa_state(record, questions=questions, answers={**record.qa_answers, index: completed})
+            record.generated_questions = questions
+            if next_question:
+                record.question_response_cache.clear()
+            entry.pop("pending_next_question", None)
             entry["response"] = response
             return response

@@ -620,6 +620,46 @@ def upsert_presentation_segment(
         )
 
 
+def _check_qa_owner(conn, owner_user_id: str, pre_session_pin: str) -> None:
+    owned = conn.execute(
+        """SELECT 1 FROM pre_sessions p JOIN templates t ON p.template_id=t.template_id
+           WHERE p.pin_code=? AND t.owner_id=?""", (pre_session_pin, owner_user_id)
+    ).fetchone()
+    if owned is None:
+        raise PermissionError("Q&A source is not owned by the user")
+
+
+def save_presentation_qa(*, evc_session_id: str, owner_user_id: str, pre_session_pin: str,
+                         state: dict[str, Any], expires_at: str | None = None,
+                         db_path: Path = DB_PATH) -> None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        _check_qa_owner(conn, owner_user_id, pre_session_pin)
+        existing = conn.execute("SELECT owner_user_id, pre_session_pin FROM presentation_qa WHERE evc_session_id=?",
+                                (evc_session_id,)).fetchone()
+        if existing and (existing["owner_user_id"] != owner_user_id or existing["pre_session_pin"] != pre_session_pin):
+            raise PermissionError("Q&A session binding differs")
+        conn.execute("""INSERT INTO presentation_qa
+            (evc_session_id, owner_user_id, pre_session_pin, state_json, expires_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(evc_session_id) DO UPDATE SET
+            state_json=excluded.state_json, expires_at=excluded.expires_at, updated_at=excluded.updated_at""",
+            (evc_session_id, owner_user_id, pre_session_pin, json_dumps(state), expires_at, utc_now()))
+
+
+def get_presentation_qa(evc_session_id: str, *, owner_user_id: str, pre_session_pin: str,
+                        db_path: Path = DB_PATH) -> dict[str, Any] | None:
+    ensure_report_schema(db_path)
+    with get_conn(db_path) as conn:
+        _check_qa_owner(conn, owner_user_id, pre_session_pin)
+        row = conn.execute("SELECT * FROM presentation_qa WHERE evc_session_id=?", (evc_session_id,)).fetchone()
+    if row is None:
+        return None
+    if row["owner_user_id"] != owner_user_id or row["pre_session_pin"] != pre_session_pin:
+        raise PermissionError("Q&A session binding differs")
+    return json.loads(row["state_json"])
+
+
 def list_presentation_segments(evc_session_id: str, db_path: Path = DB_PATH) -> list[dict[str, Any]]:
     ensure_report_schema(db_path)
     with get_conn(db_path) as conn:
@@ -800,7 +840,8 @@ def delete_presentation_source_data(
         deleted_reactions = conn.execute(
             "DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,)
         ).rowcount
-    return deleted_segments + deleted_reactions
+        deleted_qa = conn.execute("DELETE FROM presentation_qa WHERE evc_session_id=?", (evc_session_id,)).rowcount
+    return deleted_segments + deleted_reactions + deleted_qa
 
 
 def get_report_job_by_pre_session_pin(
@@ -849,6 +890,7 @@ def delete_expired_presentation_data(db_path: Path = DB_PATH) -> dict[str, int]:
         report_count = conn.execute(
             "DELETE FROM presentation_reports WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,)
         ).rowcount
+        conn.execute("DELETE FROM presentation_qa WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
     return {"segments": segment_count, "reactions": reaction_count, "reports": report_count}
 
 
@@ -1209,6 +1251,7 @@ def delete_session(session_id: str, user_id: str | None = None, db_path: Path = 
         for row in evc_rows:
             evc_session_id = row["evc_session_id"]
             conn.execute("DELETE FROM presentation_segments WHERE evc_session_id = ?", (evc_session_id,))
+            conn.execute("DELETE FROM presentation_qa WHERE evc_session_id = ?", (evc_session_id,))
             conn.execute("DELETE FROM presentation_reactions WHERE evc_session_id = ?", (evc_session_id,))
             conn.execute("DELETE FROM presentation_report_jobs WHERE evc_session_id = ?", (evc_session_id,))
             conn.execute("DELETE FROM presentation_reports WHERE evc_session_id = ?", (evc_session_id,))

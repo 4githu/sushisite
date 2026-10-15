@@ -1,0 +1,1 @@
+{"status": "fake_contract_only", "task": "research16", "run_id": "ca904a01-701b-4ce2-b14c-43bda2626b73", "input_hash": "281005b6133b23caf85952ccc92abd4845f902378a93b754d63cc10fee4a34bb", "call_count": 3, "cache_enabled": false, "rubric_purpose": "TEST_ONLY", "criterion_count": 16, "repeat": 3, "failures": 0}

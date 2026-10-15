@@ -8,9 +8,19 @@ from pathlib import Path
 
 from .config import EVC_DEBUG_LOG, EVC_DEBUG_LOG_DIR, EVC_DEBUG_RETENTION_DAYS
 from .schema import EVCUpdateResponseV2
+from .playback_policy import TimingTrace
 
 
 logger = logging.getLogger("sushisite.evc")
+
+
+def record_reaction_tick(session_id, request_id, sequence, metadata):
+    """Bounded scheduler metadata only; no evidence text, audio or credentials."""
+    try:
+        logger.info(json.dumps({"event": "evc_reaction_tick", "session_id": str(session_id),
+            "request_id": str(request_id), "sequence": sequence, **metadata}, separators=(",", ":")))
+    except Exception:
+        logger.exception("failed to record reaction observability metadata")
 
 
 def build_update_log_event(
@@ -19,8 +29,10 @@ def build_update_log_event(
     latency_ms: float,
     stt_provider: str,
     evaluation_provider: str,
+    timing: TimingTrace | None = None,
 ) -> dict:
     return {
+        **({"timing": timing.metadata()} if timing is not None else {}),
         "event": "evc_update_completed",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_id": str(response.session_id),
@@ -58,6 +70,7 @@ def record_update(
     latency_ms: float,
     stt_provider: str,
     evaluation_provider: str,
+    timing: TimingTrace | None = None,
 ) -> None:
     """Emit metadata only; observability must never fail a pipeline request."""
 
@@ -67,6 +80,7 @@ def record_update(
             latency_ms=latency_ms,
             stt_provider=stt_provider,
             evaluation_provider=evaluation_provider,
+            timing=timing,
         )
         logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
         if EVC_DEBUG_LOG:

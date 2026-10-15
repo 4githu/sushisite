@@ -1,0 +1,69 @@
+...............................FF........                                [100%]
+=================================== FAILURES ===================================
+______ test_questions_reject_out_of_session_id[1-audience_02-audience_01] ______
+odi/EVC/tests/test_audience_count_contract.py:265: in test_questions_reject_out_of_session_id
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:262: in run
+    assert response.status_code == status, response.text
+E   AssertionError: {"detail":{"code":"question_generation_provider_error","message":"Question generation provider failed"}}
+E   assert 502 == 200
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+_____ test_questions_reject_out_of_session_id[12-audience_13-audience_12] ______
+odi/EVC/tests/test_audience_count_contract.py:265: in test_questions_reject_out_of_session_id
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_audience_count_contract.py:262: in run
+    assert response.status_code == status, response.text
+E   AssertionError: {"detail":{"code":"question_generation_provider_error","message":"Question generation provider failed"}}
+E   assert 502 == 200
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_questions_reject_out_of_session_id[1-audience_02-audience_01]
+FAILED odi/EVC/tests/test_audience_count_contract.py::test_questions_reject_out_of_session_id[12-audience_13-audience_12]
+2 failed, 39 passed in 1.38s
+{
+  "status": "FAIL",
+  "suite": "audience",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_audience_count_contract.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.642399,
+  "pytest": {
+    "collected": 41,
+    "exitstatus": 1,
+    "passed": 39,
+    "failed": 2,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

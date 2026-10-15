@@ -1,0 +1,49 @@
+........................................................................ [ 55%]
+.........................................................                [100%]
+129 passed in 1.46s
+{
+  "status": "PASS_SELECTED_TESTS",
+  "suite": "original",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_answer_service.py",
+    "odi/EVC/tests/test_behavior_candidates.py",
+    "odi/EVC/tests/test_behavior_selection.py",
+    "odi/EVC/tests/test_clip_pool.py",
+    "odi/EVC/tests/test_command_pipeline_api.py",
+    "odi/EVC/tests/test_diversity_acceptance.py",
+    "odi/EVC/tests/test_e2e_scenarios.py",
+    "odi/EVC/tests/test_evaluation.py",
+    "odi/EVC/tests/test_inputs_stt.py",
+    "odi/EVC/tests/test_question_generation.py",
+    "odi/EVC/tests/test_reaction_scheduler.py",
+    "odi/EVC/tests/test_report_followup.py",
+    "odi/EVC/tests/test_report_generation.py",
+    "odi/EVC/tests/test_schema.py",
+    "odi/EVC/tests/test_security_observability.py",
+    "odi/EVC/tests/test_session_initialization.py",
+    "odi/EVC/tests/test_state_engine.py",
+    "odi/EVC/tests/test_unity_rehearsal.py"
+  ],
+  "returncode": 0,
+  "elapsed_seconds": 1.810587,
+  "pytest": {
+    "collected": 129,
+    "exitstatus": 0,
+    "passed": 129,
+    "failed": 0,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

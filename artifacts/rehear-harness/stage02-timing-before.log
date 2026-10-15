@@ -1,0 +1,207 @@
+FFFFF.F....FFFFFF                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_delayed_provider_keeps_evidence_clock __________________
+odi/EVC/tests/test_playback_freshness.py:90: in test_delayed_provider_keeps_evidence_clock
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:74: in run
+    response = await pipeline.update_pipeline(**args, store=store, monotonic_clock=clock)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: update_pipeline() got an unexpected keyword argument 'monotonic_clock'
+___________ test_no_authoritative_playback_clock_is_reported_unknown ___________
+odi/EVC/tests/test_playback_freshness.py:108: in test_no_authoritative_playback_clock_is_reported_unknown
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:99: in run
+    await pipeline.update_pipeline(**args, store=store, monotonic_clock=Clock())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: update_pipeline() got an unexpected keyword argument 'monotonic_clock'
+__________ test_stale_momentary_event_not_replayed[slide_transition] ___________
+odi/EVC/tests/test_playback_freshness.py:113: in test_stale_momentary_event_not_replayed
+    policy = importlib.import_module("odi.EVC.playback_policy").PlaybackPolicy(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.playback_policy'
+__________ test_stale_momentary_event_not_replayed[silence_or_pause] ___________
+odi/EVC/tests/test_playback_freshness.py:113: in test_stale_momentary_event_not_replayed
+    policy = importlib.import_module("odi.EVC.playback_policy").PlaybackPolicy(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.playback_policy'
+_________ test_stale_momentary_event_not_replayed[utterance_boundary] __________
+odi/EVC/tests/test_playback_freshness.py:113: in test_stale_momentary_event_not_replayed
+    policy = importlib.import_module("odi.EVC.playback_policy").PlaybackPolicy(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.playback_policy'
+___________________ test_clock_pause_reset_and_forward_jump ____________________
+odi/EVC/tests/test_playback_freshness.py:153: in test_clock_pause_reset_and_forward_jump
+    module = importlib.import_module("odi.EVC.playback_policy")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.playback_policy'
+______________ test_many_due_actors_are_fair_and_bounded[12-2.5] _______________
+odi/EVC/tests/test_playback_freshness.py:204: in test_many_due_actors_are_fair_and_bounded
+    assert max(dispatched.values()) <= max_wait
+E   AssertionError: assert 5.5 <= 2.5
+E    +  where 5.5 = max(dict_values([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]))
+E    +    where dict_values([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]) = <built-in method values of dict object at 0x109ad8440>()
+E    +      where <built-in method values of dict object at 0x109ad8440> = {'audience_01': 0.0, 'audience_02': 0.5, 'audience_03': 1.0, 'audience_04': 1.5, ...}.values
+_______________ test_many_due_actors_are_fair_and_bounded[50-6] ________________
+odi/EVC/tests/test_playback_freshness.py:204: in test_many_due_actors_are_fair_and_bounded
+    assert max(dispatched.values()) <= max_wait
+E   AssertionError: assert 24.5 <= 6
+E    +  where 24.5 = max(dict_values([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,...5.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 24.5]))
+E    +    where dict_values([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,...5.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 24.5]) = <built-in method values of dict object at 0x109a30ec0>()
+E    +      where <built-in method values of dict object at 0x109a30ec0> = {'audience_01': 0.0, 'audience_02': 0.5, 'audience_03': 1.0, 'audience_04': 1.5, ...}.values
+_____ test_overload_preserves_analysis_order_and_drops_only_stale_playback _____
+odi/EVC/tests/test_playback_freshness.py:212: in test_overload_preserves_analysis_order_and_drops_only_stale_playback
+    policy = importlib.import_module("odi.EVC.playback_policy").PlaybackPolicy(max_pending_evidence=2, max_playback_age_s=4)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.playback_policy'
+__ test_update_admission_bounds_lock_waiters_without_accepting_extra_analysis __
+odi/EVC/tests/test_playback_freshness.py:252: in test_update_admission_bounds_lock_waiters_without_accepting_extra_analysis
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:239: in run
+    store = SessionStore(max_pending_updates=2)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: SessionStore.__init__() got an unexpected keyword argument 'max_pending_updates'
+_____ test_timed_out_provider_holds_capacity_until_thread_really_finishes ______
+odi/EVC/tests/test_playback_freshness.py:256: in test_timed_out_provider_holds_capacity_until_thread_really_finishes
+    module = importlib.import_module("odi.EVC.provider_execution")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1395: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
+    ???
+E   ModuleNotFoundError: No module named 'odi.EVC.provider_execution'
+__________ test_reaction_http_clock_error_is_409_and_retry_unchanged ___________
+odi/EVC/tests/test_playback_freshness.py:303: in test_reaction_http_clock_error_is_409_and_retry_unchanged
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:299: in run
+    assert error.status_code == 409
+E   assert 200 == 409
+E    +  where 200 = <Response [200 OK]>.status_code
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_playback_freshness.py::test_delayed_provider_keeps_evidence_clock
+FAILED odi/EVC/tests/test_playback_freshness.py::test_no_authoritative_playback_clock_is_reported_unknown
+FAILED odi/EVC/tests/test_playback_freshness.py::test_stale_momentary_event_not_replayed[slide_transition]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_stale_momentary_event_not_replayed[silence_or_pause]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_stale_momentary_event_not_replayed[utterance_boundary]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_clock_pause_reset_and_forward_jump
+FAILED odi/EVC/tests/test_playback_freshness.py::test_many_due_actors_are_fair_and_bounded[12-2.5]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_many_due_actors_are_fair_and_bounded[50-6]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_overload_preserves_analysis_order_and_drops_only_stale_playback
+FAILED odi/EVC/tests/test_playback_freshness.py::test_update_admission_bounds_lock_waiters_without_accepting_extra_analysis
+FAILED odi/EVC/tests/test_playback_freshness.py::test_timed_out_provider_holds_capacity_until_thread_really_finishes
+FAILED odi/EVC/tests/test_playback_freshness.py::test_reaction_http_clock_error_is_409_and_retry_unchanged
+12 failed, 5 passed in 0.99s
+{
+  "status": "FAIL",
+  "suite": "timing",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_playback_freshness.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.253487,
+  "pytest": {
+    "collected": 17,
+    "exitstatus": 1,
+    "passed": 5,
+    "failed": 12,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}
