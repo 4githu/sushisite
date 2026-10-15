@@ -89,7 +89,8 @@
 
 		box-shadow: 0 0 16px rgba(0, 0, 0, 0.15);
 
-		overflow: hidden;
+		overflow-x: hidden;
+		overflow-y: auto;
 	}
 
 	.modal-panel::backdrop {
