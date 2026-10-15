@@ -100,25 +100,30 @@ def _detail_metrics(
         "content.supporting_material": content["supporting_material"],
         "content.cer_validity": content["cer_validity"],
         "delivery.language_clarity": delivery["language_clarity"],
-        "delivery.gaze_delivery": delivery["gaze_delivery"],
+        "delivery.gaze_delivery": delivery.get("gaze_delivery"),
         "delivery.vocal_delivery": delivery["vocal_delivery"],
         "derived.filler_score": filler_score,
         "derived.time_score": time_score,
     }
 
+    valid_gaze = [s for s in segments if "gaze_delivery_score" not in s.evaluation.missing_inputs]
+
     def item(spec: DetailMetricSpec) -> DetailMetricFeedback:
         score = metric_scores.get(spec.source)
         available = score is not None
+        reason = (_description(spec.label, score) if available
+                  else spec.unavailable_reason or "현재 세션에서 평가에 필요한 입력이 수집되지 않았습니다.")
+        ids = _metric_evidence_ids(evidence, spec.axis) if available else []
+        if spec.id == "gaze":
+            reason += f" 시선 입력 {len(valid_gaze)}/{len(segments)} 구간; 유효 구간만 집계했습니다."
+            valid_steps = {s.step for s in valid_gaze}
+            ids = _metric_evidence_ids([e for e in evidence if e.source_step in valid_steps], spec.axis)
         return DetailMetricFeedback(
             id=spec.id,
             label=spec.label,
             score=score,
-            reason=(
-                _description(spec.label, score)
-                if available
-                else spec.unavailable_reason or "현재 세션에서 평가에 필요한 입력이 수집되지 않았습니다."
-            ),
-            evidence_ids=_metric_evidence_ids(evidence, spec.axis) if available else [],
+            reason=reason,
+            evidence_ids=ids,
             coaching=spec.coaching if available else None,
         )
 
@@ -291,6 +296,12 @@ def aggregate_report(
         key: _to_score(_weighted_average(segments, lambda item, key=key: getattr(item.evaluation.delivery, key)))
         for key in DELIVERY_KEYS
     }
+    valid_gaze = [s for s in segments if "gaze_delivery_score" not in s.evaluation.missing_inputs]
+    # Compatibility-only analysis fields must not impute missing gaze to 50 either.
+    if valid_gaze:
+        delivery["gaze_delivery"] = _to_score(_weighted_average(valid_gaze, lambda s: s.evaluation.delivery.gaze_delivery))
+    else:
+        delivery.pop("gaze_delivery")
     engagement = _to_score(_weighted_average(segments, lambda item: item.evc_state.E))
     clarity = round((content["organization"] + content["central_message"] + delivery["language_clarity"] + delivery["slide_speech_alignment"]) / 4)
     credibility = round((content["supporting_material"] + content["cer_validity"] + _to_score(_weighted_average(segments, lambda item: item.evc_state.V))) / 3)
@@ -329,6 +340,7 @@ def aggregate_report(
         for item in timeline
     ]
     warnings = list(dict.fromkeys([
+        f"gaze_coverage:{len(valid_gaze)}/{len(segments)}:valid_segments_only",
         *(extra_warnings or []),
         *(warning for segment in segments for warning in segment.warnings),
         *(missing for segment in segments for missing in segment.evaluation.missing_inputs),

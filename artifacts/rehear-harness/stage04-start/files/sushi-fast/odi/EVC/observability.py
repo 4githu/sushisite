@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+import json
+import logging
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .config import EVC_DEBUG_LOG, EVC_DEBUG_LOG_DIR, EVC_DEBUG_RETENTION_DAYS
+from .schema import EVCUpdateResponseV2
+from .playback_policy import TimingTrace
+
+
+logger = logging.getLogger("sushisite.evc")
+
+
+def record_reaction_tick(session_id, request_id, sequence, metadata):
+    """Bounded scheduler metadata only; no evidence text, audio or credentials."""
+    try:
+        logger.info(json.dumps({"event": "evc_reaction_tick", "session_id": str(session_id),
+            "request_id": str(request_id), "sequence": sequence, **metadata}, separators=(",", ":")))
+    except Exception:
+        logger.exception("failed to record reaction observability metadata")
+
+
+def build_update_log_event(
+    response: EVCUpdateResponseV2,
+    *,
+    latency_ms: float,
+    stt_provider: str,
+    evaluation_provider: str,
+    timing: TimingTrace | None = None,
+) -> dict:
+    return {
+        **({"timing": timing.metadata()} if timing is not None else {}),
+        "event": "evc_update_completed",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_id": str(response.session_id),
+        "request_id": str(response.request_id),
+        "step": response.step,
+        "latency_ms": round(latency_ms, 3),
+        "stt_provider": stt_provider,
+        "evaluation_provider": evaluation_provider,
+        "warning_codes": list(response.warnings),
+        "no_op_reason": response.no_op_reason,
+        "aggregate_state": response.evc_state.model_dump(),
+        "selected_variations": [
+            {
+                "agent_id": decision.agent_id,
+                "core": (
+                    decision.core_behavior.variation_id
+                    if decision.core_behavior is not None
+                    else None
+                ),
+                "action": (
+                    decision.action_overlay.variation_id
+                    if decision.action_overlay is not None
+                    else None
+                ),
+            }
+            for decision in response.audiences
+        ],
+        "command_count": len(response.commands),
+    }
+
+
+def record_update(
+    response: EVCUpdateResponseV2,
+    *,
+    latency_ms: float,
+    stt_provider: str,
+    evaluation_provider: str,
+    timing: TimingTrace | None = None,
+) -> None:
+    """Emit metadata only; observability must never fail a pipeline request."""
+
+    try:
+        event = build_update_log_event(
+            response,
+            latency_ms=latency_ms,
+            stt_provider=stt_provider,
+            evaluation_provider=evaluation_provider,
+            timing=timing,
+        )
+        logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+        if EVC_DEBUG_LOG:
+            session_dir = EVC_DEBUG_LOG_DIR / str(response.session_id)
+            session_dir.mkdir(parents=True, exist_ok=True)
+            path = session_dir / f"step_{response.step:04d}_{response.request_id}.json"
+            path.write_text(
+                json.dumps(event, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            prune_debug_logs(EVC_DEBUG_LOG_DIR, EVC_DEBUG_RETENTION_DAYS)
+    except Exception:
+        logger.exception("failed to record EVC observability metadata")
+
+
+def record_report_generation(
+    *,
+    session_id: str,
+    request_id: str,
+    status: str,
+    latency_ms: float,
+    segment_count: int,
+    word_count: int,
+    generator: str,
+    persistent: bool,
+    warning_codes: list[str] | None = None,
+    error_code: str | None = None,
+) -> None:
+    """Emit report metadata without transcript, prompt, token, or generated prose."""
+    try:
+        event = {
+            "event": "presentation_report_generation",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "request_id": request_id,
+            "status": status,
+            "latency_ms": round(latency_ms, 3),
+            "segment_count": segment_count,
+            "word_count": word_count,
+            "generator": generator,
+            "persistent": persistent,
+            "warning_codes": list(warning_codes or []),
+            "error_code": error_code,
+        }
+        logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+    except Exception:
+        logger.exception("failed to record report observability metadata")
+
+
+def prune_debug_logs(directory: Path, retention_days: int, now: float | None = None) -> int:
+    if retention_days <= 0 or not directory.exists():
+        return 0
+    threshold = (time.time() if now is None else now) - retention_days * 86400
+    removed = 0
+    for path in directory.rglob("*.json"):
+        try:
+            if path.stat().st_mtime < threshold:
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    for child in sorted(directory.rglob("*"), reverse=True):
+        if child.is_dir():
+            try:
+                child.rmdir()
+            except OSError:
+                pass
+    return removed

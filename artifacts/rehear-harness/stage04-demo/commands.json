@@ -1,0 +1,116 @@
+[
+  {
+    "target": "ai-doctor",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-doctor",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/doctor.json"
+    ]
+  },
+  {
+    "target": "ai-contracts",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-contracts",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/contracts.json"
+    ]
+  },
+  {
+    "target": "ai-eval",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-eval",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/eval.json",
+      "INPUT=odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+      "RUBRIC=odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+      "EXTRA_ARGS=--allow-test-rubric"
+    ],
+    "status": "fake_contract_only",
+    "call_count": 1,
+    "failures": 0
+  },
+  {
+    "target": "ai-repeat",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-repeat",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/repeat.json",
+      "INPUT=odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+      "RUBRIC=odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+      "EXTRA_ARGS=--allow-test-rubric --repeat 3"
+    ],
+    "status": "fake_contract_only",
+    "call_count": 3,
+    "failures": 0
+  },
+  {
+    "target": "ai-compare",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-compare",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/compare.json",
+      "INPUT=odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+      "RUBRIC=odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+      "EXTRA_ARGS=--allow-test-rubric"
+    ],
+    "status": "fake_contract_only",
+    "call_count": 2,
+    "failures": 0
+  },
+  {
+    "target": "ai-replay",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-replay",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/replay.json",
+      "INPUT=odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+      "RUBRIC=odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+      "EXTRA_ARGS=--allow-test-rubric --result /Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/eval.json"
+    ],
+    "status": "offline_replay",
+    "call_count": 0,
+    "failures": 0
+  },
+  {
+    "target": "ai-bench",
+    "exit": 0,
+    "command": [
+      "make",
+      "-s",
+      "-f",
+      "Makefile.ai",
+      "ai-bench",
+      "OUTPUT=/Users/user1/sushisite/artifacts/rehear-harness/stage04-demo/bench.json",
+      "INPUT=odi/EVC/tests/fixtures/TEST_ONLY-stage04-evidence.json",
+      "RUBRIC=odi/EVC/tests/fixtures/TEST_ONLY-stage04-rubric.json",
+      "EXTRA_ARGS=--allow-test-rubric --repeat 3"
+    ],
+    "status": "fake_contract_only",
+    "call_count": 3,
+    "failures": 0
+  }
+]

@@ -1,0 +1,11 @@
+[
+  "sushi-fast/odi/EVC/AUDIENCE_REACTIONS.md",
+  "sushi-fast/odi/EVC/config.py",
+  "sushi-fast/odi/EVC/evaluation.py",
+  "sushi-fast/odi/EVC/observability.py",
+  "sushi-fast/odi/EVC/pipeline.py",
+  "sushi-fast/odi/EVC/reaction_scheduler.py",
+  "sushi-fast/odi/EVC/router.py",
+  "sushi-fast/odi/EVC/session_store.py",
+  "sushi-fast/odi/EVC/speech2text.py"
+]

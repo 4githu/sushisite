@@ -1,0 +1,30 @@
+{
+  "exit_code": 0,
+  "status": "PASS_SELECTED_TESTS",
+  "suite": "audience",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_audience_count_contract.py"
+  ],
+  "returncode": 0,
+  "elapsed_seconds": 3.035486,
+  "pytest": {
+    "collected": 50,
+    "exitstatus": 0,
+    "passed": 50,
+    "failed": 0,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

@@ -1,0 +1,74 @@
+.........................FF                                              [100%]
+=================================== FAILURES ===================================
+_ test_timeout_followed_by_full_capacity_preserves_original_provider_error[stt] _
+odi/EVC/tests/test_playback_freshness.py:512: in test_timeout_followed_by_full_capacity_preserves_original_provider_error
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:502: in run
+    await speech.transcribe_audio("synthetic-unused.wav", provider=STT(), timeout_s=.02, retries=1)
+odi/EVC/speech2text.py:158: in transcribe_audio
+    return await provider_executor.run(
+odi/EVC/provider_execution.py:29: in run
+    raise ProviderCapacityError("segment/STT provider capacity reached; retry later")
+E   odi.EVC.provider_execution.ProviderCapacityError: segment/STT provider capacity reached; retry later
+_ test_timeout_followed_by_full_capacity_preserves_original_provider_error[evaluation] _
+odi/EVC/tests/test_playback_freshness.py:512: in test_timeout_followed_by_full_capacity_preserves_original_provider_error
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_playback_freshness.py:505: in run
+    await evaluation.request_segment_evaluation({}, provider=Evaluation(), timeout_s=.02, retries=1)
+odi/EVC/evaluation.py:210: in request_segment_evaluation
+    return await provider_executor.run(lambda: selected.evaluate(payload), timeout_s=timeout_s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+odi/EVC/provider_execution.py:29: in run
+    raise ProviderCapacityError("segment/STT provider capacity reached; retry later")
+E   odi.EVC.provider_execution.ProviderCapacityError: segment/STT provider capacity reached; retry later
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_playback_freshness.py::test_timeout_followed_by_full_capacity_preserves_original_provider_error[stt]
+FAILED odi/EVC/tests/test_playback_freshness.py::test_timeout_followed_by_full_capacity_preserves_original_provider_error[evaluation]
+2 failed, 25 passed in 4.35s
+{
+  "status": "FAIL",
+  "suite": "timing",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_playback_freshness.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 4.582825,
+  "pytest": {
+    "collected": 27,
+    "exitstatus": 1,
+    "passed": 25,
+    "failed": 2,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

@@ -51,6 +51,15 @@ EventName = Literal[
     "nearby_interaction",
 ]
 
+AUDIENCE_ID_PATTERN = r"^audience_(?:0[1-9]|[1-4][0-9]|50)$"
+
+
+def validate_audience_registry(audiences):
+    ids = [a.agent_id for a in audiences]
+    if ids != [f"audience_{index:02d}" for index in range(1, len(ids) + 1)]:
+        raise ValueError("audiences must contain the ordered session registry 01 through a")
+    return audiences
+
 
 def clamp(value: float, low: float = -1.0, high: float = 1.0) -> float:
     return max(low, min(high, value))
@@ -319,7 +328,7 @@ class StateSensitivity(StrictModel):
 
 
 class AudienceSnapshot(StrictModel):
-    agent_id: str = Field(pattern=r"^audience_0[1-6]$")
+    agent_id: str = Field(pattern=AUDIENCE_ID_PATTERN)
     profile: AudienceProfile
     state: AudienceState
 
@@ -336,7 +345,7 @@ class BehaviorHistoryEntry(StrictModel):
 
 
 class AudienceRuntimeState(StrictModel):
-    agent_id: str = Field(pattern=r"^audience_0[1-6]$")
+    agent_id: str = Field(pattern=AUDIENCE_ID_PATTERN)
     profile: AudienceProfile
     state: AudienceState
     previous_dominant_axis: DominantAxis | None = None
@@ -423,7 +432,7 @@ class SceneGate(StrictModel):
             return None
         if not value:
             raise ValueError("allowed_agents cannot be empty")
-        valid = {f"audience_{index:02d}" for index in range(1, 7)}
+        valid = {f"audience_{index:02d}" for index in range(1, 51)}
         if not value <= valid:
             raise ValueError("allowed_agents contains an unknown audience id")
         return value
@@ -528,7 +537,7 @@ class BehaviorChoice(StrictModel):
 
 
 class UnityCommand(StrictModel):
-    agent_id: str = Field(pattern=r"^audience_0[1-6]$")
+    agent_id: str = Field(pattern=AUDIENCE_ID_PATTERN)
     start_time: float = Field(ge=0.0)
     layer: OutputLayer
     action_id: str = Field(pattern=r"^(face|body|gaze_head)\.[a-z0-9_]+$")
@@ -547,7 +556,7 @@ class UnityCommand(StrictModel):
 
 
 class AudienceDecision(StrictModel):
-    agent_id: str = Field(pattern=r"^audience_0[1-6]$")
+    agent_id: str = Field(pattern=AUDIENCE_ID_PATTERN)
     previous_state: AudienceState
     sensitivity: StateSensitivity
     state: AudienceState
@@ -566,6 +575,7 @@ class StateDeltaBreakdown(StrictModel):
 
 class SmartStartOptions(StrictModel):
     independent_reactions: bool = False
+    audience_count: int = Field(default=6, strict=True, ge=1, le=50)
     presentation_title: str = Field(min_length=1, max_length=200)
     topic_interest: Literal[0.25, 0.5, 0.75] = 0.5
     prior_knowledge: Literal[0.25, 0.5, 0.75] = 0.5
@@ -597,7 +607,7 @@ class SmartStartResponseV2(StrictModel):
     initial_evc_state: AudienceState
     topic_interest: float
     prior_knowledge: float
-    audiences: list[AudienceSnapshot] = Field(min_length=6, max_length=6)
+    audiences: list[AudienceSnapshot] = Field(min_length=1, max_length=50)
     step: Literal[0] = 0
     expires_in_s: int = Field(gt=0)
     slide_count: int = Field(ge=0)
@@ -606,9 +616,7 @@ class SmartStartResponseV2(StrictModel):
 
     @model_validator(mode="after")
     def audience_ids_are_unique(self) -> "SmartStartResponseV2":
-        ids = [audience.agent_id for audience in self.audiences]
-        if len(ids) != len(set(ids)):
-            raise ValueError("audience agent_id values must be unique")
+        validate_audience_registry(self.audiences)
         return self
 
 
@@ -618,7 +626,7 @@ class SessionResponseV2(StrictModel):
     session_id: UUID
     presentation_title: str
     evc_state: AudienceState
-    audiences: list[AudienceSnapshot] = Field(min_length=6, max_length=6)
+    audiences: list[AudienceSnapshot] = Field(min_length=1, max_length=50)
     step: int = Field(ge=0)
     created_at: datetime
     updated_at: datetime
@@ -638,6 +646,11 @@ class SessionResponseV2(StrictModel):
     ] = "not_started"
     stt_provider: Literal["deepgram", "azure"] = "deepgram"
 
+    @field_validator("audiences")
+    @classmethod
+    def audience_ids_match_registry(cls, value):
+        return validate_audience_registry(value)
+
 
 class EVCUpdateResponseV2(StrictModel):
     independent_reactions: bool = False
@@ -653,11 +666,19 @@ class EVCUpdateResponseV2(StrictModel):
     delta: StateDeltaBreakdown
     evc_state: AudienceState
     behavior: BehaviorCommand | None
-    audiences: list[AudienceDecision] = Field(min_length=6, max_length=6)
+    audiences: list[AudienceDecision] = Field(min_length=1, max_length=50)
     commands: list[UnityCommand]
     warnings: list[str] = Field(default_factory=list)
     no_op_reason: str | None = Field(default=None, max_length=128)
     diagnostics: dict | None = None
+
+    @model_validator(mode="after")
+    def audience_ids_match_registry(self) -> "EVCUpdateResponseV2":
+        validate_audience_registry(self.audiences)
+        ids = {audience.agent_id for audience in self.audiences}
+        if any(command.agent_id not in ids for command in self.commands):
+            raise ValueError("command audience must belong to the session registry")
+        return self
 
     @field_validator("accepted_client_time_s")
     @classmethod

@@ -1,0 +1,37 @@
+{
+  "schema_version": "research-run.v1",
+  "task": "research16",
+  "run_id": "6c6e7176-4620-4e1c-ae5a-844d65d99c7a",
+  "input_hash": "9a4beb206e5a00192711dbe25dd329ddc020c95353706bb12a581fc363c92fed",
+  "runs": [
+    {
+      "metadata": {
+        "run_id": "e27b45fe-59f1-441f-bf45-e8ea35005a97",
+        "task": "research16",
+        "input_hash": "9a4beb206e5a00192711dbe25dd329ddc020c95353706bb12a581fc363c92fed",
+        "rubric_version": "TEST_ONLY-rubric-v1",
+        "rubric_digest": "c854d33d98e0388eb3bc716942b66f439e177a2fdee4b7670cc995814e804188",
+        "policy_version": "TEST_ONLY-policy-v1",
+        "policy_digest": "960c0d14620ca60eaa03d4e8b3f274d697ad6f8fcd62a48f2ad14e418be18627",
+        "rubric_purpose": "TEST_ONLY",
+        "engine": "offline_replay",
+        "model": null,
+        "adapter": null,
+        "prompt_version": null,
+        "cache_enabled": false,
+        "settings": null,
+        "call_count": 0,
+        "retry_count": 0,
+        "cache_hits": 0,
+        "failures": 0,
+        "elapsed_s": 0.0001363328192383051,
+        "status": "offline_replay",
+        "real_model_verified": false,
+        "criterion_count": 16,
+        "evidence_count": 12,
+        "reference_check": "existence_only_not_semantic_support"
+      },
+      "results": []
+    }
+  ]
+}

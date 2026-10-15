@@ -1,0 +1,75 @@
+{
+  "schema_version": "evidence-pack.v1",
+  "source_id": "TEST_ONLY-case",
+  "source_version": "TEST_ONLY-export-v1",
+  "time_basis": "declared_client_presentation_seconds",
+  "items": [
+    {
+      "evidence_id": "segment-1:transcript",
+      "source_id": "segment-1",
+      "kind": "transcript",
+      "client_time_s": 30.0,
+      "payload": {
+        "text": "  Synthetic raw evidence.  ",
+        "step": 1,
+        "segment_offset_s": 24.0,
+        "word_time_basis": "segment_relative_seconds",
+        "words": [
+          {
+            "word": "Synthetic",
+            "start": 0.5,
+            "end": 1.5,
+            "confidence": 0.9,
+            "presentation_start_s": 24.5,
+            "presentation_end_s": 25.5
+          }
+        ]
+      },
+      "truncated": false
+    },
+    {
+      "evidence_id": "segment-1:metrics",
+      "source_id": "segment-1",
+      "kind": "metrics",
+      "client_time_s": 30.0,
+      "payload": {
+        "duration_s": 3.0,
+        "word_count": 3,
+        "speech_rate_wps": 1.0
+      },
+      "truncated": false
+    },
+    {
+      "evidence_id": "segment-1:slide",
+      "source_id": "segment-1",
+      "kind": "slide",
+      "client_time_s": 30.0,
+      "payload": {
+        "index": 0,
+        "text": "Synthetic slide excerpt",
+        "precision": "segment_observation_only"
+      },
+      "truncated": true
+    }
+  ],
+  "missing_inputs": [
+    "f0",
+    "volume",
+    "gaze_time_series",
+    "slide_timeline",
+    "external_fact_sources",
+    "gaze_delivery_score",
+    "gaze_scalar",
+    "qa_history"
+  ],
+  "coverage": {
+    "available_sources": 1,
+    "total_sources": 2,
+    "omitted_source_ids": [
+      "segment-omitted"
+    ],
+    "truncated": true,
+    "truncation_unknown": false
+  },
+  "excluded_inputs": []
+}

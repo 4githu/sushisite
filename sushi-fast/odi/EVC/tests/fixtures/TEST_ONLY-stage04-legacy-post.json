@@ -1,0 +1,24 @@
+{
+  "id": "TEST_ONLY-legacy-case",
+  "title": "Synthetic legacy text case; not an observed session",
+  "slides": [
+    {
+      "title": "Synthetic",
+      "summary": "Synthetic",
+      "text": "Synthetic slide"
+    }
+  ],
+  "segments": [
+    {
+      "client_time_s": 30,
+      "slide_index": 0,
+      "text": "Synthetic legacy evidence."
+    }
+  ],
+  "qa_answers": [
+    {
+      "duration_s": 3,
+      "answer": "Synthetic unpaired answer."
+    }
+  ]
+}

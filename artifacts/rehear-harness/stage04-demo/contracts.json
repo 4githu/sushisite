@@ -1,0 +1,656 @@
+{
+  "status": "schemas_only_not_official_rubric",
+  "schemas": {
+    "EvidencePack": {
+      "$defs": {
+        "EvidenceCoverage": {
+          "additionalProperties": false,
+          "properties": {
+            "available_sources": {
+              "minimum": 0,
+              "title": "Available Sources",
+              "type": "integer"
+            },
+            "total_sources": {
+              "minimum": 0,
+              "title": "Total Sources",
+              "type": "integer"
+            },
+            "omitted_source_ids": {
+              "default": [],
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": "Omitted Source Ids",
+              "type": "array"
+            },
+            "truncated": {
+              "default": false,
+              "title": "Truncated",
+              "type": "boolean"
+            },
+            "truncation_unknown": {
+              "default": false,
+              "title": "Truncation Unknown",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "available_sources",
+            "total_sources"
+          ],
+          "title": "EvidenceCoverage",
+          "type": "object"
+        },
+        "EvidenceItem": {
+          "additionalProperties": false,
+          "properties": {
+            "evidence_id": {
+              "minLength": 1,
+              "title": "Evidence Id",
+              "type": "string"
+            },
+            "source_id": {
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "transcript",
+                "metrics",
+                "slide",
+                "context",
+                "qa"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "client_time_s": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Client Time S"
+            },
+            "payload": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Payload",
+              "type": "object"
+            },
+            "truncated": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": false,
+              "title": "Truncated"
+            }
+          },
+          "required": [
+            "evidence_id",
+            "source_id",
+            "kind",
+            "payload"
+          ],
+          "title": "EvidenceItem",
+          "type": "object"
+        },
+        "JsonValue": {}
+      },
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "evidence-pack.v1",
+          "default": "evidence-pack.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minLength": 1,
+          "title": "Source Version",
+          "type": "string"
+        },
+        "time_basis": {
+          "const": "declared_client_presentation_seconds",
+          "default": "declared_client_presentation_seconds",
+          "title": "Time Basis",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/EvidenceItem"
+          },
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "missing_inputs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Missing Inputs",
+          "type": "array"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvidenceCoverage"
+        },
+        "excluded_inputs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excluded Inputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_version",
+        "items",
+        "missing_inputs",
+        "coverage"
+      ],
+      "title": "EvidencePack",
+      "type": "object"
+    },
+    "RubricBundle": {
+      "$defs": {
+        "Anchor": {
+          "additionalProperties": false,
+          "properties": {
+            "score": {
+              "maximum": 5,
+              "minimum": 1,
+              "title": "Score",
+              "type": "integer"
+            },
+            "description": {
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "description"
+          ],
+          "title": "Anchor",
+          "type": "object"
+        },
+        "Criterion": {
+          "additionalProperties": false,
+          "properties": {
+            "criterion_id": {
+              "minLength": 1,
+              "title": "Criterion Id",
+              "type": "string"
+            },
+            "label": {
+              "minLength": 1,
+              "title": "Label",
+              "type": "string"
+            },
+            "definition": {
+              "minLength": 1,
+              "title": "Definition",
+              "type": "string"
+            },
+            "anchors": {
+              "items": {
+                "$ref": "#/$defs/Anchor"
+              },
+              "maxItems": 5,
+              "minItems": 5,
+              "title": "Anchors",
+              "type": "array"
+            }
+          },
+          "required": [
+            "criterion_id",
+            "label",
+            "definition",
+            "anchors"
+          ],
+          "title": "Criterion",
+          "type": "object"
+        },
+        "JsonValue": {}
+      },
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "rubric-bundle.v1",
+          "default": "rubric-bundle.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "rubric_version": {
+          "minLength": 1,
+          "title": "Rubric Version",
+          "type": "string"
+        },
+        "policy_version": {
+          "minLength": 1,
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "research",
+            "TEST_ONLY"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "policy": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "minProperties": 1,
+          "title": "Policy",
+          "type": "object"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/Criterion"
+          },
+          "maxItems": 16,
+          "minItems": 16,
+          "title": "Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rubric_version",
+        "policy_version",
+        "purpose",
+        "source",
+        "policy",
+        "criteria"
+      ],
+      "title": "RubricBundle",
+      "type": "object"
+    },
+    "AssessmentResult": {
+      "$defs": {
+        "AssessmentCoverage": {
+          "additionalProperties": false,
+          "properties": {
+            "scored_criteria": {
+              "minimum": 0,
+              "title": "Scored Criteria",
+              "type": "integer"
+            },
+            "abstained_criteria": {
+              "minimum": 0,
+              "title": "Abstained Criteria",
+              "type": "integer"
+            },
+            "evidence": {
+              "$ref": "#/$defs/EvidenceCoverage"
+            },
+            "missing_inputs": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": "Missing Inputs",
+              "type": "array"
+            }
+          },
+          "required": [
+            "scored_criteria",
+            "abstained_criteria",
+            "evidence",
+            "missing_inputs"
+          ],
+          "title": "AssessmentCoverage",
+          "type": "object"
+        },
+        "CriterionAssessment": {
+          "additionalProperties": false,
+          "properties": {
+            "criterion_id": {
+              "minLength": 1,
+              "title": "Criterion Id",
+              "type": "string"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "maximum": 5,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Score"
+            },
+            "reason": {
+              "minLength": 1,
+              "title": "Reason",
+              "type": "string"
+            },
+            "evidence_ids": {
+              "default": [],
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": "Evidence Ids",
+              "type": "array"
+            },
+            "abstained": {
+              "title": "Abstained",
+              "type": "boolean"
+            },
+            "abstain_reason": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Abstain Reason"
+            }
+          },
+          "required": [
+            "criterion_id",
+            "score",
+            "reason",
+            "abstained"
+          ],
+          "title": "CriterionAssessment",
+          "type": "object"
+        },
+        "EngineIdentity": {
+          "additionalProperties": false,
+          "properties": {
+            "provider": {
+              "minLength": 1,
+              "title": "Provider",
+              "type": "string"
+            },
+            "runtime_binding": {
+              "enum": [
+                "builtin_fake",
+                "injected_loader",
+                "transformers_local"
+              ],
+              "title": "Runtime Binding",
+              "type": "string"
+            },
+            "model": {
+              "minLength": 1,
+              "title": "Model",
+              "type": "string"
+            },
+            "model_revision": {
+              "minLength": 1,
+              "title": "Model Revision",
+              "type": "string"
+            },
+            "tokenizer": {
+              "minLength": 1,
+              "title": "Tokenizer",
+              "type": "string"
+            },
+            "tokenizer_revision": {
+              "minLength": 1,
+              "title": "Tokenizer Revision",
+              "type": "string"
+            },
+            "adapter": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Adapter"
+            },
+            "adapter_revision": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Adapter Revision"
+            },
+            "runtime_versions": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "title": "Runtime Versions",
+              "type": "object"
+            }
+          },
+          "required": [
+            "provider",
+            "runtime_binding",
+            "model",
+            "model_revision",
+            "tokenizer",
+            "tokenizer_revision",
+            "runtime_versions"
+          ],
+          "title": "EngineIdentity",
+          "type": "object"
+        },
+        "EvidenceCoverage": {
+          "additionalProperties": false,
+          "properties": {
+            "available_sources": {
+              "minimum": 0,
+              "title": "Available Sources",
+              "type": "integer"
+            },
+            "total_sources": {
+              "minimum": 0,
+              "title": "Total Sources",
+              "type": "integer"
+            },
+            "omitted_source_ids": {
+              "default": [],
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": "Omitted Source Ids",
+              "type": "array"
+            },
+            "truncated": {
+              "default": false,
+              "title": "Truncated",
+              "type": "boolean"
+            },
+            "truncation_unknown": {
+              "default": false,
+              "title": "Truncation Unknown",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "available_sources",
+            "total_sources"
+          ],
+          "title": "EvidenceCoverage",
+          "type": "object"
+        },
+        "InferenceMetadata": {
+          "additionalProperties": false,
+          "properties": {
+            "call_count": {
+              "minimum": 0,
+              "title": "Call Count",
+              "type": "integer"
+            },
+            "cache_enabled": {
+              "title": "Cache Enabled",
+              "type": "boolean"
+            },
+            "cache_hit": {
+              "title": "Cache Hit",
+              "type": "boolean"
+            },
+            "elapsed_s": {
+              "minimum": 0,
+              "title": "Elapsed S",
+              "type": "number"
+            },
+            "settings": {
+              "additionalProperties": {
+                "$ref": "#/$defs/JsonValue"
+              },
+              "title": "Settings",
+              "type": "object"
+            }
+          },
+          "required": [
+            "call_count",
+            "cache_enabled",
+            "cache_hit",
+            "elapsed_s",
+            "settings"
+          ],
+          "title": "InferenceMetadata",
+          "type": "object"
+        },
+        "JsonValue": {}
+      },
+      "additionalProperties": false,
+      "properties": {
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/CriterionAssessment"
+          },
+          "maxItems": 16,
+          "minItems": 16,
+          "title": "Criteria",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "research-assessment.v1",
+          "default": "research-assessment.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "rubric_version": {
+          "minLength": 1,
+          "title": "Rubric Version",
+          "type": "string"
+        },
+        "policy_version": {
+          "minLength": 1,
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "rubric_digest": {
+          "minLength": 1,
+          "title": "Rubric Digest",
+          "type": "string"
+        },
+        "policy_digest": {
+          "minLength": 1,
+          "title": "Policy Digest",
+          "type": "string"
+        },
+        "rubric_purpose": {
+          "enum": [
+            "research",
+            "TEST_ONLY"
+          ],
+          "title": "Rubric Purpose",
+          "type": "string"
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "evidence_schema_version": {
+          "minLength": 1,
+          "title": "Evidence Schema Version",
+          "type": "string"
+        },
+        "evidence_source_version": {
+          "minLength": 1,
+          "title": "Evidence Source Version",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "minLength": 1,
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/$defs/EngineIdentity"
+        },
+        "coverage": {
+          "$ref": "#/$defs/AssessmentCoverage"
+        },
+        "inference": {
+          "$ref": "#/$defs/InferenceMetadata"
+        }
+      },
+      "required": [
+        "criteria",
+        "rubric_version",
+        "policy_version",
+        "rubric_digest",
+        "policy_digest",
+        "rubric_purpose",
+        "prompt_version",
+        "evidence_schema_version",
+        "evidence_source_version",
+        "evidence_digest",
+        "identity",
+        "coverage",
+        "inference"
+      ],
+      "title": "AssessmentResult",
+      "type": "object"
+    }
+  }
+}

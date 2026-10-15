@@ -204,3 +204,12 @@ CREATE TABLE IF NOT EXISTS practice_attempts (
     CHECK(state IN ('queued','analyzing','completed','failed'))
 );
 CREATE INDEX IF NOT EXISTS idx_practice_user ON practice_attempts(user_id,created_at);
+-- Internal Q&A recovery source; no new public report fields.
+CREATE TABLE IF NOT EXISTS presentation_qa (
+    evc_session_id TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL,
+    pre_session_pin TEXT NOT NULL,
+    state_json TEXT NOT NULL,
+    expires_at TEXT,
+    updated_at TEXT NOT NULL
+);

@@ -1,0 +1,23 @@
+{
+  "starting_files": 94,
+  "unchanged": 81,
+  "intended_changed_files": [
+    ".gitignore",
+    "sushi-fast/Makefile.ai",
+    "sushi-fast/odi/EVC/answer_service.py",
+    "sushi-fast/odi/EVC/pipeline.py",
+    "sushi-fast/odi/EVC/question_service.py",
+    "sushi-fast/odi/EVC/report_v2/report_aggregation.py",
+    "sushi-fast/odi/EVC/report_v2/report_generation.py",
+    "sushi-fast/odi/EVC/report_v2/report_service.py",
+    "sushi-fast/odi/EVC/router.py",
+    "sushi-fast/odi/EVC/session_store.py",
+    "sushi-fast/odi/db/odidb.py",
+    "sushi-fast/odi/db/schema.sql",
+    "sushi-fast/tools/rehear_cli/__main__.py"
+  ],
+  "unexpected_changes": [],
+  "original_user_changes_preserved": true,
+  "baseline_sha256": "361158becbb43b4189ff9b8637f1794719717329fab5dbdedbae502cd995aefb",
+  "baseline_unchanged": true
+}

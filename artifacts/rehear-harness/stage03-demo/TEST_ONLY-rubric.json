@@ -1,0 +1,444 @@
+{
+  "schema_version": "rubric-bundle.v1",
+  "rubric_version": "TEST_ONLY-rubric-v1",
+  "policy_version": "TEST_ONLY-policy-v1",
+  "purpose": "TEST_ONLY",
+  "source": "synthetic test; not an official research rubric",
+  "policy": {
+    "instructions": "TEST_ONLY: synthetic contract exercise, not a grading policy."
+  },
+  "criteria": [
+    {
+      "criterion_id": "TEST_ONLY_01",
+      "label": "Toy 1",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_02",
+      "label": "Toy 2",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_03",
+      "label": "Toy 3",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_04",
+      "label": "Toy 4",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_05",
+      "label": "Toy 5",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_06",
+      "label": "Toy 6",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_07",
+      "label": "Toy 7",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_08",
+      "label": "Toy 8",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_09",
+      "label": "Toy 9",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_10",
+      "label": "Toy 10",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_11",
+      "label": "Toy 11",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_12",
+      "label": "Toy 12",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_13",
+      "label": "Toy 13",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_14",
+      "label": "Toy 14",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_15",
+      "label": "Toy 15",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    },
+    {
+      "criterion_id": "TEST_ONLY_16",
+      "label": "Toy 16",
+      "definition": "TEST_ONLY placeholder, no real criterion meaning.",
+      "anchors": [
+        {
+          "score": 1,
+          "description": "TEST_ONLY anchor 1"
+        },
+        {
+          "score": 2,
+          "description": "TEST_ONLY anchor 2"
+        },
+        {
+          "score": 3,
+          "description": "TEST_ONLY anchor 3"
+        },
+        {
+          "score": 4,
+          "description": "TEST_ONLY anchor 4"
+        },
+        {
+          "score": 5,
+          "description": "TEST_ONLY anchor 5"
+        }
+      ]
+    }
+  ]
+}

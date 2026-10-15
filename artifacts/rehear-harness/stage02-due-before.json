@@ -1,0 +1,103 @@
+[
+  {
+    "count": 1,
+    "first_wait_s": 0.0,
+    "last_wait_s": 0.0,
+    "actor_wait_s": {
+      "audience_01": 0.0
+    },
+    "max_commands_in_poll": 2
+  },
+  {
+    "count": 6,
+    "first_wait_s": 0.0,
+    "last_wait_s": 2.5,
+    "actor_wait_s": {
+      "audience_01": 0.0,
+      "audience_02": 0.5,
+      "audience_03": 1.0,
+      "audience_04": 1.5,
+      "audience_05": 2.0,
+      "audience_06": 2.5
+    },
+    "max_commands_in_poll": 2
+  },
+  {
+    "count": 12,
+    "first_wait_s": 0.0,
+    "last_wait_s": 5.5,
+    "actor_wait_s": {
+      "audience_01": 0.0,
+      "audience_02": 0.5,
+      "audience_03": 1.0,
+      "audience_04": 1.5,
+      "audience_05": 2.0,
+      "audience_06": 2.5,
+      "audience_07": 3.0,
+      "audience_08": 3.5,
+      "audience_09": 4.0,
+      "audience_10": 4.5,
+      "audience_11": 5.0,
+      "audience_12": 5.5
+    },
+    "max_commands_in_poll": 2
+  },
+  {
+    "count": 50,
+    "first_wait_s": 0.0,
+    "last_wait_s": 24.5,
+    "actor_wait_s": {
+      "audience_01": 0.0,
+      "audience_02": 0.5,
+      "audience_03": 1.0,
+      "audience_04": 1.5,
+      "audience_05": 2.0,
+      "audience_06": 2.5,
+      "audience_07": 3.0,
+      "audience_08": 3.5,
+      "audience_09": 4.0,
+      "audience_10": 4.5,
+      "audience_11": 5.0,
+      "audience_12": 5.5,
+      "audience_13": 6.0,
+      "audience_14": 6.5,
+      "audience_15": 7.0,
+      "audience_16": 7.5,
+      "audience_17": 8.0,
+      "audience_18": 8.5,
+      "audience_19": 9.0,
+      "audience_20": 9.5,
+      "audience_21": 10.0,
+      "audience_22": 10.5,
+      "audience_23": 11.0,
+      "audience_24": 11.5,
+      "audience_25": 12.0,
+      "audience_26": 12.5,
+      "audience_27": 13.0,
+      "audience_28": 13.5,
+      "audience_29": 14.0,
+      "audience_30": 14.5,
+      "audience_31": 15.0,
+      "audience_32": 15.5,
+      "audience_33": 16.0,
+      "audience_34": 16.5,
+      "audience_35": 17.0,
+      "audience_36": 17.5,
+      "audience_37": 18.0,
+      "audience_38": 18.5,
+      "audience_39": 19.0,
+      "audience_40": 19.5,
+      "audience_41": 20.0,
+      "audience_42": 20.5,
+      "audience_43": 21.0,
+      "audience_44": 21.5,
+      "audience_45": 22.0,
+      "audience_46": 22.5,
+      "audience_47": 23.0,
+      "audience_48": 23.5,
+      "audience_49": 24.0,
+      "audience_50": 24.5
+    },
+    "max_commands_in_poll": 2
+  }
+]

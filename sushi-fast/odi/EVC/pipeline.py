@@ -15,6 +15,7 @@ from .behavior_engine import (
     update_engagement_counters,
 )
 from .clip_pool import load_clip_pool
+from .audience_config import bind_audience_catalog
 from .command_builder import build_unity_commands, commit_command_times
 from .config import EVC_INCLUDE_DIAGNOSTICS
 from .evaluation import (
@@ -23,6 +24,7 @@ from .evaluation import (
     evaluate_presentation_segment,
 )
 from .observability import record_update
+from .playback_policy import TimingTrace
 from .schema import (
     AudienceDecision,
     AudienceSnapshot,
@@ -155,10 +157,17 @@ async def update_pipeline(
     stt_provider: SpeechToTextProvider | None = None,
     evaluation_provider: SegmentEvaluationProvider | None = None,
     store: SessionStore = session_store,
+    monotonic_clock=time.monotonic,
 ) -> EVCUpdateResponseV2:
-    pipeline_started = time.perf_counter()
+    trace = TimingTrace(monotonic_clock(), context.client_time_s)
+    authorized = await store.get_authorized_session(session_id, token)
+    cached = authorized.request_cache.get(request_id)
+    if cached is not None:
+        return cached
     catalog = load_clip_pool()
-    async with store.locked_session(session_id, token) as record:
+    async with store.locked_update(session_id, token) as record:
+        trace.lock_acquired_monotonic = monotonic_clock()
+        catalog = bind_audience_catalog(catalog, record.audiences)
         cached = record.request_cache.get(request_id)
         if cached is not None:
             return cached
@@ -171,6 +180,8 @@ async def update_pipeline(
         if context.client_time_s < record.accepted_client_time_s - 0.25:
             raise ClientTimeRegressionError("client_time_s regressed by more than 0.25 seconds")
         accepted_time = max(context.client_time_s, record.accepted_client_time_s)
+        if record.reaction_scheduler is not None:
+            record.reaction_scheduler.ensure_evidence_capacity()
 
         selected_stt_provider = stt_provider or provider_for_name(record.stt_provider_name)
         stt_result = await transcribe_audio(
@@ -178,6 +189,7 @@ async def update_pipeline(
             context.language,
             provider=selected_stt_provider,
         )
+        trace.stt_finished_monotonic = monotonic_clock()
         evaluation, speech_metrics, warnings = await evaluate_presentation_segment(
             presentation_title=record.presentation_title,
             slides=record.slides,
@@ -186,6 +198,7 @@ async def update_pipeline(
             context=context,
             provider=evaluation_provider,
         )
+        trace.evaluation_finished_monotonic = monotonic_clock()
         if not stt_result.transcript.strip():
             response = _empty_update_response(
                 record=record,
@@ -197,11 +210,13 @@ async def update_pipeline(
             )
             record.accepted_client_time_s = accepted_time
             _cache_response(record.request_cache, request_id, response)
+            _record_timing(record, request_id, trace, monotonic_clock)
             record_update(
                 response,
-                latency_ms=(time.perf_counter() - pipeline_started) * 1000,
+                latency_ms=trace.processing_s * 1000,
                 stt_provider=type(selected_stt_provider).__name__,
                 evaluation_provider="skipped_empty_transcript",
+                timing=trace,
             )
             return response
 
@@ -321,22 +336,6 @@ async def update_pipeline(
             diagnostics=diagnostics if EVC_INCLUDE_DIAGNOSTICS else None,
         )
 
-        record.audiences = working_agents
-        record.rngs = working_rngs
-        record.step = next_step
-        record.accepted_client_time_s = accepted_time
-        if evaluation.segment_note.strip():
-            record.segment_notes.append(evaluation.segment_note.strip())
-        record.warnings = warnings
-        record.transcript_segments.append(
-            TranscriptSegment(
-                step=next_step,
-                client_time_s=accepted_time,
-                slide_index=context.current_slide_index,
-                text=stt_result.transcript,
-                word_count=speech_metrics.word_count,
-            )
-        )
         report_segment = ReportSegmentRecord(
                 step=next_step,
                 client_time_s=accepted_time,
@@ -363,20 +362,52 @@ async def update_pipeline(
                 pre_session_pin=record.pre_session_pin,
                 expires_at=expires_at,
             )
+        record.audiences = working_agents
+        record.rngs = working_rngs
+        record.step = next_step
+        record.accepted_client_time_s = accepted_time
+        if evaluation.segment_note.strip():
+            record.segment_notes.append(evaluation.segment_note.strip())
+        record.warnings = warnings
+        record.transcript_segments.append(
+            TranscriptSegment(
+                step=next_step,
+                client_time_s=accepted_time,
+                slide_index=context.current_slide_index,
+                text=stt_result.transcript,
+                word_count=speech_metrics.word_count,
+            )
+        )
         record.report_segments.append(report_segment)
         if record.reaction_scheduler is not None:
             record.reaction_scheduler.publish(Evidence(next_step, delta.common.model_copy(),
                 context.model_copy(deep=True), speech_metrics.model_copy(), current_slide_text))
         _cache_response(record.request_cache, request_id, response)
+        _record_timing(record, request_id, trace, monotonic_clock)
         record_update(
             response,
-            latency_ms=(time.perf_counter() - pipeline_started) * 1000,
+            latency_ms=trace.processing_s * 1000,
             stt_provider=type(selected_stt_provider).__name__,
             evaluation_provider=(
                 type(evaluation_provider).__name__ if evaluation_provider else "OpenAI"
             ),
+            timing=trace,
         )
         return response
+
+
+def _record_timing(record, request_id, trace, clock):
+    trace.commit_finished_monotonic = clock()
+    scheduler = record.reaction_scheduler
+    if scheduler is not None and scheduler.last_poll_monotonic is not None:
+        trace.playback_clock_source = "client_poll_unverified"
+        trace.observed_poll_clock_s = scheduler.last_time
+        age = scheduler.last_time - trace.evidence_client_time_s
+        trace.evidence_age_s = age if age >= 0 else None
+    trace.response_ready_monotonic = clock()
+    record.timing_traces[request_id] = trace
+    while len(record.timing_traces) > 32:
+        record.timing_traces.popitem(last=False)
 
 
 def _empty_update_response(

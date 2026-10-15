@@ -1,0 +1,29 @@
+{
+  "deleted_roots": [
+    "latency_benchmark_with_outputs",
+    "live_latency_benchmark"
+  ],
+  "before_delete_verified_source_files": 127,
+  "after_delete_archive": {
+    "verified_files": 127,
+    "verified_source_files": 0,
+    "categories": [
+      "case",
+      "historical_result",
+      "measurement_definition",
+      "recorded_evidence",
+      "supporting_metadata"
+    ],
+    "bytes": 64424320
+  },
+  "precleanup_regression": {
+    "collected": 260,
+    "exitstatus": 0,
+    "passed": 260,
+    "failed": 0,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  }
+}

@@ -1,0 +1,31 @@
+ M sushi-fast/odi/EVC/AUDIENCE_REACTIONS.md
+ M sushi-fast/odi/EVC/answer_service.py
+ M sushi-fast/odi/EVC/config.py
+ M sushi-fast/odi/EVC/evaluation.py
+ M sushi-fast/odi/EVC/observability.py
+ M sushi-fast/odi/EVC/pipeline.py
+ M sushi-fast/odi/EVC/question_generation.py
+ M sushi-fast/odi/EVC/reaction_scheduler.py
+ M sushi-fast/odi/EVC/router.py
+ M sushi-fast/odi/EVC/schema.py
+ M sushi-fast/odi/EVC/session_store.py
+ M sushi-fast/odi/EVC/speech2text.py
+ M sushi-fast/odi/EVC/state_engine.py
+ M sushi-fast/odi/EVC/tests/test_question_generation.py
+?? .DS_Store
+?? MANIFEST.json
+?? REHEAR_AI_TASK.md
+?? REHEAR_HARNESS_README.md
+?? artifacts/
+?? docs/
+?? rehear_ai_harness/
+?? sushi-fast/.DS_Store
+?? sushi-fast/latency_benchmark_with_outputs/
+?? sushi-fast/live_latency_benchmark/
+?? sushi-fast/odi/EVC/audience_config.py
+?? sushi-fast/odi/EVC/playback_policy.py
+?? sushi-fast/odi/EVC/provider_execution.py
+?? sushi-fast/odi/EVC/tests/fixtures/
+?? sushi-fast/odi/EVC/tests/test_audience_count_contract.py
+?? sushi-fast/odi/EVC/tests/test_playback_freshness.py
+?? tools/

@@ -1,0 +1,98 @@
+{
+  "bundle": "rehear-ai-harness",
+  "version": "1.0.0",
+  "created_date": "2026-10-15",
+  "product_changes_applied": false,
+  "files": [
+    {
+      "path": "REHEAR_AI_TASK.md",
+      "bytes": 3423,
+      "sha256": "4a3018ecd2811af7d7486355859e4fbd92d51afcd6cf0dbf92e0b9473087ec57"
+    },
+    {
+      "path": "REHEAR_HARNESS_README.md",
+      "bytes": 6960,
+      "sha256": "127d127f4f98b72f3420cc352653c704437ece13b1d8a21b733b8c4cbdeb423c"
+    },
+    {
+      "path": "docs/rehear-ai/ACCEPTANCE.md",
+      "bytes": 2083,
+      "sha256": "9ff78d861fc3e8f15a19d5b5ea19ddc02b12cb507af07025ca219064c01c12be"
+    },
+    {
+      "path": "docs/rehear-ai/AGENTS.rehear-ai.fragment.md",
+      "bytes": 679,
+      "sha256": "533838970a8be2a5758732ea705d983cd2402b603d546be60861c5fbdfe3da31"
+    },
+    {
+      "path": "docs/rehear-ai/AGENT_RULES.md",
+      "bytes": 3822,
+      "sha256": "798e2c01f55022c8dd140c43c32ed30b46ee80ae25022ce71b43e89766b48b74"
+    },
+    {
+      "path": "docs/rehear-ai/CONTRACTS.md",
+      "bytes": 3386,
+      "sha256": "4f9ac73cb14914b1702e7ad5f99eba5c3c036abffa53ba2fecc995f1e5289f7b"
+    },
+    {
+      "path": "docs/rehear-ai/HARNESS_VALIDATION.md",
+      "bytes": 1746,
+      "sha256": "00daae6ed42d41b390238a6076d1270aac32ff1908da99dc043fd23e7f184b5c"
+    },
+    {
+      "path": "docs/rehear-ai/PROGRESS.md",
+      "bytes": 1454,
+      "sha256": "274068c4ab707a3c3d5156f35afd9c1b137d2c3db939462296e78994ea7c9ba5"
+    },
+    {
+      "path": "docs/rehear-ai/SPEC.md",
+      "bytes": 6319,
+      "sha256": "332e49af655463a9445d4347b47d77ecd37f6638604c709cb14ddd937efabaa7"
+    },
+    {
+      "path": "docs/rehear-ai/plans/01-audience-count.md",
+      "bytes": 4978,
+      "sha256": "6040856c428dc9e070b87b0425a36ebf65f604e17ade50d2abece81ecc1320ef"
+    },
+    {
+      "path": "docs/rehear-ai/plans/02-playback-clock.md",
+      "bytes": 5027,
+      "sha256": "d00a497115f2164449412c4ea7845fdaa8152ab586580abfd7193bb902ddae81"
+    },
+    {
+      "path": "docs/rehear-ai/plans/03-research-assessment.md",
+      "bytes": 5337,
+      "sha256": "ff8c03e8a82472aa449b6c95c9ad6284be886cc9fe895c28a848f08b0d5dee0c"
+    },
+    {
+      "path": "docs/rehear-ai/plans/04-integrity-cleanup.md",
+      "bytes": 5333,
+      "sha256": "47543dfa172b07d60dafeb25cd9eac40a4f60b478ea851062a27cdd9d96c3360"
+    },
+    {
+      "path": "docs/rehear-ai/sources/README.md",
+      "bytes": 1326,
+      "sha256": "061f3f80665bc712f39fc6155a89e3fa24b75af951f1354e40008e5bc699485e"
+    },
+    {
+      "path": "docs/rehear-ai/sources/notion-ai-design.md",
+      "bytes": 27699,
+      "sha256": "71332b63f60dab3bcecd50163aff191f524c566187b7b79dbdb68544c5c3dcd8"
+    },
+    {
+      "path": "docs/rehear-ai/sources/notion-evidence.md",
+      "bytes": 21901,
+      "sha256": "0b7e21a8ca123c856c83506acf80a592331bcdba54b8bb30b06b3a44de65e973"
+    },
+    {
+      "path": "tools/rehear_harness.py",
+      "bytes": 13902,
+      "sha256": "48587fba1c55537d8babf47271daa9a753a3ed95f036f04598f999cc1eec8be7"
+    },
+    {
+      "path": "tools/tests/test_rehear_harness.py",
+      "bytes": 6419,
+      "sha256": "20c186ac59e5ca4b29215b7360904cceaa1397d0767457013192698768a242c5"
+    }
+  ]
+}

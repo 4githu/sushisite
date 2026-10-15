@@ -1,0 +1,30 @@
+{
+  "exit_code": 1,
+  "status": "FAIL",
+  "suite": "assessment",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_rehear_assessment_boundary.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 0.343254,
+  "pytest": {
+    "collected": 17,
+    "exitstatus": 1,
+    "passed": 0,
+    "failed": 17,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

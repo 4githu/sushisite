@@ -7,6 +7,7 @@ from .config import EVC_MIN_TRANSCRIPT_CHARS
 from .question_generation import QuestionGenerationProvider, generate_questions
 from .schema import QuestionGenerationResponse, QuestionListResponse
 from .session_store import SessionStore, session_store
+from .qa_persistence import persist_qa_state
 
 
 class QuestionGenerationError(RuntimeError):
@@ -82,6 +83,13 @@ async def generate_session_questions(
 
     async with store.locked_session(session_id, token) as record:
         generated_at = datetime.now(timezone.utc)
+        try:
+            persist_qa_state(record, questions=generated.questions, generated_at=generated_at)
+        except Exception as exc:
+            record.question_generation_status = "failed"
+            record.question_generation_error = type(exc).__name__
+            record.presentation_status = "finished"
+            raise
         record.generated_questions = generated.questions
         record.question_generated_at = generated_at
         record.presentation_status = "finished"

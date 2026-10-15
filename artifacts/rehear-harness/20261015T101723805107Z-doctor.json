@@ -1,0 +1,29 @@
+{
+  "exit_code": 2,
+  "status": "INCOMPLETE_ENVIRONMENT",
+  "python": "3.13.15",
+  "dependencies": {
+    "pytest": {
+      "available": false,
+      "version": null
+    },
+    "fastapi": {
+      "available": true,
+      "version": "0.141.1"
+    },
+    "httpx": {
+      "available": true,
+      "version": "0.28.1"
+    },
+    "pydantic": {
+      "available": true,
+      "version": "2.13.4"
+    },
+    "numpy": {
+      "available": true,
+      "version": "2.4.3"
+    }
+  },
+  "baseline_exists": false,
+  "model_or_unity_tested": false
+}

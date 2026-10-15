@@ -1,0 +1,24 @@
+{
+  "engine": "qwen_local",
+  "model": "TEST_ONLY-base",
+  "model_revision": "TEST_ONLY-base-r1",
+  "tokenizer": "TEST_ONLY-tokenizer",
+  "tokenizer_revision": "TEST_ONLY-tokenizer-r1",
+  "adapter": "TEST_ONLY-lora",
+  "adapter_revision": "TEST_ONLY-lora-r1",
+  "model_family": "qwen3",
+  "runtime_versions": {
+    "torch": "TEST_ONLY",
+    "transformers": "TEST_ONLY",
+    "peft": "TEST_ONLY"
+  },
+  "prompt_version": "research16-json-v1",
+  "cache_enabled": false,
+  "temperature": 0.0,
+  "max_new_tokens": 4096,
+  "max_input_tokens": 16384,
+  "timeout_s": 120.0,
+  "retries": 0,
+  "device": "cpu",
+  "dtype": "float32"
+}

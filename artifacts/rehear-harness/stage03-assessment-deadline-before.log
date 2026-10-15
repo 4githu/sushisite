@@ -1,0 +1,39 @@
+............................F                                            [100%]
+=================================== FAILURES ===================================
+_____________ test_late_local_output_is_rejected_and_not_cached[1] _____________
+odi/EVC/tests/test_rehear_assessment_boundary.py:493: in test_late_local_output_is_rejected_and_not_cached
+    assert engine.call_count == 1 and not engine._cache
+E   assert (2 == 1)
+E    +  where 2 = <rehear_ai.engines.qwen_local.QwenLocalEngine object at 0x10ba97b50>.call_count
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_rehear_assessment_boundary.py::test_late_local_output_is_rejected_and_not_cached[1]
+1 failed, 28 passed in 1.19s
+{
+  "status": "FAIL",
+  "suite": "assessment",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_rehear_assessment_boundary.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 1.412389,
+  "pytest": {
+    "collected": 29,
+    "exitstatus": 1,
+    "passed": 28,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}

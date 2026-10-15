@@ -1,0 +1,50 @@
+.......................F.                                                [100%]
+=================================== FAILURES ===================================
+_____ test_selected_speech_audience_is_persisted_without_claiming_playback _____
+odi/EVC/tests/test_report_integrity.py:461: in test_selected_speech_audience_is_persisted_without_claiming_playback
+    asyncio.run(run())
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:196: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py:119: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:726: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+odi/EVC/tests/test_report_integrity.py:452: in run
+    assert (await client.post(path, headers={**headers, "X-EVC-Session-Token": "wrong"})).status_code == 403
+E   assert 401 == 403
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+=========================== short test summary info ============================
+FAILED odi/EVC/tests/test_report_integrity.py::test_selected_speech_audience_is_persisted_without_claiming_playback
+1 failed, 24 passed in 3.93s
+{
+  "status": "FAIL",
+  "suite": "integrity",
+  "command": [
+    "/Users/user1/sushisite/sushi-fast/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "rehear_harness_offline_plugin",
+    "-q",
+    "--tb=short",
+    "odi/EVC/tests/test_report_integrity.py"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 4.141102,
+  "pytest": {
+    "collected": 25,
+    "exitstatus": 1,
+    "passed": 24,
+    "failed": 1,
+    "skipped": 0,
+    "error": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "socket_network_blocked": true,
+  "real_model_verified": false,
+  "unity_verified": false
+}
