@@ -204,6 +204,33 @@ CREATE TABLE IF NOT EXISTS practice_attempts (
     CHECK(state IN ('queued','analyzing','completed','failed'))
 );
 CREATE INDEX IF NOT EXISTS idx_practice_user ON practice_attempts(user_id,created_at);
+-- A run is an explicit learning journey; legacy attempts remain unlinked.
+CREATE TABLE IF NOT EXISTS practice_runs (
+    run_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    metric_id TEXT NOT NULL,
+    source_session_id TEXT REFERENCES sessions(session_id) ON DELETE SET NULL,
+    origin TEXT NOT NULL CHECK(origin IN ('manual')),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_practice_runs_user ON practice_runs(user_id,created_at);
+CREATE TABLE IF NOT EXISTS practice_run_stages (
+    run_id TEXT NOT NULL REFERENCES practice_runs(run_id) ON DELETE CASCADE,
+    stage TEXT NOT NULL CHECK(stage IN ('baseline','guided_practice','independent_retry','transfer_challenge')),
+    attempt_id TEXT NOT NULL UNIQUE REFERENCES practice_attempts(attempt_id) ON DELETE CASCADE,
+    PRIMARY KEY(run_id,stage)
+);
+CREATE TABLE IF NOT EXISTS practice_run_failed_attempts (
+    run_id TEXT NOT NULL REFERENCES practice_runs(run_id) ON DELETE CASCADE,
+    stage TEXT NOT NULL,
+    attempt_id TEXT NOT NULL UNIQUE REFERENCES practice_attempts(attempt_id) ON DELETE CASCADE,
+    PRIMARY KEY(run_id,stage,attempt_id)
+);
+CREATE TABLE IF NOT EXISTS practice_run_followups (
+    run_id TEXT NOT NULL REFERENCES practice_runs(run_id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    PRIMARY KEY(run_id,session_id)
+);
 -- Internal Q&A recovery source; no new public report fields.
 CREATE TABLE IF NOT EXISTS presentation_qa (
     evc_session_id TEXT PRIMARY KEY,

@@ -10,6 +10,7 @@
 	import { API_BASE } from '$lib/config/api';
 	import type { PracticeData, PracticeExercise } from '$lib/odi/domain/practice';
 	import PracticeCard from '$lib/odi/components/practice/PracticeCard.svelte';
+	import PracticeIA from '$lib/odi/components/practice/PracticeIA.svelte';
 	import PracticeRecorder from '$lib/odi/components/practice/PracticeRecorder.svelte';
 	import Button from '$lib/odi/components/common/Button.svelte';
 	import { formatKoreanDuration } from '$lib/odi/components/report/reportUtils';
@@ -18,9 +19,13 @@
 		error = $state(''),
 		selected = $state<PracticeExercise | null>(null),
 		activeId = $state(''),
+		runId = $state(''),
+		runStage = $state(''),
+		restartFailed = $state(false),
 		disposed = false,
 		poll: ReturnType<typeof setTimeout> | undefined;
 	let recommended = $state<string[]>(recommendations());
+	let iaView = $state('home');
 	const active = $derived(data?.attempts.find((a) => a.attempt_id === activeId) ?? null);
 	const pending = $derived(
 		data?.attempts.some((a) => ['queued', 'analyzing'].includes(a.state)) ?? false
@@ -68,13 +73,13 @@
 <svelte:head><title>My Practice | Re:hear</title></svelte:head>
 <main class="odi-workspace">
 	<header>
-		<h1>My Practice</h1>
+		<h1>My Practice <span class="beta-badge">Beta</span></h1>
 		<p class="muted">영역별 훈련을 선택하고, 짧은 음성 연습으로 말하기 역량을 키워보세요.</p>
 	</header>
 	{#if error}<p role="alert" class="error">{error}</p>
 		<Button onclick={() => load()}>다시 시도</Button>{/if}{#if loading}<p class="state">
 			훈련 기록을 불러오는 중…
-		</p>{:else if data}<div class="practice-overview">
+		</p>{:else if data}{#if iaView === 'home'}<div class="practice-overview">
 			<section class="intro">
 				<p class="eyebrow">WEB VOICE PRACTICE</p>
 				<h2>한 번에 하나씩,<br />나의 말하기를 더 선명하게.</h2>
@@ -94,7 +99,9 @@
 					aria-label="이번 주 80점 이상 5회 목표"
 				></progress>
 			</section>
-		</div>
+		</div>{/if}
+		<PracticeIA {data} {active} onviewchange={(view) => (iaView = view)} onselect={(exercise, id, stage, restart = false) => { selected = exercise; activeId = ''; runId = id; runStage = stage; restartFailed = restart; }} />
+		{#if iaView === 'home'}
 		<section class="surface">
 			<h2>오늘의 추천 훈련</h2>
 			<div class="actions">
@@ -103,19 +110,28 @@
 						onclick={() => {
 							selected = data?.catalog.find((e) => e.id === id) ?? null;
 							activeId = '';
+							runId = '';
+							runStage = '';
 						}}>{trainingNames[id]}</Button
 					>{/each}
 			</div>
 		</section>
-		{#if selected}{#key selected.id}<PracticeRecorder
+		{/if}
+		{#if selected && (iaView === 'home' || iaView === 'session')}{#key `${selected.id}:${runId}:${runStage}:${restartFailed}`}<PracticeRecorder
 					exercise={selected}
+					{runId}
+					stage={runStage}
+					{restartFailed}
 					attempt={active?.metric_id === selected.id ? active : null}
 					oncreated={created}
 					onclose={() => {
 						selected = null;
 						activeId = '';
+						runId = '';
+						runStage = '';
 					}}
 				/>{/key}{/if}
+		{#if iaView === 'home'}
 		{#each [{ id: 'content', label: '내용 구성' }, { id: 'delivery', label: '전달 방식' }] as group, rowIndex1 (rowIndex1)}<section
 				class="exercise-section"
 			>
@@ -128,6 +144,8 @@
 							onselect={() => {
 								selected = exercise;
 								activeId = '';
+								runId = '';
+								runStage = '';
 							}}
 						/>{/each}
 				</div>
@@ -153,10 +171,20 @@
 							{attempt.error}
 						</p>{/if}
 				</details>{:else}<p class="muted">첫 훈련을 완료하면 나의 변화가 여기에 기록돼요.</p>{/each}
-		</section>{/if}
+		</section>{/if}{/if}
 </main>
 
 <style>
+	.beta-badge {
+		display: inline-block;
+		vertical-align: middle;
+		padding: 4px 9px;
+		border-radius: 6px;
+		background: #e9edff;
+		color: #0033ff;
+		font-size: 14px;
+		font-weight: 600;
+	}
 	.practice-overview {
 		display: grid;
 		grid-template-columns: 1.7fr 1fr;
