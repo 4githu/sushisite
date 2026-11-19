@@ -11,10 +11,7 @@ import {
 	deletePresentationData,
 	publishPresentationData
 } from '$lib/odi/firebase/session-materials';
-import {
-	createFixedDemoPresentationTemplate,
-	fixedDemoFeedback
-} from '$lib/odi/demo/fixedPresentationScenario';
+
 
 export type PreSessionState = 'waiting' | 'running' | 'finished' | 'expired' | 'cancelled';
 
@@ -138,6 +135,8 @@ export const session = {
 	clear() {
 		pollingGeneration += 1;
 		store.set(initialState);
+		startRequestId = '';
+		startFingerprint = '';
 	},
 
 	async saveCurrentTemplateForHandoff() {
@@ -145,10 +144,7 @@ export const session = {
 		return template.saveToRecent();
 	},
 
-	async startFromCurrentTemplate(
-		expires_minutes = 30,
-		options: { skipPresentationPublish?: boolean } = {}
-	) {
+	async startFromCurrentTemplate(expires_minutes = 30) {
 		return withTemplateMutation(async () => {
 			const { user } = await ensureSessionContext();
 
@@ -182,13 +178,16 @@ export const session = {
 			}
 
 			const preparedTemplate = data.template?.template;
-			if (preparedTemplate?.type === 'presentation' && !options.skipPresentationPublish) {
+			if (preparedTemplate?.type === 'presentation') {
 				try {
 					await publishPresentationData(String(data.pin_code), preparedTemplate);
 				} catch (error) {
 					await this.updatePreSessionState(String(data.pin_code), 'cancelled').catch(
 						() => undefined
 					);
+					// Cancellation updates the store too: hide that unusable PIN and
+					// let a retry issue a fresh request rather than reuse a cancelled PIN.
+					this.clear();
 					throw error;
 				}
 			}
@@ -207,29 +206,13 @@ export const session = {
 		});
 	},
 
-	async startFixedDemoPresentation(expires_minutes = 30) {
-		const { currentTemplate: originalTemplate } = await ensureSessionContext();
-
-		try {
-			template.set(createFixedDemoPresentationTemplate());
-			return await this.startFromCurrentTemplate(expires_minutes, {
-				skipPresentationPublish: true
-			});
-		} finally {
-			// 체험 세션 때문에 사용자가 설정한 발표 자료와 옵션이 recent_template에서
-			// 사라지지 않도록 반드시 원래 템플릿을 복원합니다.
-			template.set(originalTemplate);
-			await template.saveToRecent();
+	async startExperiencePresentation(expires_minutes = 30) {
+		const { currentTemplate } = await ensureSessionContext();
+		if (currentTemplate.type !== 'presentation' || !currentTemplate.files.slide?.storage_path) {
+			throw new Error('발표 자료와 청중 설정을 먼저 완료해주세요.');
 		}
-	},
-
-	async finishFixedDemoPresentation(pinCode?: string) {
-		const current = get(store);
-		const targetPin = pinCode ?? current.pin_code;
-		if (!targetPin) throw new Error('시연 PIN 번호가 없습니다.');
-		if (current.pre_session?.state === 'finished') return current.current_session;
-
-		return this.finishPreSession(targetPin, fixedDemoFeedback);
+		// Experience uses the same immutable PIN and Firebase handoff as regular VR.
+		return this.startFromCurrentTemplate(expires_minutes);
 	},
 
 	async refreshPreSession(pinCode?: string) {

@@ -16,7 +16,7 @@ from .schema import AudienceEVC, AudiencePersona, AudienceState, EVCState
 from .speech2text import speech2text
 
 
-OPENAI_MODEL = os.getenv("OPENAI_EVC_MODEL", "gpt-4.1-nano")
+OPENAI_MODEL = os.getenv("OPENAI_EVC_MODEL", "gpt-4.1-mini")
 DEBUG_EVC_LOG = os.getenv("DEBUG_EVC_LOG", "true").lower() == "true"
 DEBUG_LOG_DIR = Path(os.getenv("EVC_DEBUG_LOG_DIR", "evc_logs"))
 

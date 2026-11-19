@@ -29,7 +29,7 @@ def _bool_env(name: str, default: bool) -> bool:
     raise RuntimeError(f"{name} must be a boolean")
 
 
-OPENAI_EVC_MODEL = os.getenv("OPENAI_EVC_MODEL", "gpt-4.1-nano")
+OPENAI_EVC_MODEL = os.getenv("OPENAI_EVC_MODEL", "gpt-4.1-mini")
 OPENAI_QUESTION_MODEL = os.getenv("OPENAI_QUESTION_MODEL", "gpt-4.1-mini")
 DEEPGRAM_PRIMARY_MODEL = os.getenv("DEEPGRAM_PRIMARY_MODEL", "nova-3")
 EVC_DEBUG_LOG = _bool_env(

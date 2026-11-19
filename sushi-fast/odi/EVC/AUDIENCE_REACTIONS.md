@@ -126,3 +126,34 @@ This workspace run did not execute Unity EditMode/PlayMode, Quest, actual actor
 mapping, consumer pause behavior or clock synchronization. Earlier Unity test
 counts in this document are not evidence for this implementation. Actual
 rendering latency and subjective animation naturalness remain unverified.
+
+## Optional Jev live evaluator
+
+Set `EVC_EVALUATION_PROVIDER=jev` and `TYPESAFE_API_KEY` in the server
+process. `TYPESAFE_JEV_MODEL` defaults to `jev-latest`; pin a version for
+reproducible comparisons. The default `gpt` uses OpenAI and serves as the baseline; `openai` remains an alias.
+`OPENAI_EVC_MODEL` defaults to `gpt-4.1-mini`. Invalid configuration or Jev failures do not silently
+fall back to GPT. Final reports continue using `OpenAIReportInsightProvider`
+and `OPENAI_EVC_MODEL`, independently of the live evaluator switch.
+
+The adapter submits the existing segment evidence and seven typed questions.
+Six three-level scores map from [0, 2] to [-1, 1]; rhetorical move is a choice.
+These new rubrics require assessment validation; GPT score equivalence is not
+assumed. Jev cannot write prose, so segment notes are labelled transcript
+excerpts and reasons are fixed provenance labels.
+
+For a same-recording comparison, use identical chunks, slide context, audience
+count, seed and polling schedule in separate sessions. Alternate provider order
+and repeat trials. Join transcript segments and timing logs by utterance/source
+step and audience ID. Capture audio offsets, STT completion, evaluation
+completion, command readiness, client receipt and actual playback onset.
+Compare the same utterance endpoint to actual backchannel onset; missing
+reactions are missing observations, not zero latency. Server TimingTrace alone
+cannot measure client playback latency. Keep experiment transcripts separate
+from metadata-only production logs.
+
+Local tests use synthetic providers. A live 180-second recording comparison on
+2026-11-19 completed one trial with six chunks per provider: mean local response
+4.379 s for GPT-4.1 mini and 2.818 s for Jev. Assessment quality and actual
+backchannel playback latency remain unverified. References: https://docs.typesafe.ai/introduction/quickstart and
+https://docs.typesafe.ai/primitives/score.

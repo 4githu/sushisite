@@ -39,7 +39,7 @@
 				<SessionTypeCard
 					title="체험 세션"
 					description={`AI 청중 반응부터 결과 리포트까지\nRe:hear의 주요 기능을 경험해요.`}
-					meta="2분 · 한국어 · AI 청중 6명"
+					meta="설정한 발표 자료 · 청중 수 적용"
 					badge="추천"
 					image={ExperienceImage}
 					selected={selectedMode === "experience"}

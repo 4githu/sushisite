@@ -219,3 +219,32 @@ def test_legacy_file_paths_and_explicit_script_clear(tmp_path, monkeypatch):
         },
     )
     assert snapshot["files"]["script"] is None
+
+
+@pytest.mark.parametrize("count", range(1, 11))
+def test_selected_audience_count_survives_pin_snapshot(isolated, count):
+    """A per-run UI choice must override a six-person saved template."""
+    from odi.EVC.audience_config import resolve_audience_count
+
+    baseline = draft()
+    baseline["audience"] = {"audience_count": 6}
+    saved = service.save_baseline("u", baseline, new_id="audience-template")
+    selected = copy.deepcopy(saved["template"])
+    selected["audience"]["audience_count"] = count
+    result = service.prepare("u", selected, "audience-template", f"count-{count}", 30)
+    persisted = db.get_pre_session_by_pin(result["pin_code"])
+    assert persisted["template_snapshot"]["audience"]["audience_count"] == count
+    assert result["template"]["template"]["audience"]["audience_count"] == count
+    assert resolve_audience_count(persisted["template_snapshot"]) == count
+    assert db.get_template("audience-template")["template"]["audience"]["audience_count"] == 6
+
+
+@pytest.mark.parametrize("count", [0, 51, True, "3", 2.5, None])
+def test_invalid_audience_count_rejected_before_pin_creation(isolated, count):
+    selected = draft()
+    selected["audience"] = {"audience_count": count}
+    with pytest.raises(HTTPException) as error:
+        service.prepare("u", selected, None, "invalid-audience", 30)
+    assert error.value.status_code == 422
+    with db.get_conn() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM pre_sessions").fetchone()[0] == 0

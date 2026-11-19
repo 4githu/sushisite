@@ -267,7 +267,7 @@ def test_service_contract_does_not_require_research_result():
     from odi.EVC.config import OPENAI_EVC_MODEL
     for cls in (EVCUpdateResponseV2, SessionResponseV2, ReportFinishResponse):
         assert not any("research" in field or "assessment" in field for field in cls.model_fields)
-    assert OPENAI_EVC_MODEL == "gpt-4.1-nano" or os.getenv("OPENAI_EVC_MODEL")
+    assert OPENAI_EVC_MODEL == "gpt-4.1-mini" or os.getenv("OPENAI_EVC_MODEL")
     records = {}
     result = factory().assess(pack(), toy_bundle())
     adapter.store_internal_result(records, run_id="TEST_ONLY-run", result=result, evidence=pack(), rubric=toy_bundle())
