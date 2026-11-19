@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { API_BASE } from '$lib/config/api';
@@ -86,42 +88,42 @@
 	onMount(load);
 </script>
 
-<svelte:head><title>템플릿 | Re:hear</title></svelte:head>
+<svelte:head><title>{tr($siteLocale, "템플릿 | Re:hear")}</title></svelte:head>
 <main class="odi-workspace">
 	<header class="section-head">
 		<div>
 			<p class="eyebrow">Templates</p>
-			<h1>나의 환경 템플릿</h1>
-			<p class="muted">사용했던 환경을 모아 보고, 나에게 맞는 설정으로 바로 시작하세요.</p>
+			<h1>{copy($locale, "나의 템플릿")}</h1>
+			<p class="muted">{copy($locale, "사용했던 주제를 모아보고, 나에게 맞는 환경으로 바로 시작하세요.")}</p>
 		</div>
-		<Button onclick={create}>새 환경 만들기</Button>
+		<Button onclick={create}>{copy($locale, "새 주제 만들기")}</Button>
 	</header>
 	<div class="toolbar">
 		<div class="tabs">
 			<button class:active={!favoritesOnly} onclick={() => (favoritesOnly = false)}
-				>전체 템플릿</button
-			><button class:active={favoritesOnly} onclick={() => (favoritesOnly = true)}>즐겨찾기</button>
+				>{copy($locale, "전체 주제")}</button
+			><button class:active={favoritesOnly} onclick={() => (favoritesOnly = true)}>{copy($locale, "즐겨찾기")}</button>
 		</div>
 		<div class="actions">
-			<select bind:value={kind} aria-label="템플릿 종류"
-				><option value="all">전체 종류</option><option value="presentation">발표</option><option
-					value="interview">면접</option
+			<select bind:value={kind} aria-label={copy($locale, "주제 종류")}
+				><option value="all">{copy($locale, "전체 종류")}</option><option value="presentation">{copy($locale, "발표")}</option><option
+					value="interview">{copy($locale, "면접")}</option
 				></select
-			><input bind:value={query} placeholder="템플릿 이름 검색" aria-label="템플릿 검색" /><select
+			><input bind:value={query} placeholder={copy($locale, "주제 이름 검색")} aria-label={copy($locale, "주제 검색")} /><select
 				bind:value={sort}
-				aria-label="정렬"
-				><option value="recent">최근 사용순</option><option value="used">사용 횟수순</option
+				aria-label={copy($locale, "정렬")}
+				><option value="recent">{copy($locale, "최근 사용순")}</option><option value="used">{copy($locale, "사용 횟수순")}</option
 				></select
 			>
 		</div>
 	</div>
 	{#if error}<p role="alert" class="error">{error}</p>
-		<Button onclick={load}>다시 시도</Button>{/if}
-	{#if loading}<p class="state">환경을 불러오는 중…</p>{:else if !filtered.length}<div
+		<Button onclick={load}>{copy($locale, "다시 시도")}</Button>{/if}
+	{#if loading}<p class="state">{copy($locale, "주제를 불러오는 중…")}</p>{:else if !filtered.length}<div
 			class="state"
 		>
-			<h2>{favoritesOnly ? '즐겨찾는 환경이 없어요' : '표시할 환경이 없어요'}</h2>
-			<p>새 환경을 만들거나 검색 조건을 바꿔 보세요.</p>
+			<h2>{favoritesOnly ? tr($siteLocale, "즐겨찾는 주제가 없어요") : tr($siteLocale, "표시할 주제가 없어요")}</h2>
+			<p>{copy($locale, "새 주제를 만들거나 검색 조건을 바꿔 보세요.")}</p>
 		</div>{:else}<div class="list">
 			{#each filtered.slice((page - 1) * 5, page * 5) as row (row.template_id)}<TemplateCard
 					{row}
@@ -138,7 +140,7 @@
 				onclick={() => (page = i + 1)}>{i + 1}</button
 			>{/each}
 	</footer>
-	<p class="muted">총 {filtered.length}개 템플릿</p>
+	<p class="muted">총 {filtered.length}개 주제</p>
 	{#if selected}<TemplateDetailModal
 			row={selected}
 			onclose={() => (selected = null)}

@@ -1,0 +1,1 @@
+export function resolvePenTool<T extends string>(tool:T,e:{pointerType:string;buttons:number;button:number}):T|'erase'|'lasso' {if(e.pointerType!=='pen')return tool;if((e.buttons&32)!==0||e.button===5)return 'erase';if((e.buttons&2)!==0||e.button===2)return 'lasso';return tool;}

@@ -1,6 +1,7 @@
 <!-- src/routes/odi/session/presentation/upload/+page.svelte -->
 
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -14,12 +15,12 @@
 
 	import { TextSnippetIcon, MyLocationIcon, whiteright as grayright } from '$lib/odi/icons';
 
-	const steps = [
-		{ label: '발표 기본 정보' },
-		{ label: '자료 업로드' },
-		{ label: 'AI 청중 설정' },
-		{ label: '세션 확인' }
-	];
+	const steps = $derived([
+		{ label: copy($locale, "발표 기본 정보") },
+		{ label: copy($locale, "자료 업로드") },
+		{ label: copy($locale, "AI 청중 설정") },
+		{ label: copy($locale, "세션 확인") }
+	]);
 
 	let ready = $state(false);
 
@@ -130,9 +131,9 @@
 		<p class="page-label text-caption-main">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">자료 업로드</h1>
+			<h1 class="text-title-main">{copy($locale, "자료 업로드")}</h1>
 			<p class="subtitle text-caption-main">
-				발표 준비에 필요한 자료를 업로드하면 더 정교한 질문과 피드백을 받을 수 있어요.
+				{copy($locale, "발표 준비에 필요한 자료를 업로드하면 더 정교한 질문과 피드백을 받을 수 있어요.")}
 			</p>
 		</div>
 	</header>
@@ -162,20 +163,20 @@
 		/>
 
 		<TipCard
-			title="자료 업로드 TIP"
-			description="업로드된 자료는 세션 시작 시 서버 파일 묶음으로 확정되며, 세션 파일은 일정 기간 이후 삭제할 수 있습니다."
+			title={copy($locale, "자료 업로드 TIP")}
+			description={copy($locale, "업로드된 자료는 세션 시작 시 서버 파일 묶음으로 확정되며, 세션 파일은 일정 기간 이후 삭제할 수 있습니다.")}
 			tips={[
 				{
 					icon: MyLocationIcon,
-					title: 'PDF 이미지 변환',
+					title: copy($locale, "PDF 이미지 변환"),
 					description:
-						'발표 슬라이드는 세션 시작 시 페이지별 이미지로 변환되어 VR 환경에서 바로 사용할 수 있습니다.'
+						copy($locale, "발표 슬라이드는 세션 시작 시 페이지별 이미지로 변환되어 VR 환경에서 바로 사용할 수 있습니다.")
 				},
 				{
 					icon: TextSnippetIcon,
-					title: '파일명 보존',
+					title: copy($locale, "파일명 보존"),
 					description:
-						'서버 저장명은 고정되지만 원본 파일명은 기록되어 최근 세션에서 다시 확인할 수 있습니다.'
+						copy($locale, "서버 저장명은 고정되지만 원본 파일명은 기록되어 최근 세션에서 다시 확인할 수 있습니다.")
 				}
 			]}
 		/>
@@ -183,7 +184,7 @@
 
 	<footer class="page-actions">
 		<Button variant="primary" width="212px" onclick={() => goto('/odi/session/presentation')}>
-			이전 단계
+			{copy($locale, "이전 단계")}
 		</Button>
 
 		<Button
@@ -193,7 +194,7 @@
 			trailingIcon={grayright}
 			onclick={() => goto('/odi/session/presentation/AIsetup')}
 		>
-			다음 단계
+			{copy($locale, "다음 단계")}
 		</Button>
 	</footer>
 </main>

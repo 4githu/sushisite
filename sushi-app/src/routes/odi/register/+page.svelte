@@ -1,5 +1,7 @@
 <!-- src/routes/register/+page.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import { goto } from "$app/navigation";
 	import { onDestroy } from "svelte";
 
@@ -182,8 +184,8 @@
 		<p class="page-label text-caption-main">Account Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">계정 생성하기</h1>
-			<p class="subtitle text-caption-main">계정을 생성하고 Re:hear를 시작해보세요</p>
+			<h1 class="text-title-main">{tr($siteLocale, "계정 생성하기")}</h1>
+			<p class="subtitle text-caption-main">{tr($siteLocale, "계정을 생성하고 Re:hear를 시작해보세요")}</p>
 		</div>
 	</header>
 
@@ -225,23 +227,23 @@
 	<footer class="page-actions">
 		{#if currentStep === 0}
 			<Button variant="secondary" width="360px" onclick={() => goto("/login")}>
-				이미 계정이 있어요
+				{tr($siteLocale, "이미 계정이 있어요")}
 			</Button>
 
 			<Button variant="primary" width="360px" disabled={!canSendCode} onclick={sendRegisterCode}>
-				다음 단계
+				{copy($locale, "다음 단계")}
 			</Button>
 		{:else if currentStep === 1}
 			<Button variant="secondary" width="360px" onclick={() => (currentStep = 0)}>
-				이전 단계
+				{copy($locale, "이전 단계")}
 			</Button>
 
 			<Button variant="primary" width="360px" disabled={!canVerify} onclick={verifyRegisterCode}>
-				인증 완료
+				{tr($siteLocale, "인증 완료")}
 			</Button>
 		{:else}
 			<Button variant="primary" width="360px" onclick={finishRegister}>
-				Re:hear 시작하기
+				{tr($siteLocale, "Re:hear 시작하기")}
 			</Button>
 		{/if}
 	</footer>

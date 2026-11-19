@@ -6,6 +6,7 @@
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { initLocale, locale, message as t } from '$lib/odi/i18n';
 	import { page } from '$app/state';
 
 	import { auth } from '$lib/stores/mainauth';
@@ -43,6 +44,7 @@
 	const isAuthExceptionPage = $derived(/^\/odi\/(join|register|login)(\/|$)/.test(page.url.pathname));
 
 	onMount(async () => {
+		initLocale();
 		sidebarOpen = !window.matchMedia('(max-width: 900px)').matches;
 
 		if (isAuthExceptionPage) {
@@ -150,6 +152,7 @@
 		}
 
 		showAccountModal = true;
+		if (window.matchMedia('(max-width: 900px)').matches) sidebarOpen = false;
 	}
 
 	function closeAccountModal() {
@@ -196,7 +199,7 @@
 		<button
 			type="button"
 			class="sidebar-open clickable"
-			aria-label="사이드바 열기"
+			aria-label={t($locale, 'openSidebar')}
 			onclick={() => (sidebarOpen = true)}
 		>
 			<span></span><span></span><span></span>
@@ -207,7 +210,7 @@
 		<button
 			type="button"
 			class="sidebar-backdrop"
-			aria-label="메뉴 닫기"
+			aria-label={t($locale, 'closeMenu')}
 			onclick={() => (sidebarOpen = false)}
 		></button>
 	{/if}

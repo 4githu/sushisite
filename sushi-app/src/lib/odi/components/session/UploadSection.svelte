@@ -1,6 +1,7 @@
 <!-- src/lib/odi/components/session/UploadSection.svelte -->
 
 <script lang="ts">
+ import { locale, copy } from "$lib/odi/i18n";
 	import { DocumentIcon, PdfIcon, Cloud } from '$lib/odi/icons';
 
 	import type { OdiFileRef } from '$lib/odi/stores/template';
@@ -117,7 +118,7 @@
 				type="button"
 				class="uploaded-main clickable"
 				onclick={openFileDialog}
-				aria-label="다른 파일로 변경"
+				aria-label={copy($locale, "다른 파일로 변경")}
 			>
 				<div class="pdf-icon" aria-hidden="true">
 					<img src={PdfIcon} alt="" />
@@ -130,7 +131,7 @@
 					<small>
 						{formatSize(
 							isBrowserFile(selectedFile) ? selectedFile.size : selectedFile.size_bytes
-						) || '크기 정보 없음'}
+						) || copy($locale, "크기 정보 없음")}
 						{#if !isBrowserFile(selectedFile) && selectedFile.page_count}
 							· {selectedFile.page_count}페이지
 						{/if}
@@ -140,16 +141,16 @@
 
 			<div
 				class="upload-status"
-				aria-label={isBrowserFile(selectedFile) ? '파일 선택 완료' : '업로드 완료'}
+				aria-label={isBrowserFile(selectedFile) ? copy($locale, "파일 선택 완료") : copy($locale, "업로드 완료")}
 			>
 				<span class="status-check">✓</span>
-				<span>{isBrowserFile(selectedFile) ? '선택 완료' : '업로드 완료'}</span>
+				<span>{isBrowserFile(selectedFile) ? copy($locale, "선택 완료") : copy($locale, "업로드 완료")}</span>
 			</div>
 
 			<button
 				type="button"
 				class="clear-icon clickable"
-				aria-label="파일 선택 해제"
+				aria-label={copy($locale, "파일 선택 해제")}
 				onclick={clearSelection}>×</button
 			>
 		</div>
@@ -166,10 +167,10 @@
 				<img class="upload-icon" src={Cloud} alt="" />
 
 				{#if uploading}
-					<p class="text-body file-name">업로드 중...</p>
-					<p class="text-body helper">파일을 서버에 저장하고 있습니다</p>
+					<p class="text-body file-name">{copy($locale, "업로드 중...")}</p>
+					<p class="text-body helper">{copy($locale, "파일을 서버에 저장하고 있습니다")}</p>
 				{:else}
-					<p class="text-body helper">PDF 파일을 드래그하거나 클릭하여 업로드 해주세요</p>
+					<p class="text-body helper">{copy($locale, "PDF 파일을 드래그하거나 클릭하여 업로드 해주세요")}</p>
 
 					<p class="text-body helper">
 						최대 {maxSizeMB}MB

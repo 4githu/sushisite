@@ -3,12 +3,14 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import PersonalAccountCard from '$lib/personal-project/shared/PersonalAccountCard.svelte';
+	import ServiceSwitcher from '$lib/personal-project/shared/ServiceSwitcher.svelte';
 	import '../personal.css';
 
 	let { children } = $props();
 	let sidebarCollapsed = $state(false);
 
 	const links = [
+		{ href: '/personal-project/aura/grading', label: '시험지 채점', icon: '✓' },
 		{ href: '/personal-project/aura', label: '클리닉 홈', icon: '✦' },
 		{ href: '/personal-project/aura/schools', label: '학교별 리포트', icon: '▦' },
 		{ href: '/personal-project/aura/settlements', label: '월별 정산', icon: '₩' }
@@ -41,7 +43,7 @@
 				</a>
 			{/each}
 		</nav>
-		<a class="calendar-link" href="/personal-project/calendar">◇ 연결된 캘린더에서 보기</a>
+		<ServiceSwitcher active="aura" />
 		<PersonalAccountCard />
         <InstallApp service="aura" />
 	</aside>
@@ -89,7 +91,6 @@
 		padding: 0 0 34px;
 	}
 	:global(.aura-system.sidebar-collapsed .brand > span:last-child),
-	:global(.aura-system.sidebar-collapsed .calendar-link),
 	:global(.aura-system.sidebar-collapsed .account-button > span:nth-child(2)),
 	:global(.aura-system.sidebar-collapsed .account-button > i) {
 		display: none;
@@ -100,6 +101,8 @@
 		font-size: 0;
 	}
 	:global(.aura-system.sidebar-collapsed .nav-icon) { font-size: 18px; }
+	:global(.aura-system.sidebar-collapsed .service-switcher a) { justify-content: center; padding: 8px 2px; }
+	:global(.aura-system.sidebar-collapsed .service-name) { display: none; }
 	:global(.aura-system.sidebar-collapsed .account-button) {
 		display: grid;
 		grid-template-columns: 1fr;
@@ -127,7 +130,6 @@
 			padding: 0 0 34px;
 		}
 		:global(.aura-system.sidebar-collapsed .brand > span:last-child),
-		:global(.aura-system.sidebar-collapsed .calendar-link),
 		:global(.aura-system.sidebar-collapsed .account-button > span:nth-child(2)),
 		:global(.aura-system.sidebar-collapsed .account-button > i) { display: none; }
 		:global(.aura-system nav) { display: grid; overflow: visible; }
@@ -137,27 +139,19 @@
 			font-size: 0;
 		}
 		:global(.aura-system.sidebar-collapsed .nav-icon) { font-size: 18px; }
+		:global(.aura-system.sidebar-collapsed .service-switcher a) { justify-content: center; padding: 8px 2px; }
+		:global(.aura-system.sidebar-collapsed .service-name) { display: none; }
 		:global(.aura-system.sidebar-collapsed .account-button) {
 			display: grid;
 			grid-template-columns: 1fr;
 			justify-items: center;
 			padding: 8px;
 		}
-		.sidebar-toggle { display: grid; place-items: center; }
+		.sidebar-toggle { display: grid; place-items: center; right: 8px; }
 	}
 
 	.aura-mark {
 		background: #8d6f63;
 	}
 
-	.calendar-link {
-		margin: 18px 8px 0;
-		padding: 10px;
-		border: 1px solid #d8d5ca;
-		border-radius: 8px;
-		color: var(--pp-sage-dark);
-		font-size: 10px;
-		font-weight: 700;
-		text-decoration: none;
-	}
 </style>

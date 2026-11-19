@@ -362,6 +362,7 @@ async def update_pipeline(
                 segment=report_segment.model_dump(mode="json"),
                 owner_user_id=record.owner_user_id,
                 pre_session_pin=record.pre_session_pin,
+                analysis_origin="evc_live",
                 expires_at=expires_at,
             )
         record.audiences = working_agents

@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import { onDestroy } from 'svelte';
 	import { AudioRecorder } from '$lib/odi/domain/audioRecorder';
 	import type { PracticeExercise, PracticeAttempt } from '$lib/odi/domain/practice';
@@ -141,15 +143,15 @@
 			<h2>{exercise.title}</h2>
 		</div>
 		<Button size="sm" variant="ghost" onclick={onclose} disabled={recording || preparing}
-			>닫기</Button
+			>{copy($locale, "닫기")}</Button
 		>
 	</div>
 	<p>{exercise.task}</p>
 	<label
-		>목표 시간 <select bind:value={target} disabled={recording || Boolean(blob)}
-			><option value={30}>30초</option><option value={60}>60초</option><option value={120}
-				>2분</option
-			><option value={180}>3분</option></select
+		>{tr($siteLocale, "목표 시간")} <select bind:value={target} disabled={recording || Boolean(blob)}
+			><option value={30}>{tr($siteLocale, "30초")}</option><option value={60}>{tr($siteLocale, "60초")}</option><option value={120}
+				>{copy($locale, "2분")}</option
+			><option value={180}>{tr($siteLocale, "3분")}</option></select
 		></label
 	>
 	<div class="recording-stage" aria-live="polite">
@@ -161,24 +163,24 @@
 			●
 		</div>
 		<strong>{Math.floor(elapsed / 60)}:{String(Math.floor(elapsed % 60)).padStart(2, '0')}</strong>
-		<p>{recording ? '녹음 중 · 최대 3분' : '준비가 되면 녹음을 시작하세요'}</p>
-		<progress value={Math.min(elapsed, target)} max={target} aria-label="목표 시간 대비 녹음 시간"
+		<p>{recording ? tr($siteLocale, "녹음 중 · 최대 3분") : tr($siteLocale, "준비가 되면 녹음을 시작하세요")}</p>
+		<progress value={Math.min(elapsed, target)} max={target} aria-label={tr($siteLocale, "목표 시간 대비 녹음 시간")}
 		></progress>
 	</div>
 	<div class="actions">
-		{#if recording}<Button onclick={stop}>녹음 마치기</Button>{:else}<Button
+		{#if recording}<Button onclick={stop}>{tr($siteLocale, "녹음 마치기")}</Button>{:else}<Button
 				variant={blob ? 'outline' : 'primary'}
 				onclick={begin}
 				disabled={preparing || submitting || analyzing}
-				>{preparing ? '마이크 준비 중…' : blob ? '다시 녹음' : '녹음 시작'}</Button
+				>{preparing ? tr($siteLocale, "마이크 준비 중…") : blob ? tr($siteLocale, "다시 녹음") : tr($siteLocale, "녹음 시작")}</Button
 			>{/if}{#if blob}<Button
 				onclick={analyze}
 				disabled={submitting || analyzing || ownAttempt?.state === 'completed'}
 				>{submitting || analyzing
-					? '분석 중…'
+					? tr($siteLocale, "분석 중…")
 					: ownAttempt?.state === 'failed'
-						? '분석 다시 시도'
-						: '이 녹음 분석하기'}</Button
+						? tr($siteLocale, "분석 다시 시도")
+						: tr($siteLocale, "이 녹음 분석하기")}</Button
 			>{/if}
 	</div>
 	{#if url}<audio controls src={url}></audio>{/if}{#if error}<p class="error" role="alert">
@@ -186,21 +188,21 @@
 		</p>{/if}{#if ownAttempt?.state === 'failed'}<p class="error" role="alert">
 			{ownAttempt.error}
 		</p>{:else if ownAttempt?.state === 'completed'}<div class="result">
-			<span class="chip">훈련 완료</span>
+			<span class="chip">{tr($siteLocale, "훈련 완료")}</span>
 			<h2>{ownAttempt.score}점</h2>
 			<p>{ownAttempt.feedback?.feedback}</p>
 			<blockquote>{ownAttempt.feedback?.evidence}</blockquote>
 			<details>
-				<summary>내가 말한 내용</summary>
+				<summary>{tr($siteLocale, "내가 말한 내용")}</summary>
 				<p>{ownAttempt.transcript}</p>
 			</details>
 			<p class="muted">
 				{(ownAttempt.score ?? 0) >= 80
-					? '80점 이상 달성! 레벨 진도에 반영했어요.'
-					: '같은 목표로 다시 도전해 보세요.'}
+					? tr($siteLocale, "80점 이상 달성! 레벨 진도에 반영했어요.")
+					: tr($siteLocale, "같은 목표로 다시 도전해 보세요.")}
 			</p>
 		</div>{/if}<small class="muted"
-		>녹음 원본은 보관하지 않습니다. 전사와 분석 결과만 훈련 기록에 남아요.</small
+		>{tr($siteLocale, "녹음 원본은 보관하지 않습니다. 전사와 분석 결과만 훈련 기록에 남아요.")}</small
 	>
 </section>
 

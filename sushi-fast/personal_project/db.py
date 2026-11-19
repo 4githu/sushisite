@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import sqlite3
 import os
+import sys
 
 from .academic import (
     STAGE_TERM_PERIOD,
@@ -14,6 +15,11 @@ from .academic import (
 
 
 DB_PATH = Path(os.getenv('PERSONAL_PROJECT_DB_PATH', str(Path(__file__).resolve().parent / "personal_project.db")))
+
+
+# Refuse production access even if another test imports this module before conftest.
+if "pytest" in sys.modules and (not os.getenv("PERSONAL_PROJECT_DB_PATH") or DB_PATH.resolve() == Path(__file__).with_name("personal_project.db").resolve()):
+    raise RuntimeError("Tests must use an explicit isolated PERSONAL_PROJECT_DB_PATH")
 
 
 SCHEMA = """
@@ -125,6 +131,8 @@ CREATE TABLE IF NOT EXISTS aura_clinic_rounds (
     series_group_id TEXT,
     series_index INTEGER,
     progress_stage TEXT NOT NULL DEFAULT 'accepted',
+    modality TEXT NOT NULL DEFAULT 'in_person'
+        CHECK (modality IN ('in_person', 'remote', 'unverified')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(school_id, round_number)
 );
@@ -191,7 +199,7 @@ CREATE TABLE IF NOT EXISTS aura_target_reports (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 원본 이미지는 최종 제출 전까지만 보관하는 임시 첨부입니다.
+-- 제출 후 재생성 PDF에도 필요하므로 원본 이미지는 리포트와 함께 보관합니다.
 CREATE TABLE IF NOT EXISTS aura_report_attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -205,6 +213,23 @@ CREATE TABLE IF NOT EXISTS aura_report_attachments (
 );
 CREATE INDEX IF NOT EXISTS idx_aura_report_attachments_report
     ON aura_report_attachments(target_report_id, kind, id);
+
+-- Durable deletion provenance, independent of cascading report/owner rows.
+CREATE TABLE IF NOT EXISTS aura_attachment_cleanup_journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    target_report_id INTEGER NOT NULL,
+    attachment_id INTEGER NOT NULL,
+    storage_name TEXT NOT NULL,
+    byte_size INTEGER NOT NULL,
+    file_sha256 TEXT,
+    reason TEXT NOT NULL CHECK(reason IN ('attachment', 'school', 'round')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_aura_attachment_cleanup_pending
+    ON aura_attachment_cleanup_journal(status, id);
 
 CREATE TABLE IF NOT EXISTS clinic_report_score_formats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,8 +245,7 @@ CREATE TABLE IF NOT EXISTS clinic_report_score_formats (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_clinic_score_formats_round
-    ON clinic_report_score_formats(school_id, progress_stage, round_key, is_active, updated_at DESC);
+-- The stage-aware index is created after legacy columns are added in init_db.
 
 CREATE TABLE IF NOT EXISTS clinic_report_generation_settings (
     user_id INTEGER NOT NULL,
@@ -579,8 +603,10 @@ def _refresh_clinic_round_amounts(conn: sqlite3.Connection) -> None:
 
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH, timeout=30) as conn:
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
         columns = {row[1] for row in conn.execute("PRAGMA table_info(aura_sessions)")}
         if "hourly_rate" not in columns:
@@ -647,7 +673,7 @@ def init_db() -> None:
             row[1] for row in conn.execute("PRAGMA table_info(aura_settlement_snapshots)")
         }
         if "pricing_version" not in snapshot_columns:
-            # 기존 스냅샷은 다대일 조교 정산 규칙 전 결과이므로 재생성을 요구한다.
+            # Legacy snapshots retain their original payload and timestamp.
             conn.execute(
                 """ALTER TABLE aura_settlement_snapshots ADD COLUMN pricing_version
                    INTEGER NOT NULL DEFAULT 1"""
@@ -711,10 +737,17 @@ def init_db() -> None:
         _replace_round_template_unique_constraint(conn)
         if added_progression:
             _migrate_school_progression(conn)
-            conn.execute("UPDATE aura_settlement_snapshots SET pricing_version = 1")
         _replace_school_name_unique_constraint(conn)
         _remove_school_round_unique_constraint(conn)
-        _refresh_clinic_round_amounts(conn)
+        # Legacy rows are never inferred from school/name/description.
+        if "modality" not in {row[1] for row in conn.execute("PRAGMA table_info(aura_clinic_rounds)")}:
+            conn.execute(
+                """ALTER TABLE aura_clinic_rounds ADD COLUMN modality TEXT NOT NULL
+                   DEFAULT 'unverified'
+                   CHECK (modality IN ('in_person', 'remote', 'unverified'))"""
+            )
+        # Progression only migrates school/stage metadata. Existing prices and
+        # monthly snapshots are historical records, never backfilled here.
         conn.execute(
             """CREATE INDEX IF NOT EXISTS idx_events_recurrence
                ON events(user_id, recurrence_group_id, recurrence_index)"""
@@ -735,9 +768,10 @@ def init_db() -> None:
 
 @contextmanager
 def connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 30000")
     try:
         yield conn
     finally:

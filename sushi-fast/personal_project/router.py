@@ -1,14 +1,17 @@
 from datetime import datetime
 from io import BytesIO
+from typing import Literal
 import os
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
+from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from auth import JMT
 
-from . import ai_report, kakao, native_kakao, repository
+from . import ai_report, kakao, native_kakao, repository, report_pdf
 from . import workspace
 from .schemas import (
     ClinicRoundCreate,
@@ -66,6 +69,7 @@ def require_native_kakao_origin(request: Request) -> None:
         "http://localhost:9000",
         "https://chobab.app",
         "https://aura.chobab.app",
+        "https://netaq.chobab.app",
     }
     if origin not in allowed:
         raise HTTPException(
@@ -80,7 +84,10 @@ def require_native_kakao_origin(request: Request) -> None:
 def raise_native_kakao(error: native_kakao.NativeKakaoError):
     raise HTTPException(
         status_code=error.status_code,
-        detail={"code": error.code, "message": error.message},
+        detail={"code": error.code, "message": error.message,
+                "targetRoom": error.target_room, "selectedRoom": error.selected_room,
+                "fallbackReason": error.fallback_reason,
+                "deliveryStatus": error.delivery_status},
     ) from error
 
 
@@ -244,9 +251,17 @@ def settlements(
     return repository.school_settlements(user_id, year, month)
 
 
+class SettlementRegenerationApproval(BaseModel):
+    snapshotDigest: str
+    newTotal: int
+    proposedDigest: str
+
+
 @router.post("/aura/settlements/generate")
-def generate_settlements(year: int, month: int, user_id: int = Depends(current_user_id)):
-    return repository.generate_school_settlements(user_id, year, month)
+def generate_settlements(year: int, month: int, approval: SettlementRegenerationApproval | None = None,
+                         user_id: int = Depends(current_user_id)):
+    return repository.generate_school_settlements(user_id, year, month,
+        approval=approval.model_dump() if approval else None)
 
 
 @router.get("/aura/settlements/export.xlsx")
@@ -285,6 +300,15 @@ def create_school(data: SchoolCreate, user_id: int = Depends(current_user_id)):
 @router.post("/aura/schools/advance-stage")
 def advance_school_stages(user_id: int = Depends(current_user_id)):
     return repository.advance_school_stages(user_id)
+
+
+class SchoolOrder(BaseModel):
+    school_ids: list[int]
+
+
+@router.put("/aura/schools/reorder")
+def reorder_schools(data: SchoolOrder, user_id: int = Depends(current_user_id)):
+    return repository.reorder_schools(user_id, data.school_ids)
 
 
 @router.get("/aura/schools/{school_id}")
@@ -356,6 +380,15 @@ def clinic_round(round_id: int, user_id: int = Depends(current_user_id)):
     return repository.get_clinic_round(user_id, round_id)
 
 
+@router.get("/aura/rounds/{round_id}/modality-preview")
+def preview_clinic_round_modality(
+    round_id: int,
+    scope: Literal["this", "following", "all"] = "this",
+    user_id: int = Depends(current_user_id),
+):
+    return repository.preview_clinic_round_modality(user_id, round_id, scope)
+
+
 @router.patch("/aura/rounds/{round_id}")
 def update_clinic_round(
     round_id: int,
@@ -366,8 +399,8 @@ def update_clinic_round(
 
 
 @router.delete("/aura/rounds/{round_id}", status_code=204)
-def delete_clinic_round(round_id: int, user_id: int = Depends(current_user_id)):
-    repository.delete_clinic_round(user_id, round_id)
+def delete_clinic_round(round_id: int, scope: Literal["this", "following", "all"] = "this", user_id: int = Depends(current_user_id)):
+    repository.delete_clinic_round(user_id, round_id, scope)
     return Response(status_code=204)
 
 
@@ -379,8 +412,11 @@ def add_round_target(
 
 
 @router.delete("/aura/targets/{target_id}", status_code=204)
-def delete_round_target(target_id: int, user_id: int = Depends(current_user_id)):
-    repository.delete_round_target(user_id, target_id)
+def delete_round_target(target_id: int, confirm: bool = False,
+                        approved_old_amount: int | None = None, approved_new_amount: int | None = None,
+                        user_id: int = Depends(current_user_id)):
+    approval = (approved_old_amount, approved_new_amount) if approved_old_amount is not None and approved_new_amount is not None else None
+    repository.delete_round_target(user_id, target_id, confirm=confirm, approved_price_change=approval)
     return Response(status_code=204)
 
 
@@ -394,6 +430,134 @@ def target_report_attachments(target_id: int, user_id: int = Depends(current_use
     return repository.list_target_report_attachments(user_id, target_id)
 
 
+def _target_report_pdf(user_id: int, target_id: int) -> bytes:
+    report = repository.get_or_create_target_report(user_id, target_id)
+    attachments = []
+    for item in repository.list_target_report_attachments(user_id, target_id):
+        try:
+            path, _mime_type, _name = repository.read_target_report_attachment(user_id, item["id"])
+            attachments.append({**item, "path": str(path)})
+        except HTTPException as error:
+            if error.status_code != 404:
+                raise
+    return report_pdf.render_pdf(report, attachments)
+
+
+@router.get("/aura/targets/{target_id}/report.pdf")
+def download_target_report_pdf(target_id: int, user_id: int = Depends(current_user_id)):
+    pdf = _target_report_pdf(user_id, target_id)
+    return StreamingResponse(BytesIO(pdf), media_type="application/pdf", headers={
+        "Content-Disposition": f'attachment; filename="clinic-report-{target_id}.pdf"',
+        "Cache-Control": "private, no-store",
+    })
+
+
+def _complete_verified_clinic_delivery(result: dict, user_id: int, report_id: int) -> dict:
+    if result.get("sent") is not True or result.get("deliveryStatus") != "verified":
+        raise HTTPException(status_code=409, detail="전송 성공이 확인되지 않아 작성 완료로 변경하지 않았습니다.")
+    try:
+        repository.update_target_report(user_id, report_id, None, submit=True)
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="카카오 전송은 확인됐지만 작성 완료 저장 또는 첨부 정리를 확인하지 못했습니다. 재전송하지 말고 리포트 상태를 확인해주세요.") from error
+    return result
+
+
+@router.post("/aura/targets/{target_id}/kakao-clinic/send-report")
+def send_server_generated_clinic_report(
+    target_id: int,
+    request: Request,
+    user_id: int = Depends(native_kakao_user_id),
+):
+    require_native_kakao_origin(request)
+    report = repository.get_or_create_target_report(user_id, target_id)
+    return _execute_immediate_clinic(request, user_id, target_id, report,
+        lambda: _send_immediate_clinic_report(user_id, target_id, report))
+
+
+def _send_immediate_clinic_report(user_id, target_id, report):
+    job_id = None
+    try:
+        try:
+            job = native_kakao.create_clinic_job(user_id, target_id, report)
+            job_id = job["jobId"]
+            if job.get("deliveryFormat") != "text":
+                pdf = _target_report_pdf(user_id, target_id)
+                pages = report_pdf.render_pages(pdf, max_pages=native_kakao.MAX_PAGES)
+                for number, image in enumerate(pages, start=1):
+                    native_kakao.store_page(
+                        job_id, user_id, target_id, number, "image/jpeg", image
+                    )
+        except native_kakao.NativeKakaoError:
+            raise
+        except ValueError as error:
+            raise native_kakao.NativeKakaoError(413, str(error), 'report_render_failed') from error
+        except Exception as error:
+            raise native_kakao.NativeKakaoError(500, '서버에서 리포트 PDF를 만들지 못했습니다.', 'report_render_failed') from error
+        return _send_clinic_job_conservatively(job_id, user_id, target_id)
+    finally:
+        if job_id is not None:
+            native_kakao.discard_clinic_job(job_id, user_id, target_id)
+
+
+def _send_clinic_job_conservatively(job_id, user_id, target_id):
+    try:
+        return native_kakao.send_clinic_job(job_id, user_id, target_id)
+    except native_kakao.NativeKakaoError as error:
+        if error.code not in ('send_in_progress', 'recipient_timeout', 'recipient_unverified', 'invalid_clinic_job') and error.delivery_status == 'not_started':
+            error.delivery_status = 'unknown'
+        raise
+
+
+def _delivery_request_id(raw):
+    import uuid
+    if raw is None:
+        return uuid.uuid4().hex
+    try:
+        return uuid.UUID(raw).hex
+    except (ValueError, AttributeError):
+        raise HTTPException(422, '올바른 전송 요청 번호가 필요합니다.')
+
+
+def _execute_immediate_clinic(request, user_id, target_id, report, sender):
+    from . import clinic_scheduled_delivery as delivery
+    request_id = _delivery_request_id(request.headers.get('X-Delivery-Request-Id'))
+    job_id, prior = delivery.reserve_immediate(user_id, target_id, request_id)
+    if prior is not None:
+        if prior['state'] == 'sent':
+            return prior
+        raise HTTPException(409, detail={'code': prior['errorCode'] or 'request_in_progress', 'message': '기존 전송 요청의 결과를 확인해주세요.', **prior})
+    try:
+        result = sender()
+        if result.get('sent') is not True or result.get('deliveryStatus') != 'verified':
+            state = 'partial' if result.get('deliveryStatus') == 'partial' else 'unknown'
+            delivery.finish_immediate(job_id, state, 'delivery_unverified', result)
+            raise HTTPException(409, {'code': 'delivery_unverified', **delivery.lookup_immediate(user_id, target_id, request_id)})
+        delivery.finish_immediate(job_id, 'sent', 'completion_pending', result)
+        try:
+            _complete_verified_clinic_delivery(result, user_id, report['id'])
+        except HTTPException as error:
+            raise HTTPException(error.status_code, {'code': 'completion_pending', 'message': str(error.detail), **delivery.lookup_immediate(user_id, target_id, request_id)}) from error
+        delivery.finish_completion(job_id)
+        return delivery.lookup_immediate(user_id, target_id, request_id)
+    except native_kakao.NativeKakaoError as error:
+        status = error.delivery_status
+        state = status if status in ('partial', 'unknown') else 'failed'
+        delivery.finish_immediate(job_id, state, error.code, error.delivery_result)
+        raise HTTPException(error.status_code, detail={'code': error.code, 'message': error.message, **delivery.lookup_immediate(user_id, target_id, request_id)}) from error
+    except HTTPException:
+        raise
+    except Exception:
+        delivery.finish_immediate(job_id, 'unknown', 'send_exception')
+        raise HTTPException(500, {'code': 'send_exception', 'message': '전송 결과를 확인할 수 없습니다. 재전송하지 말고 확인해주세요.', **delivery.lookup_immediate(user_id, target_id, request_id)})
+
+
+@router.get('/aura/targets/{target_id}/kakao-clinic/delivery-requests/{request_id}')
+def get_immediate_clinic_request(target_id: int, request_id: str, user_id: int = Depends(current_user_id)):
+    from . import clinic_scheduled_delivery as delivery
+    repository.get_or_create_target_report(user_id, target_id)
+    return delivery.lookup_immediate(user_id, target_id, _delivery_request_id(request_id))
+
+
 @router.post("/aura/targets/{target_id}/attachments", status_code=201)
 async def upload_target_report_attachment(
     target_id: int,
@@ -403,7 +567,7 @@ async def upload_target_report_attachment(
     user_id: int = Depends(current_user_id),
 ):
     payload = await request.body()
-    return repository.save_target_report_attachment(
+    return await run_in_threadpool(repository.save_target_report_attachment,
         user_id, target_id, kind, filename, request.headers.get("content-type", ""), payload
     )
 
@@ -471,7 +635,7 @@ async def upload_native_kakao_page(
                 detail={"code": "page_too_large", "message": "리포트 이미지 한 장은 8MB 이하여야 합니다."},
             )
     try:
-        return native_kakao.store_page(
+        return await run_in_threadpool(native_kakao.store_page,
             job_id,
             user_id,
             target_id,
@@ -554,3 +718,44 @@ def save_round_template(
     return repository.save_round_template(
         user_id, school_id, round_number, data
     )
+
+
+@router.post('/aura/targets/{target_id}/kakao-clinic/jobs',status_code=201)
+def create_clinic_kakao_job(target_id:int,request:Request,user_id:int=Depends(native_kakao_user_id)):
+    require_native_kakao_origin(request)
+    report=repository.get_or_create_target_report(user_id,target_id)
+    try:return native_kakao.create_clinic_job(user_id,target_id,report)
+    except native_kakao.NativeKakaoError as error:raise_native_kakao(error)
+
+@router.post('/aura/targets/{target_id}/kakao-clinic/jobs/{job_id}/send')
+def send_clinic_kakao_job(target_id:int,job_id:str,request:Request,user_id:int=Depends(native_kakao_user_id)):
+    require_native_kakao_origin(request)
+    report = repository.get_or_create_target_report(user_id,target_id)
+    return _execute_immediate_clinic(request, user_id, target_id, report,
+        lambda: _send_clinic_job_conservatively(job_id,user_id,target_id))
+
+@router.get('/aura/targets/{target_id}/template')
+def target_template(target_id:int,user_id:int=Depends(current_user_id)):
+    with repository.connection() as db:
+        target=repository._target_owner(db,target_id,user_id)
+        _,templates,document=repository._combined_round_template(db,user_id,target)
+        if len(templates)==1 and templates[0]:
+            import json
+            document=json.loads(templates[0]['content_json'])
+        return {'document':document}
+
+
+# Reuse the owner/origin boundary of the existing native Kakao routes.
+def settlement_request_owner(request: Request) -> int:
+    require_native_kakao_origin(request)
+    return native_kakao_user_id(request)
+
+
+from .settlement_delivery import bind_settlement_router
+router.include_router(bind_settlement_router(settlement_request_owner, native_kakao_user_id))
+
+from .classroom_delivery import build_router as build_classroom_router
+router.include_router(build_classroom_router(settlement_request_owner, native_kakao_user_id))
+
+from .clinic_scheduled_delivery import build_router as build_clinic_delivery_router
+router.include_router(build_clinic_delivery_router(settlement_request_owner, native_kakao_user_id))

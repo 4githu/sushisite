@@ -1,0 +1,19 @@
+{
+    admin 127.0.0.1:2019
+    http_port 8080
+    https_port 8443
+    servers {
+        protocols h1 h2
+    }
+}
+
+direct.chobab.app {
+    tls "/Users/sagi/Library/Application Support/sushisite-direct-tls/certificates/direct.chobab.app.crt" "/Users/sagi/Library/Application Support/sushisite-direct-tls/certificates/direct.chobab.app.key"
+    @probe path /api/healthz
+    handle @probe {
+        reverse_proxy 127.0.0.1:8000
+    }
+    handle {
+        respond "Direct HTTPS route test" 200
+    }
+}

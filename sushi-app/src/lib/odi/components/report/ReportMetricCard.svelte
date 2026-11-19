@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import { scoreGrade, scoreCardLabel } from './reportUtils';
 	import { metricEnglish } from './reportViewModel';
 	let {
@@ -17,15 +18,15 @@
 		<div class="metric-title">
 			<div>
 				<h3>{metricEnglish(metric.key)}</h3>
-				<small>{scoreCardLabel(metric.key)}</small>
+				{#if $siteLocale === "ko"}<small>{scoreCardLabel(metric.key)}</small>{/if}
 			</div>
 		</div>
 		<p class="metric-number">
 			<strong>{score ?? '--'}</strong><small>/100</small><span
-				>{score == null ? '미측정' : scoreGrade(score)}</span
+				>{score == null ? tr($siteLocale, "미측정") : tr($siteLocale, scoreGrade(score))}</span
 			>
 		</p>
-		<p>{description ?? metric.meaning}</p>
+		<p>{description ?? tr($siteLocale, metric.meaning)}</p>
 	</div>
 	<div class={`metric-icon ${metric.key}`}>
 		<img src={metric.icon} alt="" aria-hidden="true" />

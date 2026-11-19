@@ -1,0 +1,8 @@
+# Aura 첨부 삭제 저널 운영 계약 (내부 전용)
+
+- `aura_attachment_cleanup_journal`은 첨부 ID, 소유자 ID, 리포트 ID, 생성된 UUID 이미지 basename, 바이트 크기, 삭제 직전 SHA-256 지문, 삭제 사유 및 pending/completed 상태만 저장한다. 원본 내용, 학생 이름, 절대 경로를 저장하지 않는다. 부모/개별 삭제와 동일한 SQLite 트랜잭션에서 먼저 기록하며 삭제 전 롤백은 둘 다 취소된다. 파일 삭제는 commit 후 **그 삭제 요청에서 생성된 ID에만** 수행한다. 서버 시작/주기 sweep은 없다.
+- `repository.dry_run_attachment_cleanup(journal_id)`는 **서버 내부 Python 호출 전용**이다. HTTP 라우트나 일반 사용자 노출이 없다. 단일 ID의 `id`, `classification`, `reason`만 반환하며 DB/file 상태를 바꾸지 않는다. `safe`는 pending, 양수 owner/report, UUID 32-hex 이미지 basename, canonical root, symlink 없는 각 컴포넌트, 정규 파일 및 15MB 이하 바이트 크기/SHA-256 일치, 모든 사용자의 live storage_name 참조 부재를 의미한다. `unsafe`는 검증 실패/기존 참조/완료됨, `missing`은 경로 부재, `ambiguous`는 미확인 ID·지문 미확보·stat/read 오류다. `safe`는 **삭제 승인**이 아니다.
+- 부모/개별 삭제 API는 DB 삭제 성공 후 파일 정리 실패나 검증 거부 시 500의 ‘삭제는 완료됐으나 정리 보류’ 문구를 돌려준다. 클라이언트는 DB 삭제를 다시 보내지 말고 운영자에게 알린다. 파일이 이미 없으면 completed로 기록한다. 프로세스가 commit 직후 종료되면 pending이 남는다. 저널이 없는 기존 고아는 출처를 증명할 수 없으며 자동 삭제/복원 대상이 아니다.
+- **사후 재시도 실행기는 제공하지 않는다.** 이 서비스에는 관리자 신원과 승인 기록을 검증하는 내부 운영 게이트가 없다. 승인 없이 개발 콘솔에서 `_remove_attachment_files`를 호출하거나 수동 SQL로 completed를 찍지 않는다. 운영 담당자는 승인받은 정확한 journal ID와 사용자 요청 근거를 별도 감사 기록에 남기고, 배타적 점검 창에서 DB 백업/파일 경로를 보존한 뒤 내부 dry-run으로 각 ID를 읽어 판단한다. `safe`여도 학생 데이터 보존 정책, 다른 참조, 사용자 소유권, 파일 지문/경로를 별도로 검토한 후 별도 승인된 복구 도구를 마련해야 한다. `missing`도 정상 성공으로 추정하지 말고 감사한다.
+- 향후 재시도 구현에는 서버측 운영자 인증/별도 명시 승인 ID 목록, ID별 감사 로그, SQLite `BEGIN IMMEDIATE` 재검증, 중복 실행 방지, `O_NOFOLLOW` 디렉터리 FD 기반 열기와 열린 파일 inode·지문 비교, 신규 live 참조 재검증 및 예상 행 조건부 상태 전이가 필요하다. `stat`→`unlink` 간 외부 공격자에 의한 이름 교체는 파일시스템 수준 원자적 소유권 검증이 불가능하므로 신뢰된 업로드 디렉터리 쓰기 권한과 배타적 운영 창을 강제해야 한다. 지금 구현한 즉시 정리는 요청 흐름 내부에 한정되며 사후 재시도 API가 아니다.
+- 검증은 합성 SQLite 및 임시 첨부 디렉터리에서만 수행한다. 운영 DB/학생 파일 접근·배포·자동 정리는 금지한다.

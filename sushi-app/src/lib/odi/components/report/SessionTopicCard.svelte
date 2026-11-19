@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale, copy } from "$lib/odi/i18n";
 	import { grade, shortDate, type SessionSummary } from '$lib/odi/domain/sessionSummary';
 	let {
 		latest,
@@ -16,12 +17,12 @@
 </script>
 
 <button class="topic" class:selected onclick={onselect} aria-pressed={selected}
-	><div><span class="chip">{latest.type}</span><span class="rounds">{count}회 연습 중</span></div>
+	><div><span class="chip">{copy($locale, latest.type)}</span><span class="rounds">{$locale === 'en' ? `${count} ${count === 1 ? 'session' : 'sessions'}` : `${count}회 연습 중`}</span></div>
 	<h3>{latest.title}</h3>
 	<footer>
-		<small>최근 {shortDate(latest.date)}</small><strong>{latest.score ?? '—'}점</strong
+		<small>{$locale === 'en' ? 'Latest ' : '최근 '}{shortDate(latest.date)}</small><strong>{latest.score ?? '—'}{$locale === 'en' ? ' pts' : '점'}</strong
 		>{#if delta !== null}<span class="delta" class:negative={delta < 0}
-				>{delta > 0 ? '+' : ''}{delta}점</span
+				>{delta > 0 ? '+' : ''}{delta}{$locale === 'en' ? ' pts' : '점'}</span
 			>{/if}
 	</footer></button
 >

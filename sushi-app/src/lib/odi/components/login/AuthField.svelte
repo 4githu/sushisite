@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/AuthField.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import { authCheck as Check, authVisibility as Visibility } from '$lib/odi/icons';
 
@@ -65,7 +66,7 @@
 				type="button"
 				class="visibility-button clickable"
 				onclick={() => (visible = !visible)}
-				aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
+				aria-label={visible ? tr($siteLocale, "비밀번호 숨기기") : tr($siteLocale, "비밀번호 보기")}
 				aria-pressed={visible}
 			>
 				<img src={Visibility} alt="" />

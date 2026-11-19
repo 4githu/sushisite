@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 
@@ -69,15 +71,14 @@
 			<h1 class="text-title-main">Ready for Re:hear 🌟</h1>
 
 			<p class="text-caption-main description">
-				모든 설정이 완료되었어요. 대기 중인 AI 면접관과 함께 실전 같은 면접 연습을 시작해보세요!
+				{tr($siteLocale, "모든 설정이 완료되었어요. 대기 중인 AI 면접관과 함께 실전 같은 면접 연습을 시작해보세요!")}
 			</p>
 		</div>
 	</header>
-	<TemplateSaveBar />
 
 	<SurfaceCard padding="11px" minHeight="111px">
 		<div class="application-card">
-			<p class="text-body-medium label">지원 정보</p>
+			<p class="text-body-medium label">{tr($siteLocale, "지원 정보")}</p>
 
 			<div class="application-values">
 				<p>{applicationInfo.company}</p>
@@ -92,18 +93,28 @@
 	<SessionConfirmCard items={sessionSummary} />
 
 	<div class="start-area">
+		<a class="edit-environment" href="/odi/session/interview">{copy($locale, "환경 수정하기")}</a>
 		<Button width="462px" onclick={startSession} disabled={busy || !draft}
-			>{busy ? '세션 준비 중…' : '이 환경으로 세션 시작'}</Button
+			>{busy ? tr($siteLocale, "세션 준비 중…") : tr($siteLocale, "이 환경으로 세션 시작")}</Button
 		>
 		{#if error}<p role="alert">{error}</p>{/if}
 
 		<p class="text-body-medium start-helper">
-			클릭하면 가상 면접 환경으로 이동하여 세션을 시작합니다.
+			{tr($siteLocale, "클릭하면 가상 면접 환경으로 이동하여 세션을 시작합니다.")}
 		</p>
 	</div>
+	<TemplateSaveBar />
 </section>
 
 <style>
+	.edit-environment {
+		padding: 12px 24px;
+		border: 1px solid var(--primary);
+		border-radius: var(--radius-sm);
+		color: var(--primary);
+		text-decoration: none;
+		text-align: center;
+	}
 	.session-page {
 		width: 100%;
 		min-height: 100vh;

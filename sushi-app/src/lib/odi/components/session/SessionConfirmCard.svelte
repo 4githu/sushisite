@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
 
 	type SummaryItem = {
@@ -19,7 +20,7 @@
 <SurfaceCard padding="0" minHeight="550px">
 	<div class="confirm-card">
 		{#if previewImage}
-			<img class="preview-image" src={previewImage} alt="면접 세션 미리보기" decoding="async" />
+			<img class="preview-image" src={previewImage} alt={tr($siteLocale, "면접 세션 미리보기")} decoding="async" />
 		{:else}
 			<div class="preview-placeholder">
 				<p class="text-title-middle">AI Interview Preview</p>

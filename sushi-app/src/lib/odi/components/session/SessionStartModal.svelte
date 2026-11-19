@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+	import { locale, copy } from "$lib/odi/i18n";
 	import { onMount } from "svelte";
 
 	import SessionTypeCard from "$lib/odi/components/session/SessionTypeCard.svelte";
@@ -89,7 +91,7 @@
 		<button
 			type="button"
 			class="close-button clickable"
-			aria-label="닫기"
+			aria-label={copy($locale, "닫기")}
 			onclick={close}
 		>
 			<img
@@ -106,12 +108,11 @@
 					id="session-start-title"
 					class="modal-title"
 				>
-					새 세션을 시작할까요?
+					{copy($locale, "새 세션을 시작할까요?")}
 				</h2>
 
 				<p class="modal-description text-caption-medium">
-					이전 입력값은 가져오지 않고,
-					기본 설정으로 새 연습을 시작해요.
+					{tr($siteLocale, "이전 입력값은 가져오지 않고, 기본 설정으로 새 연습을 시작해요.")}
 				</p>
 
 			</header>
@@ -119,18 +120,16 @@
 			<div class="card-row">
 
 				<SessionTypeCard
-					title="발표 연습"
-					description={`발표 시뮬레이션을 통해
-전달력과 설득력을 향상시켜요.`}
+					title={copy($locale, "발표 연습")}
+					description={tr($siteLocale, "발표 시뮬레이션을 통해 전달력과 설득력을 향상시켜요.")}
 					image={PresentationImage}
 					selected={selectedType === "presentation"}
 					onselect={() => selectedType = "presentation"}
 				/>
 
 				<SessionTypeCard
-					title="면접 연습"
-					description={`면접 시뮬레이션으로
-질문 대응력을 키워요.`}
+					title={copy($locale, "면접 연습")}
+					description={tr($siteLocale, "면접 시뮬레이션으로 질문 대응력을 키워요.")}
 					image={InterviewImage}
 					selected={selectedType === "interview"}
 					onselect={() => selectedType = "interview"}
@@ -144,7 +143,7 @@
 				disabled={!selectedType}
 				onclick={startSelectedSession}
 			>
-				기본 설정으로 시작하기
+				{copy($locale, "기본 설정으로 시작하기")}
 			</Button>
 
 			<button
@@ -152,7 +151,7 @@
 				class="load-button clickable"
 				onclick={loadPrevious}
 			>
-				기존 세션 불러오기
+				{copy($locale, "기존 세션 불러오기")}
 			</button>
 
 		</div>

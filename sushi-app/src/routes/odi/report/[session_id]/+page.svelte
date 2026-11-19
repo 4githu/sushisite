@@ -1,6 +1,8 @@
 <!-- src/routes/odi/report/[session_id]/+page.svelte -->
 
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+	import { locale, copy } from "$lib/odi/i18n";
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { odiuser, session } from '$lib/odi/stores';
@@ -75,7 +77,7 @@
 <main class="report-page">
 	{#if loading}
 		<div class="state-card">
-			<p class="text-caption-main">리포트를 불러오는 중입니다.</p>
+			<p class="text-caption-main">{copy($locale, "리포트를 불러오는 중입니다.")}</p>
 		</div>
 	{:else if errorMessage}
 		<div class="state-card error">
@@ -83,14 +85,19 @@
 
 			<div class="state-actions">
 				<button type="button" class="retry-button clickable" onclick={() => void loadReport()}
-					>다시 시도</button
+					>{copy($locale, "다시 시도")}</button
 				>
 				<button type="button" class="back-button clickable" onclick={() => goto('/odi')}
-					>홈으로 이동하기</button
+					>{copy($locale, "홈으로 이동하기")}</button
 				>
 			</div>
 		</div>
 	{:else if reportSession}
+		{#if reportSession.feedback?.version === 'fixed-demo-v1'}
+			<p class="demo-report-note" role="status">
+				<strong>{copy($locale, "체험 시연 리포트")}</strong> {tr($siteLocale, "· 고정된 예시 피드백입니다. 실제 AI 분석 사건으로 연습을 만들거나 평가 변화의 근거로 사용하지 마세요.")}
+			</p>
+		{/if}
 		{#if reportViewVersion === 'v1'}
 			<ReportPageViewV1
 				session={reportSession}
@@ -127,6 +134,21 @@
 		padding: var(--odi-page-padding-top) var(--odi-page-padding-inline)
 			var(--odi-page-padding-bottom);
 		background: var(--surface);
+	}
+
+	.demo-report-note {
+		max-width: 1100px;
+		margin: 0 auto var(--space-5);
+		padding: var(--space-4) var(--space-5);
+		border: 1px solid var(--text-secondary);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--text-secondary);
+		line-height: 1.5;
+	}
+
+	.demo-report-note strong {
+		color: var(--text-primary);
 	}
 
 	.state-card {

@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/LoginModal.svelte -->
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import GoogleAuthButton from "$lib/personal-project/shared/GoogleAuthButton.svelte";
 	import { goto } from "$app/navigation";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
@@ -91,16 +92,16 @@
 	<div class="login-modal">
 		<div class="title-group">
 			<p class="page-label text-caption-main">Welcome Back</p>
-			<h2 id={titleId} class="text-title-main">로그인</h2>
-			<p class="subtitle text-caption-main">이메일과 비밀번호로 Re:hear에 접속하세요</p>
+			<h2 id={titleId} class="text-title-main">{copy($locale, "로그인")}</h2>
+			<p class="subtitle text-caption-main">{copy($locale, "이메일과 비밀번호로 Re:hear에 접속하세요")}</p>
 		</div>
 
-		<GoogleAuthButton returnToOverride="/odi" />
+		<GoogleAuthButton loginLabel={copy($locale, "Google로 로그인")} signupLabel={copy($locale, "Google로 가입 / 로그인")} linkError={copy($locale, "기존 계정과 연결이 필요합니다. 이메일·비밀번호로 로그인해주세요.")} loginError={copy($locale, "Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.")} />
 		<div class="form">
 			<AuthField
-				label="이메일"
+				label={copy($locale, "이메일")}
 				type="email"
-				placeholder="이메일 주소를 입력해주세요"
+				placeholder={copy($locale, "이메일 주소를 입력해주세요")}
 				icon={Mail}
 				autocomplete="email"
 				bind:value={email}
@@ -108,9 +109,9 @@
 			/>
 
 			<AuthField
-				label="비밀번호"
+				label={copy($locale, "비밀번호")}
 				type="password"
-				placeholder="비밀번호를 입력해주세요"
+				placeholder={copy($locale, "비밀번호를 입력해주세요")}
 				icon={Lock}
 				autocomplete="current-password"
 				bind:value={password}
@@ -124,15 +125,15 @@
 
 		<div class="actions">
 			<Button variant="primary" width="100%" disabled={!canLogin} onclick={login}>
-				로그인
+				{copy($locale, "로그인")}
 			</Button>
 
 			<button class="reset-link text-caption-medium" type="button" onclick={goPasswordReset}>
-				비밀번호를 잊으셨나요?
+				{copy($locale, "비밀번호를 잊으셨나요?")}
 			</button>
 
 			<Button variant="secondary" width="100%" onclick={goRegister}>
-				회원가입
+				{copy($locale, "회원가입")}
 			</Button>
 		</div>
 	</div>

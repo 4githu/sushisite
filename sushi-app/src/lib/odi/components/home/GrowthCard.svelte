@@ -1,13 +1,15 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import type { SessionSummary } from '$lib/odi/domain/sessionSummary';
 	import { summarizeHistory, shortDate } from '$lib/odi/domain/sessionSummary';
 	let { rows }: { rows: SessionSummary[] } = $props();
 	const summary = $derived(summarizeHistory(rows));
 	const points = $derived(rows.slice(0, 5).toReversed());
 	const axes = [
-		{ id: 'engagement', label: '몰입도', color: '#03f' },
-		{ id: 'credibility', label: '신뢰도', color: '#9dbf23' },
-		{ id: 'clarity', label: '명확도', color: '#807dfe' }
+		{ id: 'engagement', label: copy($locale, "몰입도"), color: '#03f' },
+		{ id: 'credibility', label: copy($locale, "신뢰도"), color: '#9dbf23' },
+		{ id: 'clarity', label: copy($locale, "명확도"), color: '#807dfe' }
 	] as const;
 	function path(key: 'engagement' | 'credibility' | 'clarity') {
 		let active = false;
@@ -34,26 +36,26 @@
 
 <section class="surface">
 	<div class="section-head">
-		<h2>나의 성장</h2>
-		<a href="/odi/report">상세 보기 ›</a>
+		<h2>{copy($locale, "나의 성장")}</h2>
+		<a href="/odi/report">{copy($locale, "상세 보기 ›")}</a>
 	</div>
 	<div class="overview">
 		<div>
-			<p class="muted">평균 세션 점수</p>
+			<p class="muted">{copy($locale, "평균 세션 점수")}</p>
 			<strong>{summary.average ?? '—'}</strong><span>/100</span>
 		</div>
 		<div class="strength">
-			<span>가장 강한 영역</span>
-			<h3>{strongest?.label ?? '분석 기록이 없어요'}</h3>
+			<span>{copy($locale, "가장 강한 영역")}</span>
+			<h3>{strongest?.label ?? copy($locale, "분석 기록이 없어요")}</h3>
 		</div>
 	</div>
-	<h3>최근 5회 세션 추이</h3>
+	<h3>{copy($locale, "최근 5회 세션 추이")}</h3>
 	<div class="legend">
 		{#each axes as axis, rowIndex0 (rowIndex0)}<span
 				><i style:background={axis.color}></i>{axis.label}</span
 			>{/each}
 	</div>
-	<svg viewBox="0 0 510 180" role="img" aria-label="최근 5회 몰입도 신뢰도 명확도 점수 추이"
+	<svg viewBox="0 0 510 180" role="img" aria-label={tr($siteLocale, "최근 5회 몰입도 신뢰도 명확도 점수 추이")}
 		>{#each [0, 50, 100] as n, rowIndex1 (rowIndex1)}<line
 				x1="30"
 				x2="480"

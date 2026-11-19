@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+	import { locale, copy, duration } from "$lib/odi/i18n";
 	import { goto } from '$app/navigation';
 	import TrainingRecommendations from '../home/TrainingRecommendations.svelte';
 	import { recommendations, trainingNames } from '$lib/odi/domain/sessionSummary';
@@ -14,11 +16,8 @@
 		reportCoach,
 		reportCredibility,
 		reportEngagement,
-		reportQaAiAvatar,
 		reportQaImprovement,
 		reportQaStrength,
-		reportQaWaveform,
-		reportSend,
 		reportThumbUp,
 		reportTraining,
 		reportTrendingUp,
@@ -112,13 +111,13 @@
 		].filter(Boolean) as string[]
 	);
 
-	const tabs: { id: TabId; label: string }[] = [
-		{ id: 'summary', label: '요약' },
-		{ id: 'timeline', label: '발표 타임라인 분석' },
-		{ id: 'details', label: '세부 요소 분석' },
-		{ id: 'qa', label: 'Q&A 피드백' },
-		{ id: 'training', label: '맞춤 훈련' }
-	];
+	const tabs: { id: TabId; label: string }[] = $derived([
+		{ id: 'summary', label: copy($locale, "요약") },
+		{ id: 'timeline', label: copy($locale, "발표 타임라인 분석") },
+		{ id: 'details', label: copy($locale, "세부 요소 분석") },
+		{ id: 'qa', label: copy($locale, "Q&A 피드백") },
+		{ id: 'training', label: copy($locale, "맞춤 훈련") }
+	]);
 
 	const metrics: {
 		key: MetricKey;
@@ -192,13 +191,12 @@
 
 <div class="report-v3" data-report-version="v3">
 	<button type="button" class="back-link clickable" onclick={onOpenPrevious}>
-		<span class="back-icon" aria-hidden="true"><img src={figmaArrowForward} alt="" /></span> 세션 목록으로
-		돌아가기
+		<span class="back-icon" aria-hidden="true"><img src={figmaArrowForward} alt="" /></span> {tr($siteLocale, "세션 목록으로 돌아가기")}
 	</button>
 
 	<header class="hero">
 		<div class="hero-copy">
-			<p>이번 세션 결과</p>
+			<p>{copy($locale, "이번 세션 결과")}</p>
 			<h1>{title}</h1>
 
 			<div class="meta-row">
@@ -207,17 +205,15 @@
 						session.started_at ?? session.created_at
 					)}</span
 				>
-				<span><img src={figmaReportGroup} alt="" />{audienceCount}인</span>
+				<span><img src={figmaReportGroup} alt="" />{audienceCount}{$locale === "en" ? " people" : "인"}</span>
 				<span
-					><img src={figmaReportSchedule} alt="" />발표 {formatKoreanDuration(actualSeconds)} · Q&A {formatKoreanDuration(
-						qaSeconds
-					)} · 총 {formatKoreanDuration(totalSeconds)}</span
+					><img src={figmaReportSchedule} alt="" />{$locale === "en" ? "Presentation " : "발표 "}{duration($locale, actualSeconds)} · Q&A {duration($locale, qaSeconds)} · {$locale === "en" ? "Total " : "총 "}{duration($locale, totalSeconds)}</span
 				>
 			</div>
 
 			{#if fileNames.length > 0}
 				<div class="file-row">
-					<img src={figmaReportDownload} alt="" /><strong>첨부 자료</strong>
+					<img src={figmaReportDownload} alt="" /><strong>{copy($locale, "첨부 자료")}</strong>
 					{#each fileNames as fileName, index (index)}
 						<span>{fileName}</span>{#if index < fileNames.length - 1}<i>·</i>{/if}
 					{/each}
@@ -225,18 +221,18 @@
 			{/if}
 		</div>
 
-		<div class="hero-score" aria-label="총점">
+		<div class="hero-score" aria-label={copy($locale, "총점")}>
 			<div><strong>{Number.isFinite(overall) ? overall : '--'}</strong><span>/100</span></div>
 			{#if percentile !== null && percentile !== undefined}
-				<em>상위 {percentile}%</em>
+				<em>{$locale === 'en' ? 'Top ' : '상위 '}{percentile}%</em>
 			{/if}
 			{#if previousDelta !== null && previousDelta !== undefined}
-				<p>지난 세션 대비 <b>{previousDelta > 0 ? '+' : ''}{previousDelta}점</b></p>
+				<p>{tr($siteLocale, "지난 세션 대비")} <b>{previousDelta > 0 ? '+' : ''}{previousDelta}{$locale === "en" ? " pts" : "점"}</b></p>
 			{/if}
 		</div>
 	</header>
 
-	<nav class="report-tabs" aria-label="결과 리포트 항목">
+	<nav class="report-tabs" aria-label={copy($locale, "결과 리포트 항목")}>
 		{#each tabs as tab, rowIndex0 (rowIndex0)}
 			<button
 				type="button"
@@ -248,17 +244,10 @@
 		{/each}
 	</nav>
 
-	{#if warnings.length > 0}
-		<div class="generation-notice" role="status">
-			<strong>일부 입력이 제한된 상태로 분석되었습니다.</strong>
-			<span>{warnings.join(', ')}</span>
-		</div>
-	{/if}
-
 	<section class="v3-tab-panel" tabindex="-1" aria-live="polite">
 		{#if activeTab === 'summary'}
 			<div class="tab-heading compact">
-				<h2>세션 점수</h2>
+				<h2>{copy($locale, "세션 점수")}</h2>
 			</div>
 
 			<div class="score-layout">
@@ -278,19 +267,18 @@
 			</div>
 
 			<div class="insight-strip">
-				<strong>총평</strong>
+				<strong>{copy($locale, "총평")}</strong>
 				<span
 					>{feedback.ai_insight?.title ??
-						feedback.ai_insight?.description ??
-						'발표의 핵심 결과를 분석했어요.'}</span
+						feedback.ai_insight?.description ?? tr($siteLocale, "발표의 핵심 결과를 분석했어요.")}</span
 				>
 			</div>
 
 			{#if feedback.ai_insight?.title || keyFeedback.length > 0}
 				<section class="summary-section">
 					<div class="section-title">
-						<h2>핵심 피드백</h2>
-						<p>{feedback.ai_insight?.description ?? '이번 발표에서 먼저 확인할 결과예요.'}</p>
+						<h2>{copy($locale, "핵심 피드백")}</h2>
+						<p>{feedback.ai_insight?.description ?? tr($siteLocale, "이번 발표에서 먼저 확인할 결과예요.")}</p>
 					</div>
 					<div class="feedback-grid">
 						{#each keyFeedback as item, rowIndex2 (rowIndex2)}
@@ -299,12 +287,12 @@
 									<img
 										src={item.type === 'positive' ? reportThumbUp : reportTrendingUp}
 										alt=""
-									/><span>{item.type === 'positive' ? '잘한 점' : '개선 포인트'}</span>
+									/><span>{item.type === 'positive' ? tr($siteLocale, "잘한 점") : tr($siteLocale, "개선 포인트")}</span>
 								</div>
 								<h3>{item.title}</h3>
 								<p>{item.description}</p>
 								{#if item.action}<p class="feedback-action">
-										<strong>다음 행동</strong>{item.action}
+										<strong>{copy($locale, "다음 행동")}</strong>{item.action}
 									</p>{/if}
 								{#if item.evidence_ids?.[0] && evidenceById.get(item.evidence_ids[0])}
 									<small class="evidence-link"
@@ -321,11 +309,11 @@
 			<section class="summary-section">
 				<div class="section-title with-action">
 					<div>
-						<h2>발표 타임라인</h2>
-						<p>청중 반응과 대표 구간을 시간순으로 확인하세요.</p>
+						<h2>{copy($locale, "발표 타임라인")}</h2>
+						<p>{copy($locale, "청중 반응과 대표 구간을 시간순으로 확인하세요.")}</p>
 					</div>
 					<button type="button" class="text-action clickable" onclick={() => changeTab('timeline')}
-						>자세히 보기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
+						>{copy($locale, "자세히 보기")} <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
 						></button
 					>
 				</div>
@@ -343,11 +331,11 @@
 				<section class="summary-section">
 					<div class="section-title with-action">
 						<div>
-							<h2>Q&A 피드백</h2>
-							<p>질문 의도와 답변의 핵심을 빠르게 확인하세요.</p>
+							<h2>{copy($locale, "Q&A 피드백")}</h2>
+							<p>{copy($locale, "질문 의도와 답변의 핵심을 빠르게 확인하세요.")}</p>
 						</div>
 						<button type="button" class="text-action" onclick={() => changeTab('qa')}
-							>자세히 보기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
+							>{copy($locale, "자세히 보기")} <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
 							></button
 						>
 					</div>
@@ -356,7 +344,7 @@
 							<strong>{qaFeedback?.score ?? '—'}</strong><span>/100</span>
 						</div>
 						<div>
-							<strong>{qaFeedback?.summary ?? '질문과 답변 기록이 연결되었습니다.'}</strong>
+							<strong>{qaFeedback?.summary ?? tr($siteLocale, "질문과 답변 기록이 연결되었습니다.")}</strong>
 							<p>
 								총 {qaQuestions.length}개 질문 · 평균 답변 {Math.round(
 									qaFeedback?.average_answer_seconds ?? 0
@@ -364,7 +352,7 @@
 							</p>
 						</div>
 						<button type="button" onclick={() => changeTab('qa')}
-							>Q&A 결과 보기 <img src={figmaArrowForward} alt="" /></button
+							>{tr($siteLocale, "Q&A 결과 보기")} <img src={figmaArrowForward} alt="" /></button
 						>
 					</article>
 				</section>
@@ -373,23 +361,23 @@
 			<section class="summary-section">
 				<div class="section-title with-action">
 					<div>
-						<h2>다음 발표를 위한 훈련 추천</h2>
-						<p>가장 먼저 개선하면 좋은 영역이에요.</p>
+						<h2>{copy($locale, "다음 발표를 위한 훈련 추천")}</h2>
+						<p>{copy($locale, "가장 먼저 개선하면 좋은 영역이에요.")}</p>
 					</div>
 					<button type="button" class="text-action clickable" onclick={() => changeTab('training')}
-						>전체 보기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
+						>{copy($locale, "전체 보기")} <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
 						></button
 					>
 				</div>
 				<article class="training-card priority">
 					<div class="training-symbol"><img src={reportTraining} alt="" /></div>
 					<div class="training-copy">
-						<small>가장 먼저 연습해보세요</small>
-						<h3>{trainings[0]?.title}</h3>
-						<p>{trainings[0]?.description}</p>
+						<small>{copy($locale, "가장 먼저 연습해보세요")}</small>
+						<h3>{copy($locale, trainings[0]?.title ?? "")}</h3>
+						<p>{copy($locale, trainings[0]?.description ?? "")}</p>
 						<div>
-							<span>약 {trainings[0]?.duration_minutes ?? 3}분</span><span
-								>{trainings[0]?.type ?? '웹 음성 훈련'}</span
+							<span>{$locale === "en" ? "About " : "약 "}{trainings[0]?.duration_minutes ?? 3}{$locale === "en" ? " min" : "분"}</span><span
+								>{copy($locale, trainings[0]?.type ?? "웹 음성 훈련")}</span
 							>
 						</div>
 					</div>
@@ -397,21 +385,20 @@
 						type="button"
 						class="primary-action clickable"
 						onclick={() => goto(`/odi/practice?training=${trainingIds[0]}`)}
-						>훈련 시작하기 <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
+						>{copy($locale, "훈련 시작하기")} <span class="inline-arrow"><img src={figmaArrowForward} alt="" /></span
 						></button
 					>
 				</article>
 			</section>
 		{:else if activeTab === 'timeline'}
 			<div class="tab-heading">
-				<h2>발표 타임라인</h2>
+				<h2>{copy($locale, "발표 타임라인")}</h2>
 			</div>
 			<div class="timeline-summary">
-				{feedback.ai_insight?.description ??
-					'발표 흐름과 청중 반응이 달라진 지점을 함께 살펴보세요.'}
+				{feedback.ai_insight?.description ?? tr($siteLocale, "발표 흐름과 청중 반응이 달라진 지점을 함께 살펴보세요.")}
 			</div>
-			<div class="timeline-filters" aria-label="청중 반응 범례">
-				{#each [{ id: 'all', label: '전체' }, { id: 'E', label: '시선 응시' }, { id: 'V', label: '질문 생성' }, { id: 'C', label: '긍정 반응' }] as filter, rowIndex3 (rowIndex3)}
+			<div class="timeline-filters" aria-label={copy($locale, "청중 반응 범례")}>
+				{#each [{ id: 'all', label: copy($locale, "전체") }, { id: 'E', label: copy($locale, "시선 응시") }, { id: 'V', label: copy($locale, "질문 생성") }, { id: 'C', label: copy($locale, "긍정 반응") }] as filter, rowIndex3 (rowIndex3)}
 					<button
 						type="button"
 						class:active={timelineFilter === filter.id}
@@ -436,46 +423,44 @@
 			/>
 		{:else if activeTab === 'details'}
 			<div class="tab-heading">
-				<h2>세부 평가 요소</h2>
+				<h2>{copy($locale, "세부 평가 요소")}</h2>
 			</div>
 			<DetailAnalysisCard {feedback} />
 		{:else if activeTab === 'qa'}
 			<div class="tab-heading">
-				<h2>Q&A 피드백</h2>
+				<h2>{copy($locale, "Q&A 피드백")}</h2>
 				<p>
-					발표 후 진행된 Q&A의 답변을 분석하여 개선점을 확인하고, AI와 함께 더 나은 답변을
-					연습해보세요.
+					{tr($siteLocale, "발표 후 진행된 Q&A의 답변을 분석하여 개선점을 확인하고, AI와 함께 더 나은 답변을 연습해보세요.")}
 				</p>
 			</div>
 
 			{#if qaQuestions.length === 0}
 				<div class="empty-card">
 					<img class="empty-icon" src={reportCoach} alt="" />
-					<strong>질문별 Q&A 분석을 준비하고 있어요.</strong>
+					<strong>{copy($locale, "질문별 Q&A 분석을 준비하고 있어요.")}</strong>
 					<p>
-						기존 리포트의 총점과 발표 분석은 정상적으로 볼 수 있습니다. Q&A 데이터가 연결되면 문항별
-						답변과 개선 예시가 이곳에 표시됩니다.
+						{tr($siteLocale, "기존 리포트의 총점과 발표 분석은 정상적으로 볼 수 있습니다. Q&A 데이터가 연결되면 문항별 답변과 개선 예시가 이곳에 표시됩니다.")}
 					</p>
 				</div>
 			{:else}
 				<div class="qa-summary surface-card">
 					<div class="ring-score">
 						<strong>{qaFeedback?.score ?? '--'}</strong><span>/100</span><small
-							>{qaFeedback?.score != null ? scoreGrade(qaFeedback.score) : '평가 대기'}</small
+							>{qaFeedback?.score != null ? scoreGrade(qaFeedback.score) : tr($siteLocale, "평가 대기")}</small
 						>
 					</div>
 					<div class="qa-summary-copy">
-						<h3>{qaFeedback?.summary ?? '질문과 답변 기록을 바탕으로 응답 내용을 확인했어요.'}</h3>
+						<h3>{qaFeedback?.summary ?? tr($siteLocale, "질문과 답변 기록을 바탕으로 응답 내용을 확인했어요.")}</h3>
 						<ul>
 							<li>총 {qaQuestions.length}개의 질문에 답변했어요.</li>
 							<li>
 								평균 답변 시간 {Math.round(qaFeedback?.average_answer_seconds ?? 0)}초를 기록했어요.
 							</li>
-							<li>근거가 있는 평가만 점수로 표시해요.</li>
+							<li>{tr($siteLocale, "근거가 있는 평가만 점수로 표시해요.")}</li>
 						</ul>
 					</div>
 					<div class="qa-summary-metrics">
-						{#each [{ label: '질문 이해', value: qaMetricAverage(qaQuestions, 'understanding') }, { label: '답변 명확성', value: qaMetricAverage(qaQuestions, 'clarity') }, { label: '근거 활용', value: qaMetricAverage(qaQuestions, 'evidence') }, { label: '평균 답변 시간', value: qaFeedback?.average_answer_seconds, suffix: '초' }] as metric, rowIndex4 (rowIndex4)}
+						{#each [{ label: copy($locale, "질문 이해"), value: qaMetricAverage(qaQuestions, 'understanding') }, { label: copy($locale, "답변 명확성"), value: qaMetricAverage(qaQuestions, 'clarity') }, { label: copy($locale, "근거 활용"), value: qaMetricAverage(qaQuestions, 'evidence') }, { label: copy($locale, "평균 답변 시간"), value: qaFeedback?.average_answer_seconds, suffix: tr($siteLocale, "초") }] as metric, rowIndex4 (rowIndex4)}
 							<div>
 								<span>{metric.label}</span><strong
 									>{metric.value ?? '—'}<small
@@ -489,7 +474,7 @@
 					</div>
 				</div>
 
-				<div class="qa-question-tabs" role="tablist" aria-label="Q&A 질문 선택">
+				<div class="qa-question-tabs" role="tablist" aria-label={tr($siteLocale, "Q&A 질문 선택")}>
 					{#each qaQuestions as question, index (index)}
 						<button
 							type="button"
@@ -497,7 +482,7 @@
 							onclick={() => (selectedQuestionIndex = index)}
 							><span>Q{index + 1}</span><strong>{question.question}</strong><small
 								>{qaScore(question) === null
-									? '평가 대기'
+									? tr($siteLocale, "평가 대기")
 									: scoreGrade(qaScore(question) ?? 0)}</small
 							></button
 						>
@@ -511,47 +496,44 @@
 							<h3>{selectedQuestion?.question}</h3>
 							<time>{formatSeconds(selectedQuestion?.time_sec)}</time><img
 								src={reportBookmark}
-								alt="북마크"
+								alt={copy($locale, "북마크")}
 							/>
 						</header>
 						<div class="question-intent">
-							<strong>질문 의도</strong><span
-								>{selectedQuestion?.intent ??
-									'질문 의도 분석 데이터가 아직 제공되지 않았습니다.'}</span
+							<strong>{copy($locale, "질문 의도")}</strong><span
+								>{selectedQuestion?.intent ?? tr($siteLocale, "질문 의도 분석 데이터가 아직 제공되지 않았습니다.")}</span
 							>
 						</div>
 						<div class="answer-title">
-							<strong>내 답변</strong><span
+							<strong>{copy($locale, "내 답변")}</strong><span
 								>{formatSeconds(selectedQuestion?.time_sec)} ~ {formatSeconds(
 									(selectedQuestion?.time_sec ?? 0) + (selectedQuestion?.answer_duration_sec ?? 0)
 								)} ({Math.round(selectedQuestion?.answer_duration_sec ?? 0)}초)</span
 							>
 						</div>
-						<div class="waveform">
-							<button type="button" disabled aria-label="답변 오디오 없음">▶</button><img
-								src={reportQaWaveform}
-								alt="답변 음성 파형"
-							/><time>0:00 / {formatSeconds(selectedQuestion?.answer_duration_sec)}</time>
-						</div>
 						<p class="answer-transcript">{selectedQuestion?.answer}</p>
+						{#if selectedQuestion?.suggested_answer}
+							<section class="suggested-answer">
+								<h4>{copy($locale, "개선된 답변 예시")}</h4>
+								<p>{selectedQuestion.suggested_answer}</p>
+							</section>
+						{/if}
 						<div class="qa-feedback-grid">
 							<div>
-								<img src={reportQaStrength} alt="" /><strong>잘한 점</strong>
+								<img src={reportQaStrength} alt="" /><strong>{copy($locale, "잘한 점")}</strong>
 								<p>
-									{selectedQuestion?.strength ??
-										'이 문항의 강점 분석 데이터가 아직 제공되지 않았습니다.'}
+									{selectedQuestion?.strength ?? tr($siteLocale, "이 문항의 강점 분석 데이터가 아직 제공되지 않았습니다.")}
 								</p>
 							</div>
 							<div>
-								<img src={reportQaImprovement} alt="" /><strong>개선 포인트</strong>
+								<img src={reportQaImprovement} alt="" /><strong>{copy($locale, "개선 포인트")}</strong>
 								<p>
-									{selectedQuestion?.improvement ??
-										'이 문항의 개선 분석 데이터가 아직 제공되지 않았습니다.'}
+									{selectedQuestion?.improvement ?? tr($siteLocale, "이 문항의 개선 분석 데이터가 아직 제공되지 않았습니다.")}
 								</p>
 							</div>
 						</div>
 						<div class="question-scores">
-							{#each [{ label: '질문 이해', value: selectedQuestion?.scores?.understanding }, { label: '답변 명확성', value: selectedQuestion?.scores?.clarity }, { label: '근거 활용', value: selectedQuestion?.scores?.evidence }] as metric, rowIndex5 (rowIndex5)}<div
+							{#each [{ label: copy($locale, "질문 이해"), value: selectedQuestion?.scores?.understanding }, { label: copy($locale, "답변 명확성"), value: selectedQuestion?.scores?.clarity }, { label: copy($locale, "근거 활용"), value: selectedQuestion?.scores?.evidence }] as metric, rowIndex5 (rowIndex5)}<div
 								>
 									<span>{metric.label}</span><strong
 										>{metric.value ?? '—'}<small>{metric.value !== undefined ? '/100' : ''}</small
@@ -562,42 +544,16 @@
 								type="button"
 								class="primary-action"
 								onclick={() => goto(`/odi/practice?training=${trainingIds[0]}`)}
-								>이 질문으로 다시 연습하기 <img src={figmaArrowForward} alt="" /></button
+								>{copy($locale, "추천 훈련 시작하기")} <img src={figmaArrowForward} alt="" /></button
 							>
 						</div>
 					</article>
-
-					<aside class="qa-ai-panel" aria-label="Re:hear AI 답변 예시">
-						<div class="ai-brand">
-							<img src={reportQaAiAvatar} alt="" /><strong>Re:hear AI</strong>
-						</div>
-						<p>이 Q&A에 대해 궁금한 점을 물어보세요. AI가 맞춤형 피드백을 제공해드려요.</p>
-						<div class="chat-bubble user">이 답변이 좋은 이유는 무엇인가요?</div>
-						<div class="chat-bubble">
-							{selectedQuestion?.strength ?? '추가 생성 없이 저장된 평가 데이터만 표시합니다.'}
-						</div>
-						<div class="suggested-answer">
-							<strong>개선된 답변 예시</strong>
-							<p>
-								{selectedQuestion?.suggested_answer ??
-									'현재 리포트에는 AI 답변 예시가 없습니다. 추가 생성 없이 기록된 답변과 평가 근거만 표시합니다.'}
-							</p>
-							<button type="button" disabled
-								>이 예시로 연습하기 <img src={figmaArrowForward} alt="" /></button
-							>
-						</div>
-						<label class="chat-input"
-							><span>궁금한 점을 입력하세요.</span><button type="button" disabled
-								><img src={reportSend} alt="전송" /></button
-							></label
-						>
-					</aside>
 				</div>
 			{/if}
 		{:else}
 			<div class="tab-heading">
-				<h2>맞춤 훈련</h2>
-				<p>다음 발표를 위해 이번 세션에서 가장 먼저 개선하면 좋은 영역이에요.</p>
+				<h2>{copy($locale, "맞춤 훈련")}</h2>
+				<p>{tr($siteLocale, "다음 발표를 위해 이번 세션에서 가장 먼저 개선하면 좋은 영역이에요.")}</p>
 			</div>
 			<TrainingRecommendations ids={trainingIds} />
 		{/if}
@@ -605,9 +561,16 @@
 
 	<footer class="report-footer">
 		<button type="button" class="download-action clickable" onclick={onDownload}
-			><img src={figmaReportDownload} alt="" />리포트 다운로드</button
+			><img src={figmaReportDownload} alt="" />{copy($locale, "리포트 다운로드")}</button
 		>
 	</footer>
+
+	{#if warnings.length > 0}
+		<div class="generation-notice" role="status">
+			<strong>{tr($siteLocale, "일부 입력이 제한된 상태로 분석되었습니다.")}</strong>
+			<span>{warnings.join(', ')}</span>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -1299,12 +1262,11 @@
 	}
 	.qa-workspace {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 330px;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 26px;
 		align-items: start;
 	}
-	.qa-detail-card,
-	.qa-ai-panel {
+	.qa-detail-card {
 		border: 1px solid #dfe2eb;
 		border-radius: 14px;
 		background: #fff;
@@ -1363,29 +1325,6 @@
 		color: #81838f;
 		font-size: 13px;
 	}
-	.waveform {
-		min-height: 56px;
-		padding: 10px 14px;
-		display: grid;
-		grid-template-columns: 24px minmax(0, 1fr) auto;
-		gap: 12px;
-		align-items: center;
-		border: 1px solid #dfe2eb;
-		border-radius: 8px;
-	}
-	.waveform button {
-		color: #0033ff;
-		opacity: 1;
-	}
-	.waveform img {
-		width: 100%;
-		height: 32px;
-		object-fit: fill;
-	}
-	.waveform time {
-		color: #81838f;
-		font-size: 12px;
-	}
 	.answer-transcript {
 		padding: 4px 8px;
 		color: #3d4150;
@@ -1417,41 +1356,6 @@
 		height: 24px;
 		filter: brightness(0) invert(1);
 	}
-	.qa-ai-panel {
-		padding: 24px 18px;
-		display: grid;
-		gap: 18px;
-		background: #f7f7ff;
-	}
-	.ai-brand {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		color: #0033ff;
-	}
-	.ai-brand img {
-		width: 28px;
-		height: 28px;
-		border-radius: 7px;
-	}
-	.qa-ai-panel > p {
-		color: #3d4150;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-	.chat-bubble {
-		padding: 14px;
-		border-radius: 8px;
-		background: #fff;
-		color: #3d4150;
-		font-size: 13px;
-		line-height: 1.55;
-	}
-	.chat-bubble.user {
-		margin-left: 28px;
-		background: #0033ff;
-		color: #fff;
-	}
 	.suggested-answer {
 		padding: 18px 14px;
 		display: grid;
@@ -1464,46 +1368,6 @@
 		color: #3d4150;
 		font-size: 13px;
 		line-height: 1.6;
-	}
-	.suggested-answer button {
-		min-height: 42px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 10px;
-		border: 1px solid #0033ff;
-		border-radius: 6px;
-		color: #0033ff;
-		opacity: 0.65;
-	}
-	.suggested-answer img {
-		width: 20px;
-		height: 20px;
-	}
-	.chat-input {
-		min-height: 64px;
-		padding: 14px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		border: 1px solid #dfe2eb;
-		border-radius: 10px;
-		background: #fff;
-		color: #a0a3ad;
-		font-size: 13px;
-	}
-	.chat-input button {
-		width: 32px;
-		height: 32px;
-		display: grid;
-		place-items: center;
-		border-radius: 50%;
-		background: #0033ff;
-		opacity: 0.55;
-	}
-	.chat-input img {
-		width: 18px;
-		height: 18px;
 	}
 	.summary-qa-card {
 		padding: 28px 34px;
@@ -1640,14 +1504,6 @@
 		.qa-workspace {
 			grid-template-columns: 1fr;
 		}
-		.qa-ai-panel {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-		.ai-brand,
-		.qa-ai-panel > p,
-		.chat-input {
-			grid-column: 1 / -1;
-		}
 		.question-scores {
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
@@ -1706,14 +1562,6 @@
 		.qa-question-tabs,
 		.summary-qa-card {
 			grid-template-columns: 1fr;
-		}
-		.qa-ai-panel {
-			grid-template-columns: 1fr;
-		}
-		.ai-brand,
-		.qa-ai-panel > p,
-		.chat-input {
-			grid-column: auto;
 		}
 	}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { ScriptAnalysis } from '$lib/odi/domain/scriptAnalysis';
 	import Button from '../common/Button.svelte';
 	let {
@@ -22,7 +23,7 @@
 </script>
 
 <section class="surface suggestions">
-	<h2>수정 제안 <span class="chip">{analysis.suggestions.length}문장</span></h2>
+	<h2>{tr($siteLocale, "수정 제안")} <span class="chip">{analysis.suggestions.length}문장</span></h2>
 	<div class="categories">
 		{#each categories as item, rowIndex0 (rowIndex0)}<button
 				class:active={category === item.id}
@@ -39,16 +40,16 @@
 				size="sm"
 				variant="outline"
 				disabled={stale || !selected.length}
-				onclick={() => onapply(selected)}>선택 항목 적용하기</Button
+				onclick={() => onapply(selected)}>{tr($siteLocale, "선택 항목 적용하기")}</Button
 			><Button
 				size="sm"
 				disabled={stale || !analysis.suggestions.length}
-				onclick={() => onapply(analysis.suggestions.map((s) => s.id))}>모두 적용하기</Button
+				onclick={() => onapply(analysis.suggestions.map((s) => s.id))}>{tr($siteLocale, "모두 적용하기")}</Button
 			>
 		</div>
 	</div>
 	{#if stale}<p role="status" class="error">
-			원문이 변경되었어요. 다시 검사해 주세요.
+			{tr($siteLocale, "원문이 변경되었어요. 다시 검사해 주세요.")}
 		</p>{/if}{#each visible as suggestion (suggestion.id)}<article>
 			<label
 				><input
@@ -59,17 +60,17 @@
 							? selected.filter((id) => id !== suggestion.id)
 							: [...selected, suggestion.id])}
 					disabled={stale}
-				/> 수정 제안 선택</label
+				/> {tr($siteLocale, "수정 제안 선택")}</label
 			>
 			<div class="original">
-				<span>원문</span>
+				<span>{tr($siteLocale, "원문")}</span>
 				<p>{suggestion.original}</p>
 			</div>
 			<div class="replacement">
-				<span>제안</span>
+				<span>{tr($siteLocale, "제안")}</span>
 				<p>{suggestion.replacement}</p>
 			</div>
-		</article>{:else}<p class="state">이 항목에 수정 제안이 없어요.</p>{/each}
+		</article>{:else}<p class="state">{tr($siteLocale, "이 항목에 수정 제안이 없어요.")}</p>{/each}
 </section>
 
 <style>

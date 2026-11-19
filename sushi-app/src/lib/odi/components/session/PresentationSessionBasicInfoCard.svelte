@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/session/PresentationSessionBasicInfoCard.svelte -->
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
 	import TextInput from "$lib/odi/components/common/TextInput.svelte";
 	import SessionSelect from "$lib/odi/components/session/SessionSelect.svelte";
@@ -38,30 +39,30 @@
 		questionCount?: number;
 	} = $props();
 
-	const purposeItems = [
-		{ label: "프로젝트 목적", value: "프로젝트 목적" },
-		{ label: "연구 결과 공유", value: "연구 결과 공유" },
-		{ label: "프로젝트 발표", value: "프로젝트 발표" },
-		{ label: "사업 제안", value: "사업 제안" },
-		{ label: "수업 발표", value: "수업 발표" },
-		{ label: "성과 보고", value: "성과 보고" }
-	];
+	const purposeItems = $derived([
+		{ label: copy($locale, "프로젝트 목적"), value: "프로젝트 목적" },
+		{ label: copy($locale, "연구 결과 공유"), value: "연구 결과 공유" },
+		{ label: copy($locale, "프로젝트 발표"), value: "프로젝트 발표" },
+		{ label: copy($locale, "사업 제안"), value: "사업 제안" },
+		{ label: copy($locale, "수업 발표"), value: "수업 발표" },
+		{ label: copy($locale, "성과 보고"), value: "성과 보고" }
+	]);
 
-	const languageItems = [
-		{ label: "한국어", value: "한국어" },
-		{ label: "영어", value: "영어" }
-	];
+	const languageItems = $derived([
+		{ label: copy($locale, "한국어"), value: "한국어" },
+		{ label: copy($locale, "영어"), value: "영어" }
+	]);
 
-	const durationItems = [
-		{ label: "2분", value: "2" },
-		{ label: "5분", value: "5" },
-		{ label: "10분", value: "10" },
-		{ label: "15분", value: "15" },
-		{ label: "20분", value: "20" },
-		{ label: "30분", value: "30" },
-		{ label: "직접 입력", value: "custom" }
-	];
-	const presetDurations = new Set(durationItems.slice(0, -1).map((item) => Number(item.value)));
+	const durationItems = $derived([
+		{ label: copy($locale, "2분"), value: "2" },
+		{ label: copy($locale, "5분"), value: "5" },
+		{ label: copy($locale, "10분"), value: "10" },
+		{ label: copy($locale, "15분"), value: "15" },
+		{ label: copy($locale, "20분"), value: "20" },
+		{ label: copy($locale, "30분"), value: "30" },
+		{ label: copy($locale, "직접 입력"), value: "custom" }
+	]);
+	const presetDurations = new Set([2, 5, 10, 15, 20, 30]);
 	let customDuration = $state(false);
 	let customUnit = $state<DurationUnit>('minutes');
 	let customValue = $state('2');
@@ -115,51 +116,51 @@
 		);
 	}
 
-	const placeItems = [
-		{ label: "강의실", value: "강의실", icon: 강의실콘 },
-		{ label: "세미나실", value: "세미나실", icon: 세미나실콘 },
-		{ label: "학회 발표장", value: "학회 발표장", icon: 학회장콘 }
-	];
+	const placeItems = $derived([
+		{ label: copy($locale, "강의실"), value: "강의실", icon: 강의실콘 },
+		{ label: copy($locale, "세미나실"), value: "세미나실", icon: 세미나실콘 },
+		{ label: copy($locale, "학회 발표장"), value: "학회 발표장", icon: 학회장콘 }
+	]);
 
-	const questionTicks = [
-		{ value: 0, label: "0개" },
-		{ value: 1, label: "1개" },
-		{ value: 2, label: "2개" },
-		{ value: 3, label: "3개" },
-		{ value: 4, label: "4개" },
-		{ value: 5, label: "5개" }
-	];
+	const questionTicks = $derived([
+		{ value: 0, label: copy($locale, "0개") },
+		{ value: 1, label: copy($locale, "1개") },
+		{ value: 2, label: copy($locale, "2개") },
+		{ value: 3, label: copy($locale, "3개") },
+		{ value: 4, label: copy($locale, "4개") },
+		{ value: 5, label: copy($locale, "5개") }
+	]);
 </script>
 
 <SurfaceCard padding="36px" minHeight="609px">
 	<div class="presentation-basic-card">
-		<h2 class="text-title-middle">발표 기본 정보</h2>
+		<h2 class="text-title-middle">{copy($locale, "발표 기본 정보")}</h2>
 
 		<section class="top-grid">
 			<TextInput
-				label="발표 제목"
+				label={copy($locale, "발표 제목")}
 				required
-				placeholder="예) AI 시대의 커뮤니케이션 전략"
+				placeholder={copy($locale, "예) AI 시대의 커뮤니케이션 전략")}
 				width="100%"
 				bind:value={title}
 			/>
 
 			<div class="field">
 				<div class="label text-body-active">
-					<span>발표 목적</span>
+					<span>{copy($locale, "발표 목적")}</span>
 					<span class="required">*</span>
 				</div>
 
 				<SessionSelect
 					items={purposeItems}
 					width="100%"
-					placeholder="발표 목적 선택"
+					placeholder={copy($locale, "발표 목적 선택")}
 					bind:value={purpose}
 				/>
 			</div>
 
 			<div class="field">
-				<div class="label text-body-active">사용 언어</div>
+				<div class="label text-body-active">{copy($locale, "사용 언어")}</div>
 
 				<SessionSelect
 					items={languageItems}
@@ -173,7 +174,7 @@
 			<div class="left-column">
 				<div class="field">
 					<div class="label text-body-active">
-						<span>발표 시간</span>
+						<span>{copy($locale, "발표 시간")}</span>
 						<span class="required">*</span>
 					</div>
 
@@ -193,27 +194,27 @@
 								inputmode="decimal"
 								min="0.01"
 								step="0.01"
-								aria-label="직접 입력 발표 시간"
+								aria-label={copy($locale, "직접 입력 발표 시간")}
 								bind:value={customValue}
 								oninput={applyCustomDuration}
 							/>
 							<select
 								class="custom-duration-unit text-body-medium"
-								aria-label="발표 시간 단위"
+								aria-label={copy($locale, "발표 시간 단위")}
 								value={customUnit}
 								onchange={changeCustomUnit}
 							>
-								<option value="minutes">분</option>
-								<option value="seconds">초</option>
+								<option value="minutes">{copy($locale, "분")}</option>
+								<option value="seconds">{copy($locale, "초")}</option>
 							</select>
 						</div>
-						<p class="duration-help text-caption-medium">소수점 둘째 자리까지 입력할 수 있어요.</p>
+						<p class="duration-help text-caption-medium">{copy($locale, "소수점 둘째 자리까지 입력할 수 있어요.")}</p>
 					{/if}
 				</div>
 
 				<div class="field">
 					<div class="label text-title-small">
-						<span>질의 응답 개수</span>
+						<span>{copy($locale, "질의 응답 개수")}</span>
 						<span class="required">*</span>
 					</div>
 
@@ -232,7 +233,7 @@
 			<div class="right-column">
 				<div class="field">
 					<div class="label text-title-small">
-						<span>발표 환경</span>
+						<span>{copy($locale, "발표 환경")}</span>
 						<span class="required">*</span>
 					</div>
 

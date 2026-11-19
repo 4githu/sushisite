@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy, duration } from "$lib/odi/i18n";
 	import { onMount } from 'svelte';
 	import { session, type OdiSession } from '$lib/odi/stores';
 	import {
@@ -67,38 +69,38 @@
 	onMount(load);
 </script>
 
-<svelte:head><title>세션 리포트 | Re:hear</title></svelte:head>
+<svelte:head><title>{tr($siteLocale, "세션 리포트 | Re:hear")}</title></svelte:head>
 <main class="odi-workspace">
 	<header>
 		<p class="eyebrow">Report</p>
-		<h1>세션 리포트</h1>
+		<h1>{copy($locale, "세션 리포트")}</h1>
 	</header>
 	<div class="stat-grid">
 		<article class="stat">
 			<div>
-				나의 평균 점수
-				<p>최고 점수 {summary.best ?? '—'}점</p>
+				{copy($locale, "나의 평균 점수")}
+				<p>{$locale === 'en' ? 'Best score' : '최고 점수'} {summary.best ?? '—'}{$locale === 'en' ? '' : '점'}</p>
 			</div>
-			<strong>{summary.average ?? '—'}<small>점</small></strong>
+			<strong>{summary.average ?? '—'}<small>{$locale === 'en' ? ' pts' : '점'}</small></strong>
 		</article>
 		<article class="stat">
 			<div>
-				총 연습 시간
-				<p>완료한 발표·면접 세션</p>
+				{copy($locale, "총 연습 시간")}
+				<p>{copy($locale, "완료한 발표·면접 세션")}</p>
 			</div>
-			<strong class="time">{formatKoreanDuration(summary.seconds)}</strong>
+			<strong class="time">{duration($locale, summary.seconds)}</strong>
 		</article>
 	</div>
 	<div class="tabs report-tabs">
-		<button class:active={tab === 'topics'} onclick={() => (tab = 'topics')}>세션 주제</button
-		><button class:active={tab === 'all'} onclick={() => (tab = 'all')}>전체 기록</button>
+		<button class:active={tab === 'topics'} onclick={() => (tab = 'topics')}>{copy($locale, "세션 주제")}</button
+		><button class:active={tab === 'all'} onclick={() => (tab = 'all')}>{copy($locale, "전체 기록")}</button>
 	</div>
 	{#if error}<p class="error" role="alert">{error}</p>
-		<Button onclick={load}>다시 시도</Button>{/if}
-	{#if loading}<p class="state">리포트를 불러오는 중…</p>{:else if !rows.length}<div class="state">
-			<h2>아직 완료한 세션이 없어요</h2>
-			<p>첫 발표를 완료하면 리포트를 확인할 수 있어요.</p>
-			<Button href="/odi">홈으로</Button>
+		<Button onclick={load}>{copy($locale, "다시 시도")}</Button>{/if}
+	{#if loading}<p class="state">{copy($locale, "리포트를 불러오는 중…")}</p>{:else if !rows.length}<div class="state">
+			<h2>{copy($locale, "아직 완료한 세션이 없어요")}</h2>
+			<p>{copy($locale, "첫 발표를 완료하면 리포트를 확인할 수 있어요.")}</p>
+			<Button href="/odi">{copy($locale, "홈으로")}</Button>
 		</div>{:else}{#if tab === 'topics'}<div class="topics">
 				{#each topics as topic (topic.id)}<SessionTopicCard
 						latest={topic.latest}
@@ -109,16 +111,16 @@
 					/>{/each}
 			</div>
 			{#if active}<h2>{active.latest.title}</h2>
-				<p class="muted">{active.latest.details} · 청중 {active.latest.audience}인</p>{/if}{/if}
+				<p class="muted">{$locale === 'en' ? `${active.latest.session.template?.environment?.duration_minutes ?? 0} min · ${active.latest.audience} people` : `${active.latest.details} · 청중 ${active.latest.audience}인`}</p>{/if}{/if}
 		<div class="toolbar">
-			<span class="muted">총 {filtered.length}개 기록</span>
+			<span class="muted">{$locale === 'en' ? `${filtered.length} ${filtered.length === 1 ? 'session' : 'sessions'}` : `총 ${filtered.length}개 기록`}</span>
 			<div class="actions">
 				<input
 					bind:value={query}
-					aria-label="세션 이름 검색"
-					placeholder="세션 이름 검색"
-				/>{#if tab === 'all'}<select bind:value={sort} aria-label="정렬"
-						><option value="recent">최신순</option><option value="score">점수 높은 순</option
+					aria-label={copy($locale, "세션 이름 검색")}
+					placeholder={copy($locale, "세션 이름 검색")}
+				/>{#if tab === 'all'}<select bind:value={sort} aria-label={copy($locale, "정렬")}
+						><option value="recent">{copy($locale, "최신순")}</option><option value="score">{copy($locale, "점수 높은 순")}</option
 						></select
 					>{/if}
 			</div>
@@ -133,8 +135,8 @@
 				)}
 				total={filtered.length}
 				offset={(page - 1) * 5}
-			/>{:else}<p class="state">검색 결과가 없어요.</p>{/if}
-		<nav class="pagination" aria-label="페이지 이동">
+			/>{:else}<p class="state">{copy($locale, "검색 결과가 없어요.")}</p>{/if}
+		<nav class="pagination" aria-label={copy($locale, "페이지 이동")}>
 			{#each Array(pages) as _, i (i)}<button
 					class:active={page === i + 1}
 					onclick={() => (page = i + 1)}>{i + 1}</button

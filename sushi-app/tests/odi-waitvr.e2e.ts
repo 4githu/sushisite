@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const presentationTemplate = {
 	type: 'presentation',
@@ -444,6 +445,24 @@ test('리포트는 노트북 100% 배율과 모바일에서 가로로 넘치지 
 	}
 });
 
+test('고정 피드백 체험 리포트를 실제 AI 분석 사건과 구별해 안내한다', async ({ page }) => {
+	await mockSessionApi(page, 'normal@example.com');
+	const demoSession = reportSession('session-fixed-demo');
+	(demoSession.feedback as any).version = 'fixed-demo-v1';
+	await page.route('**/odi/db/sessions/session-fixed-demo', (route) =>
+		route.fulfill({ json: { session: demoSession } })
+	);
+	await page.goto('/odi/report/session-fixed-demo');
+	await expect(page.getByRole('status')).toContainText('체험 시연 리포트');
+	await expect(page.getByRole('status')).toContainText('실제 AI 분석 사건');
+
+	await page.route('**/odi/db/sessions/session-regular', (route) =>
+		route.fulfill({ json: { session: reportSession('session-regular') } })
+	);
+	await page.goto('/odi/report/session-regular');
+	await expect(page.getByRole('status')).toHaveCount(0);
+});
+
 test('영상이 연결된 개선 구간을 선택하면 현재 구간과 재생 상태를 표시한다', async ({ page }) => {
 	await mockSessionApi(page, 'normal@example.com');
 	const sessionWithVideo = reportSession('session-video');
@@ -514,6 +533,51 @@ test('세션 영상을 업로드하면 같은 타임라인에서 바로 재생 �
 
 	await expect(page.locator('.video-pane video')).toBeVisible();
 	await expect(page.getByText('uploaded-demo.mp4').first()).toBeVisible();
+});
+
+test('합성 MP4를 업로드한 뒤 선택 구간에서 실제 디코딩·탐색·정지를 확인한다', async ({ page }) => {
+	await mockSessionApi(page, 'normal@example.com');
+	const sessionId = 'session-playback-synthetic';
+	const video = readFileSync(new URL('./fixtures/odi-playback-synthetic.mp4', import.meta.url));
+	const session = reportSession(sessionId);
+	(session.feedback.timeline as any)[0].time_sec = 0.5;
+	(session.feedback.timeline as any)[0].end_sec = 1.5;
+	let uploaded = false;
+	await page.route(`**/odi/db/sessions/${sessionId}`, (route) =>
+		route.fulfill({ json: { session } })
+	);
+	await page.route(`**/odi/db/sessions/${sessionId}/media/upload`, (route) => {
+		uploaded = Boolean(route.request().postDataBuffer()?.includes(video));
+		const updated = structuredClone(session);
+		(updated.feedback as any).media = {
+			version: 'session-media-v1',
+			session_id: sessionId,
+			video_url: `/odi/db/sessions/${sessionId}/media/file`,
+			title: 'odi-playback-synthetic.mp4',
+			source: 'upload'
+		};
+		return route.fulfill({ json: { session: updated } });
+	});
+	await page.route(`**/odi/db/sessions/${sessionId}/media/file`, (route) =>
+		route.fulfill({ status: 200, contentType: 'video/mp4', body: video })
+	);
+
+	await page.goto(`/odi/report/${sessionId}`);
+	await page.getByRole('tab', { name: '발표 타임라인' }).click();
+	await page.locator('input[type="file"][accept*="video/mp4"]').setInputFiles({
+		name: 'odi-playback-synthetic.mp4',
+		mimeType: 'video/mp4',
+		buffer: video
+	});
+	await expect(page.locator('.video-pane video')).toBeVisible();
+	expect(uploaded).toBe(true);
+	await expect.poll(() => page.locator('.video-pane video').evaluate((v: HTMLVideoElement) => v.duration)).toBeCloseTo(3, 0);
+	await page.getByRole('button', { name: /입력 신호를 구분해 보세요/ }).click();
+	await expect.poll(() => page.locator('.video-pane video').evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThanOrEqual(0.5);
+	await expect.poll(() => page.locator('.video-pane video').evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+	const stoppedAt = await page.locator('.video-pane video').evaluate((v: HTMLVideoElement) => v.currentTime);
+	expect(stoppedAt).toBeGreaterThanOrEqual(1.5);
+	expect(stoppedAt).toBeLessThan(2.5);
 });
 
 test('다른 세션에 묶인 영상은 재생하지 않는다', async ({ page }) => {
@@ -591,5 +655,43 @@ test('계정 설정에서 리포트 버전을 저장하면 기존 config를 유�
 			show_timeline_video: false,
 			another_preference: true
 		}
+	});
+});
+
+test('저장된 주제의 환경 수정은 자료를 유지하고 청중 슬라이더가 카드 안에 표시된다', async ({
+	page
+}) => {
+	await mockSessionApi(page);
+	await page.goto('/odi/templates');
+	await page.getByRole('button', { name: '이 환경으로 시작', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: '이 환경으로 세션 시작' }).click();
+	await page.getByRole('link', { name: '환경 수정하기' }).click();
+	await expect(page).toHaveURL(/presentation$/);
+	await page.getByRole('button', { name: '다음 단계' }).click();
+	await expect(page).toHaveURL(/presentation\/upload$/);
+	await page.getByRole('button', { name: '다음 단계' }).click();
+	await expect(page.locator('.audience-slider')).toBeVisible();
+	for (const width of [1440, 1024, 820, 390]) {
+		await page.setViewportSize({ width, height: 1000 });
+		await page.waitForTimeout(350);
+		const bounds = await page.locator('.audience-slider').evaluate((el) => {
+			const slider = el.getBoundingClientRect();
+			const parent = el.parentElement!.getBoundingClientRect();
+			const value = el.querySelector('.current-value')!.getBoundingClientRect();
+			return {
+				right: slider.right,
+				parent: parent.right,
+				value: value.right,
+				viewport: innerWidth
+			};
+		});
+		expect(bounds.right).toBeLessThanOrEqual(bounds.parent);
+		expect(bounds.value).toBeLessThanOrEqual(bounds.viewport);
+	}
+	await page.getByRole('button', { name: '사이드바 접기' }).click();
+	await page.screenshot({
+		path: '/tmp/rehear-audience-fixed.png',
+		fullPage: true,
+		animations: 'disabled'
 	});
 });

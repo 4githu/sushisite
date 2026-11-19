@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale, copy } from "$lib/odi/i18n";
 	import { trainingNames } from '$lib/odi/domain/sessionSummary';
 	import { practiceIcon } from '$lib/odi/icons/practice';
 	let { ids }: { ids: string[] } = $props();
@@ -7,10 +8,10 @@
 <section class="surface">
 	<div class="section-head">
 		<div>
-			<h2>추천 훈련</h2>
-			<p class="muted">최근 세션을 바탕으로 필요한 역량을 연습해요.</p>
+			<h2>{copy($locale, "추천 훈련")}</h2>
+			<p class="muted">{copy($locale, "최근 세션을 바탕으로 필요한 역량을 연습해요.")}</p>
 		</div>
-		<a href="/odi/practice">훈련하러 가기 ›</a>
+		<a href="/odi/practice">{copy($locale, "훈련하러 가기 ›")}</a>
 	</div>
 	<div class="training-grid">
 		{#each ids as id, rowIndex0 (rowIndex0)}<a
@@ -18,9 +19,9 @@
 				class="training"
 				><img src={practiceIcon(id)} alt="" />
 				<div>
-					<h3>{trainingNames[id]}</h3>
-					<p>짧은 음성 연습으로 한 가지 역량에 집중해 보세요.</p>
-					<span>훈련 시작 →</span>
+					<h3>{copy($locale, trainingNames[id] ?? id)}</h3>
+					<p>{copy($locale, "짧은 음성 연습으로 한 가지 역량에 집중해 보세요.")}</p>
+					<span>{copy($locale, "훈련 시작 →")}</span>
 				</div></a
 			>{/each}
 	</div>

@@ -48,7 +48,11 @@ def create_user(email, password_hash, name, created_at, email_verified=0):
 def edit_user(id, email, password_hash, name, email_verified=0):
     with get_connection() as conn:
         cursor = conn.cursor()
+        previous = cursor.execute("SELECT email FROM users WHERE id = ?", (id,)).fetchone()
         cursor.execute("UPDATE users SET email = ?, password_hash = ?, name = ?, email_verified = ? WHERE id = ?", (email, password_hash, name, email_verified, id))
+        if previous and previous["email"] != email:
+            _ensure_account_verification_table(conn)
+            conn.execute("DELETE FROM account_email_verifications WHERE user_id = ?", (id,))
         conn.commit()
         conn.close()
 
@@ -108,8 +112,80 @@ def delete_user(id):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM users WHERE id = ?", (id,))
+        _ensure_account_verification_table(conn)
+        conn.execute("DELETE FROM account_email_verifications WHERE user_id = ?", (id,))
+        conn.execute("DELETE FROM account_email_send_limits WHERE user_id = ?", (id,))
         conn.commit()
         conn.close()
+
+def _ensure_account_verification_table(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS account_email_verifications (
+        user_id INTEGER PRIMARY KEY, email TEXT NOT NULL, code_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS account_email_send_limits (
+        user_id INTEGER PRIMARY KEY, window_start INTEGER NOT NULL, send_count INTEGER NOT NULL
+    )""")
+
+
+def reserve_email_verification(user_id, email, code_hash, now, cooldown=60):
+    with get_connection() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        _ensure_account_verification_table(conn)
+        user = conn.execute("SELECT email, email_verified FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            return "missing"
+        if user["email_verified"]:
+            return "verified"
+        if user["email"] != email:
+            return "changed"
+        previous = conn.execute("SELECT created_at FROM account_email_verifications WHERE user_id = ?", (user_id,)).fetchone()
+        if previous and now - previous["created_at"] < cooldown:
+            return "cooldown"
+        limit = conn.execute("SELECT * FROM account_email_send_limits WHERE user_id=?", (user_id,)).fetchone()
+        if limit and now - limit["window_start"] < 86400 and limit["send_count"] >= 5:
+            return "cooldown"
+        window_start = limit["window_start"] if limit and now - limit["window_start"] < 86400 else now
+        count = limit["send_count"] + 1 if limit and window_start == limit["window_start"] else 1
+        conn.execute("""INSERT INTO account_email_send_limits VALUES(?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET window_start=excluded.window_start, send_count=excluded.send_count""",
+            (user_id, window_start, count))
+        conn.execute("""INSERT INTO account_email_verifications(user_id,email,code_hash,created_at,attempts)
+            VALUES(?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,
+            code_hash=excluded.code_hash, created_at=excluded.created_at, attempts=0""",
+            (user_id, user["email"], code_hash, now))
+        conn.commit()
+        return user["email"]
+
+
+def cancel_email_verification(user_id, code_hash):
+    with get_connection() as conn:
+        _ensure_account_verification_table(conn)
+        conn.execute("DELETE FROM account_email_verifications WHERE user_id=? AND code_hash=?", (user_id, code_hash))
+        conn.commit()
+
+
+def confirm_email_verification(user_id, code, now, digest):
+    import hmac
+    with get_connection() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        _ensure_account_verification_table(conn)
+        user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user:
+            return "missing", None
+        row = conn.execute("SELECT * FROM account_email_verifications WHERE user_id=?", (user_id,)).fetchone()
+        if not row or row["email"] != user["email"] or now - row["created_at"] > 3600 or row["attempts"] >= 5:
+            return "invalid", None
+        if not hmac.compare_digest(row["code_hash"], digest(user_id, row["email"], code)):
+            conn.execute("UPDATE account_email_verifications SET attempts=attempts+1 WHERE user_id=?", (user_id,))
+            conn.commit()
+            return "invalid", None
+        conn.execute("UPDATE users SET email_verified=1 WHERE id=? AND email=?", (user_id, row["email"]))
+        conn.execute("DELETE FROM account_email_verifications WHERE user_id=?", (user_id,))
+        user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+        conn.commit()
+        return "ok", user
+
 
 def make_imsi_user(email, password_hash, name, created_at, email_code):
     with get_connection() as conn:

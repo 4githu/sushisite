@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/OdiJoinRequiredModal.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import { account_circle as AccountCircle, authLogout as Logout, Seedling as Seedling } from "$lib/odi/icons";
@@ -26,11 +27,11 @@
 				<img src={Seedling} alt="" />
 			</div>
 
-			<p class="welcome text-body-active">Re:hear 서비스 시작이 필요해요</p>
+			<p class="welcome text-body-active">{tr($siteLocale, "Re:hear 서비스 시작이 필요해요")}</p>
 
 			<h2 id={titleId} class="modal-title">
-				현재 로그인된 계정으로<br />
-				Re:hear를 시작할까요?
+				{tr($siteLocale, "현재 로그인된 계정으로")}<br />
+				{tr($siteLocale, "Re:hear를 시작할까요?")}
 			</h2>
 		</div>
 
@@ -44,17 +45,17 @@
 		</div>
 
 		<div class="guide-box">
-			<p>Re:hear 계정을 만들면 발표와 면접 연습 기록, 맞춤 리포트, 훈련 목표를 저장할 수 있습니다.</p>
+			<p>{tr($siteLocale, "Re:hear 계정을 만들면 발표와 면접 연습 기록, 맞춤 리포트, 훈련 목표를 저장할 수 있습니다.")}</p>
 		</div>
 
 		<div class="actions">
 			<Button variant="primary" width="100%" onclick={onJoin}>
-				Re:hear 시작하기
+				{tr($siteLocale, "Re:hear 시작하기")}
 			</Button>
 
 			<button type="button" class="logout-button clickable" onclick={onLogout}>
 				<span class="logout-icon" style:mask-image={`url("${Logout}")`} aria-hidden="true"></span>
-				<span>다른 계정으로 로그인</span>
+				<span>{tr($siteLocale, "다른 계정으로 로그인")}</span>
 			</button>
 		</div>
 	</div>

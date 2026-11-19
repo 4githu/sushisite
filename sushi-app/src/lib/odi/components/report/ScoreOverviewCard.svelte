@@ -1,6 +1,7 @@
 <!-- src/lib/odi/components/report/ScoreOverviewCard.svelte -->
 
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import ReportCard from './ReportCard.svelte';
 	import { clampScore } from './reportUtils';
 	import type { ReportComparison, ReportFeedback } from './reportTypes';
@@ -67,23 +68,23 @@
 
 <ReportCard padding="24px" minHeight="380px">
 	<div class:v3={variant === 'v3'} class="score-card">
-		<h2>나의 발표 점수</h2>
+		<h2>{tr($siteLocale, "나의 발표 점수")}</h2>
 
 		<div class="score-main">
 			{#if percentile !== null}
-				<span class="percent-chip">발표자 중 상위 {percentile}%예요</span>
+				<span class="percent-chip">{$siteLocale === "en" ? `Top ${percentile}% of presenters` : `발표자 중 상위 ${percentile}%예요`}</span>
 			{:else}
-				<span class="percent-chip neutral">비교 데이터 준비 중</span>
+				<span class="percent-chip neutral">{tr($siteLocale, "비교 데이터 준비 중")}</span>
 			{/if}
 
 			<div class="score-number">
 				<strong>{Number.isFinite(overall) ? overall : '--'}</strong>
-				{#if Number.isFinite(overall)}<span>점</span>{/if}
+				{#if Number.isFinite(overall)}<span>{$siteLocale === "en" ? "pts" : "점"}</span>{/if}
 			</div>
 		</div>
 
 		<div class="radar-wrap">
-			<svg class="radar" viewBox="0 0 320 250" aria-label="발표 점수 레이더 그래프">
+			<svg class="radar" viewBox="0 0 320 250" aria-label={tr($siteLocale, "발표 점수 레이더 그래프")}>
 				<polygon
 					class="grid"
 					points={`${axisPoint(0, 105)} ${axisPoint(1, 105)} ${axisPoint(2, 105)}`}
@@ -111,13 +112,13 @@
 				{#if hasUserScores}<polygon class="user-polygon" points={polygon(radarValues)} />{/if}
 			</svg>
 
-			<div class="radar-label top">몰입도 {scores.engagement ?? '--'}</div>
-			<div class="radar-label left">신뢰도 {scores.credibility ?? '--'}</div>
-			<div class="radar-label right">명확도 {scores.clarity ?? '--'}</div>
+			<div class="radar-label top">{tr($siteLocale, "몰입도")} {scores.engagement ?? '--'}</div>
+			<div class="radar-label left">{tr($siteLocale, "신뢰도")} {scores.credibility ?? '--'}</div>
+			<div class="radar-label right">{tr($siteLocale, "명확도")} {scores.clarity ?? '--'}</div>
 
 			<div class="legend">
-				{#if hasUserScores}<span><i class="dot user"></i>나의 발표</span>{/if}
-				{#if hasAverageScores}<span><i class="dot avg"></i>평균 발표</span>{/if}
+				{#if hasUserScores}<span><i class="dot user"></i>{tr($siteLocale, "나의 발표")}</span>{/if}
+				{#if hasAverageScores}<span><i class="dot avg"></i>{tr($siteLocale, "평균 발표")}</span>{/if}
 			</div>
 		</div>
 	</div>

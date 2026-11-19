@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { StoredTemplate } from '$lib/odi/domain/templates';
 	import { templateTitle } from '$lib/odi/domain/templates';
 	import { figmaTemplatePresentation, figmaTemplateInterview, kid_star } from '$lib/odi/icons';
@@ -27,7 +28,7 @@
 		alt=""
 	/>
 	<div class="identity">
-		<span class="chip">{row.template.type === 'presentation' ? '발표' : '면접'}</span>
+		<span class="chip">{row.template.type === 'presentation' ? tr($siteLocale, "발표") : tr($siteLocale, "면접")}</span>
 		<h3>{templateTitle(row.template)}</h3>
 		<p class="muted">
 			{row.template.environment.duration_minutes}분 · {row.template.type === 'presentation'
@@ -39,21 +40,21 @@
 		<p>
 			{row.last_used_at
 				? `최근 사용 ${new Date(row.last_used_at).toLocaleDateString('ko-KR')}`
-				: '아직 사용하지 않은 환경'}
+				: tr($siteLocale, "아직 사용하지 않은 환경")}
 		</p>
 		<span>총 사용 {row.use_count ?? 0}회</span>
 	</div>
 	<div class="actions">
-		<Button size="sm" onclick={onselect}>이 환경으로 시작</Button><Button
+		<Button size="sm" onclick={onselect}>{tr($siteLocale, "이 환경으로 시작")}</Button><Button
 			size="sm"
 			variant="outline"
-			onclick={onedit}>수정</Button
+			onclick={onedit}>{tr($siteLocale, "수정")}</Button
 		><button
 			class:favorite
 			onclick={onfavorite}
 			disabled={busy}
 			aria-pressed={favorite}
-			aria-label={`${templateTitle(row.template)} 즐겨찾기 ${favorite ? '해제' : '추가'}`}
+			aria-label={`${templateTitle(row.template)} 즐겨찾기 ${favorite ? tr($siteLocale, "해제") : tr($siteLocale, "추가")}`}
 			><img src={kid_star} alt="" /></button
 		>
 	</div>

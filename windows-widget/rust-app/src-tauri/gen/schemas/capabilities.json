@@ -1,0 +1,1 @@
+{"widget-local":{"identifier":"widget-local","description":"Locally bundled widget interface","local":true,"windows":["widget","mini","quick-capture"],"permissions":["core:default","core:window:allow-start-dragging","core:window:allow-start-resize-dragging"]}}

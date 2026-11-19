@@ -34,5 +34,10 @@ sushi-fast/personal_project/uploads/
 
 sushi-fast/Legendaryvowels_backup_*/
 
+sushi-fast/.runtime/
+sushi-fast/personal_project/resources/
+sushi-fast/personal_project/trend-cache/
+sushi-fast/personal_project/grading_files/
+
 # Private migration archive: historical transcripts, results and recorded audio.
 /artifacts/rehear-private/

@@ -2,6 +2,36 @@ from . import userdb
 from . import sushihash
 from . import email_verified
 import time
+import hashlib
+import hmac
+import secrets
+from . import JMT
+
+
+def account_code_digest(user_id, email, code):
+    return hmac.new(JMT.SECRET_KEY.encode(), f"account-email:{user_id}:{email}:{code}".encode(), hashlib.sha256).hexdigest()
+
+
+def send_account_email_verification(user_id):
+    code = str(secrets.randbelow(900000) + 100000)
+    user = userdb.get_user(user_id=user_id)
+    if not user:
+        return "missing"
+    digest = account_code_digest(user_id, user["email"], code)
+    result = userdb.reserve_email_verification(user_id, user["email"], digest, int(time.time()))
+    if result in ("missing", "verified", "cooldown", "changed"):
+        return result
+    # A concurrent email edit invalidates the reservation before confirmation.
+    try:
+        email_verified.send_account_verification_email(result, user["name"], code)
+    except Exception:
+        userdb.cancel_email_verification(user_id, digest)
+        return "delivery_failed"
+    return "ok"
+
+
+def confirm_account_email_verification(user_id, code):
+    return userdb.confirm_email_verification(user_id, code, int(time.time()), account_code_digest)
 
 
 def login_with_password(email, password):
@@ -94,6 +124,15 @@ def verify_register_code(email, code, email_verified=0):
         return True, user
     return False, "유효하지 않은 인증 코드입니다."
 
+def verify_account_password(user, password):
+    if not password:
+        return False
+    try:
+        return sushihash.check_hash(password, user["password_hash"])
+    except sushihash.PasswordTooLongError:
+        return False
+
+
 def edit_user(id=None, password=None, email=None, new_password=None, name=None):
     user = userdb.get_user(user_id=id)
 
@@ -120,7 +159,7 @@ def edit_user(id=None, password=None, email=None, new_password=None, name=None):
         except sushihash.PasswordTooLongError as error:
             return False, str(error)
 
-    userdb.edit_user(id, email, password_hash, name)
+    userdb.edit_user(id, email, password_hash, name, email_verified=user["email_verified"] if email == user["email"] else 0)
 
     return True, userdb.get_user(user_id=id)
 

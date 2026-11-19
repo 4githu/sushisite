@@ -5,30 +5,46 @@ import re
 PROGRESS_STAGES = (
     "accepted",
     "grade1_winter",
-    "grade1_semester1",
+    "grade1_semester1_midterm",
+    "grade1_semester1_final",
     "grade1_summer",
-    "grade1_semester2",
+    "grade1_semester2_midterm",
+    "grade1_semester2_final",
     "grade2_winter",
-    "grade2_semester1",
+    "grade2_semester1_midterm",
+    "grade2_semester1_final",
     "grade2_summer",
-    "grade2_semester2",
+    "grade2_semester2_midterm",
+    "grade2_semester2_final",
     "grade3_winter",
-    "grade3_semester1",
+    "grade3_semester1_midterm",
+    "grade3_semester1_final",
     "deep",
 )
 
 STAGE_LABELS = {
     "accepted": "합격자반",
     "grade1_winter": "1학년 겨울방학",
+    # Keep labels for records created before exam periods were split.
     "grade1_semester1": "1학년 1학기",
+    "grade1_semester1_midterm": "1학년 1학기 중간고사",
+    "grade1_semester1_final": "1학년 1학기 기말고사",
     "grade1_summer": "1학년 여름방학",
     "grade1_semester2": "1학년 2학기",
+    "grade1_semester2_midterm": "1학년 2학기 중간고사",
+    "grade1_semester2_final": "1학년 2학기 기말고사",
     "grade2_winter": "2학년 겨울방학",
     "grade2_semester1": "2학년 1학기",
+    "grade2_semester1_midterm": "2학년 1학기 중간고사",
+    "grade2_semester1_final": "2학년 1학기 기말고사",
     "grade2_summer": "2학년 여름방학",
     "grade2_semester2": "2학년 2학기",
+    "grade2_semester2_midterm": "2학년 2학기 중간고사",
+    "grade2_semester2_final": "2학년 2학기 기말고사",
     "grade3_winter": "3학년 겨울방학",
     "grade3_semester1": "3학년 1학기",
+    "grade3_semester1_midterm": "3학년 1학기 중간고사",
+    "grade3_semester1_final": "3학년 1학기 기말고사",
     "deep": "심층",
 }
 
@@ -36,16 +52,39 @@ STAGE_TERM_PERIOD = {
     "accepted": "semester_2",
     "grade1_winter": "winter",
     "grade1_semester1": "semester_1",
+    "grade1_semester1_midterm": "semester_1",
+    "grade1_semester1_final": "semester_1",
     "grade1_summer": "summer",
     "grade1_semester2": "semester_2",
+    "grade1_semester2_midterm": "semester_2",
+    "grade1_semester2_final": "semester_2",
     "grade2_winter": "winter",
     "grade2_semester1": "semester_1",
+    "grade2_semester1_midterm": "semester_1",
+    "grade2_semester1_final": "semester_1",
     "grade2_summer": "summer",
     "grade2_semester2": "semester_2",
+    "grade2_semester2_midterm": "semester_2",
+    "grade2_semester2_final": "semester_2",
     "grade3_winter": "winter",
     "grade3_semester1": "semester_1",
+    "grade3_semester1_midterm": "semester_1",
+    "grade3_semester1_final": "semester_1",
     "deep": "summer",
 }
+
+LEGACY_STAGE_ALIASES = {
+    "grade1_semester1": "grade1_semester1_midterm",
+    "grade1_semester2": "grade1_semester2_midterm",
+    "grade2_semester1": "grade2_semester1_midterm",
+    "grade2_semester2": "grade2_semester2_midterm",
+    "grade3_semester1": "grade3_semester1_midterm",
+}
+
+
+def normalize_stage(stage: str) -> str:
+    """Map pre-exam-split stages to the first exam period in that semester."""
+    return LEGACY_STAGE_ALIASES.get(stage, stage)
 
 
 def normalize_admission_year(value: int) -> int:
@@ -84,16 +123,22 @@ def stage_for_date(admission_year: int, value: date | datetime) -> str:
     grade = offset + 1
     if grade == 3 and month >= 7:
         return "deep"
-    season = (
-        "winter" if month <= 2 else
-        "semester1" if month <= 6 else
-        "summer" if month <= 8 else
-        "semester2"
-    )
-    return f"grade{grade}_{season}"
+    if month <= 2:
+        return f"grade{grade}_winter"
+    if month <= 4:
+        return f"grade{grade}_semester1_midterm"
+    if month <= 6:
+        return f"grade{grade}_semester1_final"
+    if month <= 8:
+        return f"grade{grade}_summer"
+    if month <= 10:
+        return f"grade{grade}_semester2_midterm"
+    return f"grade{grade}_semester2_final"
 
 
 def next_stage(stage: str) -> str:
+    # Old school rows stored an unsplit semester. Continue from its midterm.
+    stage = normalize_stage(stage)
     try:
         index = PROGRESS_STAGES.index(stage)
     except ValueError:

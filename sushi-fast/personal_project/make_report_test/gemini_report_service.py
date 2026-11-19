@@ -23,7 +23,9 @@ API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 
 
 class GeminiReportError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, diagnostic_code: str = "provider_error") -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
 
 
 class GeminiReportService:
@@ -94,9 +96,14 @@ class GeminiReportService:
                 return json.loads(raw.decode("utf-8")) if raw else {}
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
-            raise GeminiReportError(f"Gemini API 오류 ({exc.code}): {detail}") from exc
+            raise GeminiReportError(
+                f"Gemini API 오류 ({exc.code}): {detail}",
+                diagnostic_code=f"api_http_{exc.code}",
+            ) from exc
         except URLError as exc:
-            raise GeminiReportError(f"Gemini API 연결 실패: {exc.reason}") from exc
+            raise GeminiReportError(
+                f"Gemini API 연결 실패: {exc.reason}", diagnostic_code="network_error"
+            ) from exc
 
     def _remote_cache(self, cache_name: str) -> dict | None:
         try:
@@ -143,7 +150,10 @@ class GeminiReportService:
             raise
         cache_name = cached.get("name")
         if not cache_name:
-            raise GeminiReportError("Gemini가 생성된 캐시 이름을 반환하지 않았습니다.")
+            raise GeminiReportError(
+                "Gemini가 생성된 캐시 이름을 반환하지 않았습니다.",
+                diagnostic_code="cache_name_missing",
+            )
         save_cache(
             CACHE_KEY,
             self.model,
@@ -153,6 +163,60 @@ class GeminiReportService:
         )
         print(f"새 지침 캐시 생성 완료: {cache_name}")
         return str(cache_name)
+
+    @staticmethod
+    def _provider_request_input(report_input: dict[str, Any]) -> dict[str, Any]:
+        """Send only report evidence and non-identifying context to Gemini."""
+        target = report_input.get("target") or {}
+        safe_target = {
+            key: target[key]
+            for key in ("progressStage", "roundNumbers")
+            if key in target
+        }
+
+        document = report_input.get("editorDocument") or {}
+        blocks = document.get("blocks")
+        if isinstance(blocks, list) and (blocks or not document.get("richContent")):
+            safe_document: dict[str, Any] = {}
+            if "schemaVersion" in document:
+                safe_document["schemaVersion"] = document["schemaVersion"]
+            safe_document["blocks"] = blocks
+        elif document.get("richContent") is not None:
+            # Older documents may have rich content without a block projection.
+            # Keep that sole source rather than dropping educational material.
+            safe_document = {"richContent": document["richContent"]}
+        else:
+            safe_document = {"blocks": []}
+
+        options = report_input.get("options") or {}
+        safe_options: dict[str, Any] = {
+            key: options[key]
+            for key in (
+                "scoreMode",
+                "requestedScoreMode",
+                "assessmentItems",
+                "highlightSemantics",
+                "includeQuestionChecks",
+            )
+            if key in options
+        }
+        score_snapshot = options.get("scoreFormatSnapshot")
+        if isinstance(score_snapshot, dict):
+            safe_options["scoreFormatSnapshot"] = {
+                key: score_snapshot[key]
+                for key in ("name", "items")
+                if key in score_snapshot
+            }
+
+        projected: dict[str, Any] = {
+            "schemaVersion": report_input.get("schemaVersion"),
+            "target": safe_target,
+            "editorDocument": safe_document,
+            "options": safe_options,
+        }
+        if options.get("includeQuestionChecks") is True and "questionChecks" in report_input:
+            projected["questionChecks"] = report_input["questionChecks"]
+        return projected
 
     @staticmethod
     def _request_text(
@@ -168,10 +232,15 @@ class GeminiReportService:
                 "learningContent만 작성한다."
             )
         elif score_format:
+            safe_score_format = {
+                key: score_format[key]
+                for key in ("name", "items")
+                if key in score_format
+            }
             score_instruction = (
                 "아래 기존 평가 양식의 이름, 항목명, 항목 순서를 정확히 재사용한다. "
                 "항목을 추가·삭제·이름 변경하지 않는다.\n"
-                + json.dumps(score_format, ensure_ascii=False)
+                + json.dumps(safe_score_format, ensure_ascii=False)
             )
         else:
             score_instruction = (
@@ -189,18 +258,35 @@ class GeminiReportService:
             if options.get("includeQuestionChecks") else
             "초록색 질문 체크(questionChecks)는 전달되지 않았으며 판단에 사용하지 마십시오."
         )
+        provider_input = GeminiReportService._provider_request_input(report_input)
         return (
             "다음 아우라 클리닉 JSON을 분석해 지정된 JSON 결과만 반환하십시오. "
-			"editorDocument의 blocks, 표, depth와 각 children의 highlightColor를 학습 내용과 상태의 근거로 해석해야 합니다. "
-			f"색상 의미는 노랑={labels.get(semantics.get('yellow'))}, 주황={labels.get(semantics.get('orange'))}, 살구={labels.get(semantics.get('peach'))}입니다. "
-			+ question_rule + " 메모와 일정 정보는 판단 근거가 아닙니다. 입력에 없는 사실은 추측하지 마십시오.\n\n"
+            "editorDocument의 blocks, 표, depth와 각 children의 highlightColor를 학습 내용과 상태의 근거로 해석해야 합니다. "
+            f"형광색 기준: 노랑 #fef08a(기존 #fff3bf 포함)={labels.get(semantics.get('yellow') or '')}, 주황 #fdba74(기존 #ffc078 포함)={labels.get(semantics.get('orange') or '')}, 살구 #fed7aa(기존 #ffd8a8 포함)={labels.get(semantics.get('peach') or '')}입니다. 글자색(textColor)은 형광 상태로 해석하지 마십시오. "
+            + question_rule + " 메모와 일정 정보는 판단 근거가 아닙니다. 입력에 없는 사실은 추측하지 마십시오.\n\n"
             f"[평가 처리]\n{score_instruction}\n\n"
             "[아우라 입력 JSON]\n"
-            + json.dumps(report_input, ensure_ascii=False, separators=(",", ":"))
+            + json.dumps(provider_input, ensure_ascii=False, separators=(",", ":"))
         )
 
     @staticmethod
     def _response_json(response: dict) -> dict[str, Any]:
+        # A blocked request is a provider decision, not a malformed/empty JSON reply.
+        # Keep only documented enum values; feedback messages may echo input data.
+        block_reasons = {
+            "SAFETY", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "IMAGE_SAFETY",
+            "RECITATION", "SPII",
+        }
+        prompt_reason = (response.get("promptFeedback") or {}).get("blockReason")
+        reasons = [prompt_reason] + [
+            candidate.get("finishReason") for candidate in response.get("candidates", [])
+        ]
+        blocked = next((reason for reason in reasons if reason in block_reasons), None)
+        if blocked:
+            raise GeminiReportError(
+                "Gemini가 이 요청의 생성을 제한했습니다.",
+                diagnostic_code="provider_blocked_" + blocked.lower(),
+            )
         texts = [
             part.get("text", "")
             for candidate in response.get("candidates", [])
@@ -211,7 +297,8 @@ class GeminiReportService:
         if not raw:
             raise GeminiReportError(
                 "Gemini가 JSON 결과를 반환하지 않았습니다: "
-                + json.dumps(response, ensure_ascii=False)[:1000]
+                + json.dumps(response, ensure_ascii=False)[:1000],
+                diagnostic_code="empty_response",
             )
         if raw.startswith("```"):
             raw = raw.removeprefix("```json").removeprefix("```")
@@ -219,9 +306,15 @@ class GeminiReportService:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise GeminiReportError(f"Gemini 응답이 올바른 JSON이 아닙니다: {exc}") from exc
+            raise GeminiReportError(
+                f"Gemini 응답이 올바른 JSON이 아닙니다: {exc}",
+                diagnostic_code="invalid_json",
+            ) from exc
         if not isinstance(parsed, dict):
-            raise GeminiReportError("Gemini 응답 JSON의 최상위 값은 객체여야 합니다.")
+            raise GeminiReportError(
+                "Gemini 응답 JSON의 최상위 값은 객체여야 합니다.",
+                diagnostic_code="invalid_json_root",
+            )
         return parsed
 
     @staticmethod
@@ -276,17 +369,26 @@ class GeminiReportService:
     ) -> dict[str, Any]:
         learning = generated.get("learningContent")
         if not isinstance(learning, dict) or not isinstance(learning.get("paragraphs"), list):
-            raise GeminiReportError("응답 JSON에 learningContent.paragraphs가 없습니다.")
+            raise GeminiReportError(
+                "응답 JSON에 learningContent.paragraphs가 없습니다.",
+                diagnostic_code="invalid_output_learning_content",
+            )
         assessment = generated.get("assessment")
         if score_mode == "none":
             assessment = None
         elif not isinstance(assessment, dict) or not isinstance(assessment.get("items"), list):
-            raise GeminiReportError("평가 모드인데 assessment.items가 없습니다.")
+            raise GeminiReportError(
+                "평가 모드인데 assessment.items가 없습니다.",
+                diagnostic_code="invalid_output_assessment",
+            )
         elif score_format:
             expected = [str(item) for item in score_format.get("items", [])]
             actual = assessment["items"]
             if len(actual) != len(expected):
-                raise GeminiReportError("Gemini가 기존 평가 양식의 항목 수를 변경했습니다.")
+                raise GeminiReportError(
+                    "Gemini가 기존 평가 양식의 항목 수를 변경했습니다.",
+                    diagnostic_code="invalid_output_score_count",
+                )
             assessment["formatName"] = score_format["name"]
             for item, name in zip(actual, expected):
                 item["name"] = name

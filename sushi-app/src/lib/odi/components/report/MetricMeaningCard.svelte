@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import ReportCard from './ReportCard.svelte';
 	import { goal, puplecheck, text_snippet } from '$lib/odi/icons';
 	import type { ReportFeedback } from './reportTypes';
@@ -48,10 +49,10 @@
 	<div class="metric-guide">
 		<header>
 			<div>
-				<p class="eyebrow">지표를 읽는 법</p>
-				<h2>세 가지 점수는 이렇게 평가해요</h2>
+				<p class="eyebrow">{tr($siteLocale, "지표를 읽는 법")}</p>
+				<h2>{tr($siteLocale, "세 가지 점수는 이렇게 평가해요")}</h2>
 			</div>
-			<p class="guide-copy">점수만 보지 말고, 이번 결과와 평가 기준을 함께 확인해 보세요.</p>
+			<p class="guide-copy">{tr($siteLocale, "점수만 보지 말고, 이번 결과와 평가 기준을 함께 확인해 보세요.")}</p>
 		</header>
 
 		<div class="metric-grid">
@@ -62,16 +63,16 @@
 						<div>
 							<h3>{metric.label}</h3>
 							<strong
-								>{scores[metric.key] ?? '--'}{scores[metric.key] !== undefined ? '점' : ''}</strong
+								>{scores[metric.key] ?? '--'}{scores[metric.key] !== undefined ? tr($siteLocale, "점") : ''}</strong
 							>
 						</div>
 					</div>
 
 					<p class="meaning">{metric.meaning}</p>
-					<p class="criteria"><b>평가 기준</b>{metric.criteria}</p>
+					<p class="criteria"><b>{tr($siteLocale, "평가 기준")}</b>{metric.criteria}</p>
 
 					{#if descriptions[metric.key]}
-						<p class="result"><b>이번 결과</b>{descriptions[metric.key]}</p>
+						<p class="result"><b>{tr($siteLocale, "이번 결과")}</b>{descriptions[metric.key]}</p>
 					{/if}
 				</article>
 			{/each}

@@ -1,6 +1,8 @@
 <!-- src/lib/odi/components/navigation/NavigationBar.svelte -->
 <script lang="ts">
+
 	import { goto } from '$app/navigation';
+	import { locale, copy, message as t } from '$lib/odi/i18n';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/mainauth';
@@ -45,7 +47,7 @@
 	let navigation: HTMLElement;
 
 	const displayName = $derived(
-		$odiuser?.config?.profile?.nickname ?? auth.get()?.data?.name ?? userName
+		$odiuser?.config?.profile?.nickname ?? $auth?.data?.name ?? userName
 	);
 	const displayLevel = $derived($odiuser?.config?.profile?.level ?? planName);
 	const displayProfileImage = $derived($odiuser?.config?.profile?.profile_image || sprout);
@@ -64,11 +66,6 @@
 
 	function toggleProfile(event: MouseEvent) {
 		event.stopPropagation();
-		if (!isLoggedIn) {
-			showProfile = false;
-			onOpenAccount?.();
-			return;
-		}
 		showProfile = !showProfile;
 	}
 
@@ -125,7 +122,7 @@
 	<button
 		type="button"
 		class="sidebar-close clickable"
-		aria-label="사이드바 접기"
+		aria-label={t($locale, 'closeSidebar')}
 		onclick={onCloseMobile}
 	>
 		<span class="desktop-mark"><img src={figmaArrowForward} alt="" /></span><span
@@ -139,30 +136,30 @@
 		</div>
 
 		<div class="new-session">
-			<Button width="212px" leadingIcon={Add} onclick={onNewSession}>New Session</Button>
+			<Button width="212px" leadingIcon={Add} onclick={onNewSession}>{t($locale, 'newSession')}</Button>
 		</div>
 
 		<div class="menu">
 			<NavigationItem
-				label="Home"
+				label={t($locale, 'home')}
 				icon={Home}
 				selected={currentPage === 'home'}
 				onclick={() => navigateTo('/odi')}
 			/>
 			<NavigationItem
-				label="Templates"
+				label={t($locale, 'templates')}
 				icon={Favorites}
 				selected={currentPage === 'favorites'}
 				onclick={() => navigateTo('/odi/templates')}
 			/>
 			<NavigationItem
-				label="Report"
+				label={t($locale, 'reports')}
 				icon={Report}
 				selected={currentPage === 'report'}
 				onclick={() => navigateTo('/odi/report')}
 			/>
 			<NavigationItem
-				label="My Practice"
+				label={t($locale, 'practice')}
 				icon={MyPractice}
 				selected={currentPage === 'practice'}
 				onclick={() => navigateTo('/odi/practice')}
@@ -171,6 +168,7 @@
 	</div>
 
 	<div class="bottom">
+
 		<button
 			type="button"
 			class="my-page clickable"
@@ -180,8 +178,8 @@
 			<div class="my-page-left">
 				<img class="profile-icon" src={displayProfileImage} alt="" />
 				<span class="account-copy">
-					<strong class="text-body-medium">{isLoggedIn ? displayName : '로그인'}</strong>
-					<small class="text-caption-nav">{isLoggedIn ? displayLevel : '로그인이 필요해요'}</small>
+					<strong class="text-body-medium">{isLoggedIn ? displayName : t($locale, 'signIn')}</strong>
+					<small class="text-caption-nav">{isLoggedIn ? copy($locale, displayLevel) : t($locale, 'signInHint')}</small>
 				</span>
 			</div>
 
@@ -191,7 +189,8 @@
 		{#if showProfile}
 			<div class="profile-dropdown">
 				<ProfileDropdown
-					userName={displayName}
+					userName={isLoggedIn ? displayName : t($locale, 'signIn')}
+                    loggedIn={isLoggedIn}
 					planName={displayLevel}
 					profileImage={displayProfileImage}
 					onOpenAccount={openAccount}
@@ -206,6 +205,7 @@
 <!---->
 
 <style>
+
 	.navigation {
 		display: flex;
 		flex-direction: column;
@@ -370,7 +370,7 @@
 	}
 
 	@media (max-width: 900px) {
-		.navigation {
+	.navigation {
 			padding-inline: max(14px, calc((100vw - 226px) / 2));
 		}
 
@@ -382,4 +382,9 @@
 			display: inline;
 		}
 	}
+    @media (max-height: 620px) {
+      .navigation { padding-top: 20px; padding-bottom: 10px; }
+      .new-session { margin-top: 12px; }
+      .menu { margin-top: 10px; gap: 2px; }
+    }
 </style>

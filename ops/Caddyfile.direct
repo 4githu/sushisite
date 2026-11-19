@@ -1,0 +1,56 @@
+{
+    admin 127.0.0.1:2019
+    http_port 8080
+    https_port 8443
+    servers {
+        protocols h1 h2
+    }
+}
+
+(certificate) {
+    tls "/Users/sagi/Library/Application Support/sushisite-direct-tls/certificates/direct.chobab.app.crt" "/Users/sagi/Library/Application Support/sushisite-direct-tls/certificates/direct.chobab.app.key"
+}
+
+(sanitize) {
+    header_up -CF-Connecting-IP
+    header_up -CF-Visitor
+    header_up -Forwarded
+    header_up -X-Sushi-Proto
+}
+
+chobab.app, aura.chobab.app, rehear.chobab.app {
+    import certificate
+    encode zstd gzip
+    @api path_regexp api ^/(auth|api|pronunciation|odi/(db|files|xreal_rehear|coaching))(/|$)
+    handle @api {
+        reverse_proxy 127.0.0.1:8000 {
+            import sanitize
+        }
+    }
+    @docs {
+        host rehear.chobab.app
+        path /docs /docs/* /redoc /redoc/* /openapi.json
+    }
+    handle @docs {
+        reverse_proxy 127.0.0.1:8000 {
+            import sanitize
+        }
+    }
+    handle {
+        reverse_proxy 127.0.0.1:5173 {
+            import sanitize
+        }
+    }
+}
+
+direct.chobab.app {
+    import certificate
+    handle /api/healthz {
+        reverse_proxy 127.0.0.1:8000 {
+            import sanitize
+        }
+    }
+    handle {
+        respond "Direct HTTPS route test" 200
+    }
+}

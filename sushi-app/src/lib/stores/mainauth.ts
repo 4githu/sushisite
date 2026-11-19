@@ -1,6 +1,6 @@
 // src/lib/stores/mainauth.ts
 
-import { API_BASE as API } from '$lib/config/api';
+import { checkPersonalAuth, invalidatePersonalAuth } from '$lib/personal-project/shared/auth';
 
 import { goto } from "$app/navigation";
 import { writable, get } from "svelte/store";
@@ -11,11 +11,13 @@ type AuthPayload = {
     id: string;
     name?: string;
     email?: string;
+    email_verified?: boolean;
   };
   exp: number;
 };
 
 const store = writable<AuthPayload | null>(null);
+let checkVersion = 0;
 
 export const auth = {
   subscribe: store.subscribe,
@@ -25,36 +27,20 @@ export const auth = {
   },
 
   logout() {
+    checkVersion++;
+    invalidatePersonalAuth();
     store.set(null);
   },
 
-  async check() {
-    const res = await fetch(`${API}/auth/isjwt?key=mainauth`, {
-      credentials: "include"
-    });
-
-    if (res.ok) {
-      const payload = await res.json();
-      store.set(payload);
-      return payload as AuthPayload;
-    }
-
-    store.set(null);
-    return null;
+  async check(force = false) {
+    const version = ++checkVersion;
+    const payload = await checkPersonalAuth(force);
+    if (version === checkVersion) store.set(payload);
+    return payload;
   },
 
   async refresh(pathname: string) {
-    const res = await fetch(`${API}/auth/isjwt?key=mainauth`, {
-      credentials: "include"
-    });
-
-    if (res.ok) {
-      const payload = await res.json();
-      store.set(payload);
-      return true;
-    }
-
-    store.set(null);
+    if (await this.check(true)) return true;
 
     if (pathname !== "/login") {
       goto("/login");

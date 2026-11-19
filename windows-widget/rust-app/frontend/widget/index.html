@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>NETAQ Widget</title>
+    <link rel="stylesheet" href="widget.css" />
+    <script src="bridge.js" defer></script><script src="widget.js" defer></script>
+  </head>
+  <body>
+    <header class="window-bar" data-tauri-drag-region>
+      <span class="brand" data-tauri-drag-region><img src="assets/logo.svg" alt="" />NETAQ</span>
+      <div>
+        <button id="desktop-add" title="바탕화면에 위젯 추가">바탕화면에 추가</button><button id="settings-toggle" aria-label="위젯 설정">설정</button
+        ><button id="minimize" aria-label="최소화">−</button
+        >
+      </div>
+    </header>
+    <main>
+      <section id="connection" hidden>
+        <h1>계정 연결</h1>
+        <p>NETAQ의 프로필 → 연결·프로젝트 → 위젯에서 연결 코드를 만들어요.</p>
+        <button id="pair-page">연결 코드 받기</button>
+        <form id="connect-form">
+          <label>서비스<select id="origin"></select></label
+          ><label
+            >연결 코드<input
+              id="code"
+              autocomplete="off"
+              spellcheck="false"
+              required
+              maxlength="200"
+              placeholder="5분 안에 사용할 수 있어요" /></label
+          ><button class="primary" id="connect">연결하기</button>
+        </form>
+      </section>
+      <section id="content" hidden>
+        <div class="date-heading">
+          <div>
+            <h1 id="date-title"></h1>
+            <button id="today">오늘</button>
+          </div>
+          <div>
+            <button id="previous" aria-label="이전 날짜">‹</button
+            ><button id="next" aria-label="다음 날짜">›</button
+            ><button id="refresh" aria-label="새로고침">↻</button>
+          </div>
+        </div>
+        <nav aria-label="위젯 보기">
+          <button data-view="planning" aria-pressed="true">일별</button
+          ><button data-view="week">주간</button
+          ><button data-view="month">월간</button
+          ><button data-view="tasks">할 일</button><button data-view="meal">학식</button><button data-view="recent">노트</button>
+        </nav>
+        <form id="capture-form">
+          <label for="capture">빠른 기록</label>
+          <div>
+            <input
+              id="capture"
+              maxlength="2000"
+              placeholder="떠오른 일을 적어두세요"
+              autocomplete="off"
+            /><button id="capture-save" class="primary">기록</button>
+          </div>
+        </form>
+        <div id="week-scroll" hidden><div id="week-strip"></div><div id="week-all-day"></div><div id="week-timetable" aria-label="주간 시간표"></div></div><div id="month" hidden></div>
+        <div id="plan-columns"><div><p id="clock" hidden></p><div id="events" aria-label="일정"></div></div>
+        <section id="tasks-section">
+          <h2>할 일</h2>
+          <div id="tasks"></div>
+        </section></div>
+        <section id="meal-section" hidden><label>식당<select id="restaurant"><option value="">식당 선택</option></select></label><h2 id="meal-title"></h2><p id="meal-menu"></p></section><section id="recent-section" hidden><h2>최근 필기한 노트</h2><div id="recent-notes"></div></section>
+        <section id="memo-section">
+          <h2>메모</h2>
+          <p id="memo"></p>
+          <button id="open-note">메모 이어 쓰기</button>
+        </section>
+
+        <button id="open-calendar" class="wide">캘린더 열기</button>
+      </section>
+      <section id="settings" hidden>
+        <button id="settings-back" aria-label="위젯으로 돌아가기">‹ 뒤로</button><h1>위젯 설정</h1><p>바탕화면에 추가한 위젯이 보이지 않으면 알림 영역 메뉴에서 다시 열 수 있어요.</p>
+        <label class="check"
+          ><input id="top" type="checkbox" />항상 위에 표시</label
+        ><label class="check"
+          ><input id="startup" type="checkbox" />Windows 로그인할 때 실행</label
+        ><label
+          >화면<select id="theme">
+            <option value="system">시스템 설정</option>
+            <option value="light">밝게</option>
+            <option value="dark">어둡게</option>
+          </select></label
+        ><div class="shortcut-list"><h2>단축키</h2><p>위젯 열기 <kbd>Ctrl + Shift + W</kbd></p><p>빠른 메모 <kbd>Ctrl + Shift + M</kbd></p></div><p id="app-version"></p><button id="check-update">업데이트 확인</button><button id="disconnect">이 기기 연결 해제</button>
+      </section>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p id="error" role="alert"></p>
+      <small id="updated"></small>
+    </main>
+    <button class="resize-handle" id="resize-window" aria-label="위젯 크기 조절" title="드래그하여 크기 조절">⌟</button>
+  </body>
+</html>

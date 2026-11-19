@@ -1,6 +1,7 @@
 <!-- src/lib/odi/components/session/PresentationUploadFileCard.svelte -->
 
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
 	import UploadSection from "$lib/odi/components/session/UploadSection.svelte";
 	import Button from "$lib/odi/components/common/Button.svelte";
@@ -48,7 +49,7 @@
 <SurfaceCard padding="43px 36px" minHeight="609px">
 	<div class="upload-card-content">
 		<UploadSection
-			title="발표 슬라이드 PDF"
+			title={copy($locale, "발표 슬라이드 PDF")}
 			required
 			accept=".pdf"
 			maxSizeMB={300}
@@ -60,7 +61,7 @@
 		/>
 
 		<UploadSection
-			title="논문 PDF"
+			title={copy($locale, "논문 PDF")}
 			accept=".pdf"
 			maxSizeMB={300}
 			fileRef={paperFileRef}
@@ -76,15 +77,15 @@
 					<img src={DocumentIcon} alt="" />
 				</div>
 
-				<h2 class="text-title-middle">발표 스크립트</h2>
-				<span class="optional text-caption-medium">선택</span>
+				<h2 class="text-title-middle">{copy($locale, "발표 스크립트")}</h2>
+				<span class="optional text-caption-medium">{copy($locale, "선택")}</span>
 			</div>
 
 			<textarea
 				class="script-input text-body"
 				value={scriptText}
 				maxlength={maxScriptLength}
-				placeholder="발표 스크립트 텍스트를 입력해주세요."
+				placeholder={copy($locale, "발표 스크립트 텍스트를 입력해주세요.")}
 				oninput={handleScriptInput}
 			></textarea>
 
@@ -97,7 +98,7 @@
 					disabled={scriptText.trim().length === 0}
 					onclick={onCheckScript}
 				>
-					스크립트 검사하기
+					{copy($locale, "스크립트 검사하기")}
 				</Button>
 			</div>
 		</section>

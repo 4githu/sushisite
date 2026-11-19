@@ -1,5 +1,6 @@
 <!-- src/routes/odi/session/presentation/+page.svelte -->
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -10,12 +11,12 @@
 	import PresentationSessionBasicInfoCard from '$lib/odi/components/session/PresentationSessionBasicInfoCard.svelte';
 
 	import { whiteright } from '$lib/odi/icons';
-	const steps = [
-		{ label: '발표 기본 정보' },
-		{ label: '자료 업로드' },
-		{ label: 'AI 청중 설정' },
-		{ label: '세션 확인' }
-	];
+	const steps = $derived([
+		{ label: copy($locale, "발표 기본 정보") },
+		{ label: copy($locale, "자료 업로드") },
+		{ label: copy($locale, "AI 청중 설정") },
+		{ label: copy($locale, "세션 확인") }
+	]);
 
 	let ready = $state(false);
 
@@ -80,13 +81,12 @@
 		<p class="page-label text-caption-main">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">발표 기본 정보</h1>
+			<h1 class="text-title-main">{copy($locale, "발표 기본 정보")}</h1>
 			<p class="subtitle text-caption-main">
-				실전과 같은 환경을 설정하고, AI 청중과 함께 연습을 시작해요.
+				{copy($locale, "실전과 같은 환경을 설정하고, AI 청중과 함께 연습을 시작해요.")}
 			</p>
 		</div>
 	</header>
-	<TemplateSaveBar />
 
 	<ProgressStepper {steps} currentStep={0} />
 
@@ -136,7 +136,7 @@
 	/>
 
 	<footer class="page-actions">
-		<Button variant="secondary" width="212px" onclick={() => goto('/odi')}>홈으로</Button>
+		<Button variant="secondary" width="212px" onclick={() => goto('/odi')}>{copy($locale, "홈으로")}</Button>
 
 		<Button
 			variant="primary"
@@ -145,9 +145,10 @@
 			trailingIcon={whiteright}
 			onclick={() => goto('/odi/session/presentation/upload')}
 		>
-			다음 단계
+			{copy($locale, "다음 단계")}
 		</Button>
 	</footer>
+	<TemplateSaveBar />
 </main>
 
 <style>

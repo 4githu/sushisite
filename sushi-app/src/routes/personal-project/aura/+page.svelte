@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
-    import CalendarWorkspace from '$lib/personal-project/shared/CalendarWorkspace.svelte';
+	import AuraWeekScheduler from '$lib/personal-project/aura/components/AuraWeekScheduler.svelte';
 	import {
-		availableProgressStages,
+		normalizeProgressStage,
 		progressStageLabels,
+		progressStages,
 		type ProgressStage
 	} from '$lib/personal-project/aura/stages';
 	import { PersonalApiError, personalApi } from '$lib/personal-project/shared/api';
-	import type { ClinicRound, School } from '$lib/personal-project/shared/types';
+	import type { ClinicRound, RoundModality, School } from '$lib/personal-project/shared/types';
+	import { buildRoomRequestPreview } from '$lib/personal-project/aura/room-request';
 
 	let schools = $state<School[]>([]);
 	let rounds = $state<ClinicRound[]>([]);
@@ -21,6 +23,7 @@
 	let progressStage = $state<ProgressStage>('accepted');
 	let roundNumbers = $state('1');
 	let studentNames = $state('');
+	let targetEdits = $state<{ id?: number; student_name: string }[]>([]);
 	let startTime = $state('');
 	let endTime = $state('');
 	let description = $state('');
@@ -28,9 +31,20 @@
 	let repeatCount = $state(2);
 	let intervalWeeks = $state(1);
 	let occurrenceRounds = $state<string[]>(['1', '2']);
-	let editScope = $state<'this' | 'following'>('this');
+	let editScope = $state<'this' | 'following' | 'all'>('this');
 	let roomRequestDate = $state<Date | null>(null);
 	let roomRequestNotice = $state('');
+	let roomRequestTrigger: HTMLElement | null = null;
+	let roomRequestRounds = $state<ClinicRound[]>([]);
+	let roomRequestLoading = $state(false);
+	let roomRequestCopied = $state(false);
+	let roomRequestLoadError = $state(false);
+	let roomRequestTextarea = $state<HTMLTextAreaElement | undefined>();
+	let roomRequestVersion = 0;
+	let modality = $state<RoundModality>('in_person');
+
+	const roomPreview = $derived(roomRequestDate && !roomRequestLoading ? buildRoomRequestPreview(roomRequestDate, roomRequestRounds) : null);
+
 
 	const pendingCount = $derived(
 		rounds.reduce(
@@ -64,49 +78,99 @@
 		}).format(new Date(value));
 	}
 
-	function sameLocalDay(value: string, date: Date) {
-		const itemDate = new Date(value);
+	function localWeekStart(date: Date) {
+		const monday = new Date(date);
+		const daysSinceMonday = (monday.getDay() + 6) % 7;
+		monday.setDate(monday.getDate() - daysSinceMonday);
+		monday.setHours(0, 0, 0, 0);
+		return monday.getTime();
+	}
+
+	function isSameLocalWeek(value: string, date: Date) {
+		return localWeekStart(new Date(value)) === localWeekStart(date);
+	}
+
+	function mostRecentlyRegisteredRound(candidates: ClinicRound[]) {
+		return candidates
+			.filter((round) => round.attendanceStatus !== 'cancelled')
+			.reduce<ClinicRound | null>(
+				(latest, round) => (!latest || round.id > latest.id ? round : latest),
+				null
+			);
+	}
+
+	function mostRecentRoundForSchool(schoolId: number, date: Date) {
+		const schoolRounds = rounds.filter((round) => round.schoolId === schoolId);
+		const sameWeekRound = mostRecentlyRegisteredRound(
+			schoolRounds.filter((round) => isSameLocalWeek(round.startTime, date))
+		);
+		return sameWeekRound ?? mostRecentlyRegisteredRound(schoolRounds);
+	}
+
+	function nextRoundNumber(selectedSchoolId: number, selectedStage: ProgressStage) {
 		return (
-			itemDate.getFullYear() === date.getFullYear() &&
-			itemDate.getMonth() === date.getMonth() &&
-			itemDate.getDate() === date.getDate()
+			Math.max(
+				0,
+				...rounds
+					.filter(
+						(round) =>
+							round.schoolId === selectedSchoolId &&
+							normalizeProgressStage(round.progressStage) === normalizeProgressStage(selectedStage)
+					)
+					.flatMap((round) => [round.roundNumber, ...round.roundNumbers])
+			) + 1
 		);
 	}
 
-	function timeOnly(value: string) {
-		return new Intl.DateTimeFormat('ko-KR', {
-			hour: '2-digit',
-			minute: '2-digit',
-			hour12: false
-		}).format(new Date(value));
+	async function openRoomRequest(date: Date) {
+		if (!roomRequestDate) roomRequestTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		const version = ++roomRequestVersion;
+		roomRequestLoadError = false;
+		roomRequestCopied = false;
+		roomRequestDate = date;
+		roomRequestNotice = '';
+		roomRequestRounds = [];
+		roomRequestLoading = true;
+		await tick();
+		document.getElementById('room-request-title')?.focus();
+		try {
+			const latest = await personalApi.rounds();
+			if (version === roomRequestVersion) roomRequestRounds = latest;
+		} catch (cause) {
+			if (version === roomRequestVersion) { roomRequestLoadError = true; roomRequestNotice = cause instanceof Error ? cause.message : '일정을 불러오지 못했습니다.'; }
+		} finally {
+			if (version === roomRequestVersion) roomRequestLoading = false;
+		}
 	}
 
-	function schoolDisplayName(name: string) {
-		return name.replace(/^(서울|경기|한성)(\d{2})(.*)$/, '$2$1$3');
-	}
-
-	function roomRequestText(date: Date) {
-		const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-		const lines = rounds
-			.filter((round) => round.attendanceStatus !== 'cancelled' && sameLocalDay(round.startTime, date))
-			.sort((left, right) => +new Date(left.startTime) - +new Date(right.startTime))
-			.map((round) => {
-				const names = round.targets.map((target) => target.studentName).join(', ');
-				const remote = /비대면|온라인|zoom/i.test(round.description) ? ' (비대면)' : '';
-				return `${timeOnly(round.startTime)}-${timeOnly(round.endTime)} ${schoolDisplayName(round.schoolName)}${names ? ` ${names}` : ''}${remote}`;
-			});
-		return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})\n${lines.join('\n') || '등록된 클리닉 일정이 없습니다.'}\n\n강의실 배정 부탁드립니다.`;
+	function closeRoomRequest() {
+		roomRequestVersion++;
+		roomRequestLoading = false;
+		roomRequestDate = null;
+		roomRequestTrigger?.focus();
+		roomRequestTrigger = null;
 	}
 
 	async function copyRoomRequest() {
-		if (!roomRequestDate) return;
-		try {
-			await navigator.clipboard.writeText(roomRequestText(roomRequestDate));
-			roomRequestNotice = '복사했습니다. 원하는 대화방에 붙여넣으세요.';
-		} catch {
-			roomRequestNotice = '자동 복사에 실패했습니다. 아래 문구를 직접 복사해주세요.';
-		}
-	}
+        if (!roomPreview?.text || roomRequestLoading) return;
+        const version = roomRequestVersion;
+        const text = roomPreview.text;
+        let copied = false;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                copied = true;
+            }
+        } catch { /* Use selection-based copy when the browser denies Clipboard API access. */ }
+        if (version !== roomRequestVersion) return;
+        if (!copied && roomRequestTextarea) {
+            roomRequestTextarea.focus();
+            roomRequestTextarea.select();
+            try { copied = document.execCommand('copy'); } catch { copied = false; }
+        }
+        roomRequestCopied = copied;
+        roomRequestNotice = copied ? '복사했습니다.' : '문구를 선택했습니다. 복사 단축키로 복사해주세요.';
+    }
 
 	async function load() {
 		loading = true;
@@ -125,26 +189,26 @@
 			goto('/personal-project/aura/schools');
 			return;
 		}
-		const firstSchool = schools[0];
-		schoolId = String(firstSchool.id);
-		progressStage = firstSchool.currentStage;
-		const nextRound =
-			Math.max(
-				0,
-				...rounds
-					.filter(
-						(round) => round.schoolId === firstSchool.id && round.progressStage === progressStage
-					)
-					.map((round) => round.roundNumber)
-			) + 1;
-		roundNumbers = String(nextRound);
 		const selectedStart = start ?? new Date(Date.now() + 24 * 60 * 60_000);
 		if (!start) selectedStart.setHours(16, 0, 0, 0);
+		const latestOverallRound = mostRecentlyRegisteredRound(rounds);
+		const selectedSchool =
+			(latestOverallRound && schools.find((school) => school.id === latestOverallRound.schoolId)) ||
+			schools.reduce((latest, school) => (school.id > latest.id ? school : latest));
+		const latestRound = mostRecentRoundForSchool(selectedSchool.id, selectedStart);
+		schoolId = String(selectedSchool.id);
+		progressStage = latestRound
+			? normalizeProgressStage(latestRound.progressStage)
+			: selectedSchool.currentStage;
+		const nextRound = nextRoundNumber(selectedSchool.id, progressStage);
+		roundNumbers = String(nextRound);
 		const selectedEnd = end ?? new Date(selectedStart.getTime() + 60 * 60_000);
 		startTime = localInput(selectedStart);
 		endTime = localInput(selectedEnd);
 		studentNames = '';
+		targetEdits = [];
 		description = '';
+		modality = 'in_person';
 		intervalWeeks = 1;
 		isRecurring = false;
 		repeatCount = 2;
@@ -160,9 +224,11 @@
 		progressStage = round.progressStage;
 		roundNumbers = round.roundNumbers.join(',');
 		studentNames = round.targets.map((target) => target.studentName).join('\n');
+		targetEdits = round.targets.map((target) => ({ id: target.id, student_name: target.studentName }));
 		startTime = localInput(new Date(round.startTime));
 		endTime = localInput(new Date(round.endTime));
 		description = round.description;
+		modality = round.modality ?? 'unverified';
 		intervalWeeks = 1;
 		isRecurring = false;
 		repeatCount = 2;
@@ -191,29 +257,40 @@
 		const school = schools.find((item) => item.id === Number(schoolId));
 		if (!school) return;
 		if (selectedRound) return;
-		progressStage = school.currentStage;
+		const selectedStart = startTime ? new Date(startTime) : new Date();
+		const latestSchoolRound = mostRecentRoundForSchool(school.id, selectedStart);
+		progressStage = latestSchoolRound
+			? normalizeProgressStage(latestSchoolRound.progressStage)
+			: school.currentStage;
 		setNextRound(school.id);
 	}
 
 	function setNextRound(selectedSchoolId = Number(schoolId)) {
-		const nextRound =
-			Math.max(
-				0,
-				...rounds
-					.filter(
-						(round) =>
-							round.schoolId === selectedSchoolId && round.progressStage === progressStage
-					)
-					.map((round) => round.roundNumber)
-			) + 1;
+		const nextRound = nextRoundNumber(selectedSchoolId, progressStage);
 		roundNumbers = String(nextRound);
 		occurrenceRounds = Array.from({ length: repeatCount }, (_, index) => String(nextRound + index));
 	}
 
-	function clinicHourlyCost(stage: ProgressStage, names = studentNames) {
-		const count = Math.max(1, names.split(/\n|,/).map((name) => name.trim()).filter(Boolean).length);
-		if (stage === 'deep') return 40_000;
-		return count <= 3 ? 30_000 : count * 10_000;
+	function moveTarget(index: number, direction: number) {
+		const next = [...targetEdits];
+		[next[index], next[index + direction]] = [next[index + direction], next[index]];
+		targetEdits = next;
+	}
+
+	const scheduleTimeSummary = $derived.by(() => {
+        if (!startTime || !endTime) return '';
+        const start = new Date(startTime), end = new Date(endTime);
+        if (!Number.isFinite(+start) || !Number.isFinite(+end)) return '';
+        const label = (date: Date) => new Intl.DateTimeFormat('ko-KR', {
+            month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+        }).format(date);
+        const minutes = Math.round((+end - +start) / 60000);
+        const duration = minutes > 0 ? `총 ${Math.floor(minutes / 60)}시간${minutes % 60 ? ` ${minutes % 60}분` : ''}` : '종료 시각이 시작보다 빠릅니다';
+        return `${label(start)} → ${label(end)} · ${duration}`;
+    });
+
+	function modalityLabel(value: RoundModality) {
+		return value === 'in_person' ? '대면' : value === 'remote' ? '비대면' : '확인 필요';
 	}
 
 	async function submitRound(allowOverlap = false) {
@@ -227,27 +304,81 @@
 			if (roundsByOccurrence.some((items) => !items.length))
 				throw new Error('각 일정의 회차를 숫자와 쉼표 형태로 입력해주세요.');
 			if (selectedRound) {
+				const editingRound = selectedRound;
+				const editedTargets = targetEdits.map((target) => ({
+					...target, student_name: target.student_name.trim()
+				}));
+				if (!editedTargets.length || editedTargets.some((target) => !target.student_name))
+					throw new Error('학생 이름을 한 명 이상 입력해주세요.');
+				const removed = editingRound.targets.filter(
+					(target) => !editedTargets.some((entry) => entry.id === target.id)
+				);
+				if (removed.some((target) => target.report))
+					throw new Error('리포트가 있는 학생은 제거할 수 없습니다. 리포트 소유권을 보존해주세요.');
 				if (
-					names.length < selectedRound.targets.length &&
-					!confirm(
-						'학생 이름 수가 줄어들어 마지막 항목과 연결된 리포트가 삭제될 수 있습니다. 계속할까요?'
+					removed.length &&
+					!confirm(`${removed.map((target) => target.studentName).join(', ')} 학생 항목을 삭제할까요? 이 항목은 복구할 수 없습니다.`)
+				) return;
+				const renamed = editedTargets.filter((entry) =>
+					editingRound.targets.some((target) =>
+						target.id === entry.id && target.studentName !== entry.student_name
 					)
-				)
-					return;
-				await personalApi.updateRound(selectedRound.id, {
-					school_id: Number(schoolId),
-					progress_stage: progressStage,
-					round_number: numbers[0],
-					round_numbers: numbers,
-					student_names: names,
-					start_time: new Date(startTime).toISOString(),
-					end_time: new Date(endTime).toISOString(),
+				);
+				if (
+					renamed.length &&
+					!confirm('학생 이름을 변경합니다. 동일 학생의 개명·오타 수정이 맞나요? 리포트와 첨부, AI/PDF 대상은 기존 학생 ID로 유지됩니다.')
+				) return;
+				const targetsChanged =
+					editedTargets.length !== editingRound.targets.length ||
+					editedTargets.some((entry, index) =>
+						entry.id !== editingRound.targets[index]?.id ||
+						entry.student_name !== editingRound.targets[index]?.studentName
+					);
+				if (targetsChanged && editScope !== 'this')
+					throw new Error('학생 목록은 이 회차만 수정할 수 있습니다. 반복 일정은 회차별로 수정해주세요.');
+				const numbersChanged =
+					numbers.length !== editingRound.roundNumbers.length ||
+					numbers.some((number, index) => number !== editingRound.roundNumbers[index]);
+				const modalityPreview = editScope !== 'this'
+					? await personalApi.roundModalityPreview(editingRound.id, editScope) : null;
+				if (modalityPreview && (!modalityPreview.roundState || !modalityPreview.rounds.length))
+					throw new Error('반복 일정을 불러오지 못했습니다. 입력 내용은 유지됩니다. 다시 저장해주세요.');
+				const updatedRound = await personalApi.updateRound(editingRound.id, {
+					// Omit unchanged identity fields: the backend regenerates reports when they are present.
+					// A school move must carry the selected stage to prevent the backend's default-stage override.
+					...(Number(schoolId) !== editingRound.schoolId ? { school_id: Number(schoolId) } : {}),
+					...(progressStage !== editingRound.progressStage || Number(schoolId) !== editingRound.schoolId
+						? { progress_stage: progressStage }
+						: {}),
+					...(numbersChanged ? { round_number: numbers[0], round_numbers: numbers } : {}),
+					...(targetsChanged ? {
+						targets: editedTargets,
+						confirm_target_removal: removed.length > 0,
+						confirm_identity_rename: renamed.length > 0
+					} : {}),
+					modality,
+					...(editScope !== 'this' && modalityPreview ? {
+						expected_round_ids: modalityPreview.rounds.map(round => round.id),
+						expected_round_state: modalityPreview.roundState
+					} : {}),
+					...(+new Date(startTime) !== +new Date(editingRound.startTime)
+						? { start_time: new Date(startTime).toISOString() } : {}),
+					...(+new Date(endTime) !== +new Date(editingRound.endTime)
+						? { end_time: new Date(endTime).toISOString() } : {}),
 					description,
-					allow_overlap: allowOverlap,
+					allow_overlap: true,
 					scope: editScope
 				});
-				showModal = false;
+				const savedRound = await personalApi.round(editingRound.id);
 				await load();
+				const expectedIds = editScope !== 'this' ? modalityPreview?.rounds.map(round => round.id) : [editingRound.id];
+				const affectedIds = 'affectedRoundIds' in updatedRound ? updatedRound.affectedRoundIds : expectedIds;
+				if (expectedIds && Array.isArray(affectedIds) && JSON.stringify(affectedIds) === JSON.stringify(expectedIds) &&
+					savedRound.modality === modality && expectedIds.every(id => rounds.some(round => round.id === id && round.modality === modality))) {
+					showModal = false;
+				} else {
+					throw new Error('저장 후 회차 상태를 확인하지 못했습니다. 다시 조회해주세요.');
+				}
 				return;
 			}
 			const body = {
@@ -258,7 +389,8 @@
 				start_time: new Date(startTime).toISOString(),
 				end_time: new Date(endTime).toISOString(),
 				description,
-				allow_overlap: allowOverlap
+				modality,
+				allow_overlap: true
 			};
 			if (isRecurring || numbers.length > 1) {
 				await personalApi.createRoundSeries({
@@ -273,36 +405,32 @@
 			showModal = false;
 			await load();
 		} catch (cause) {
-			if (
-				cause instanceof PersonalApiError &&
-				cause.code === 'schedule_conflict' &&
-				!allowOverlap &&
-				confirm(`${cause.message}\n그래도 등록할까요?`)
-			) {
-				await submitRound(true);
-				return;
-			}
+
 			error = cause instanceof Error ? cause.message : '회차를 등록하지 못했습니다.';
 		}
 	}
 
 	async function createRound(event: SubmitEvent) {
 		event.preventDefault();
+		if (saving) return;
+		error = '';
 		saving = true;
 		await submitRound();
 		saving = false;
 	}
 
 	async function removeRound(round: ClinicRound) {
-		if (!confirm(`${round.schoolName} ${round.roundLabel}를 삭제할까요?`)) return;
-		try {
-			await personalApi.deleteRound(round.id);
-			showModal = false;
-			await load();
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '회차를 삭제하지 못했습니다.';
-		}
-	}
+        const scope = showModal && selectedRound?.id === round.id ? editScope : 'this';
+        const range = scope === 'all' ? '반복 일정 전체' : scope === 'following' ? '이 일정 및 이후 일정' : '이 일정';
+        if (!confirm(`${round.schoolName} ${round.roundLabel} · ${range}을 삭제할까요?`)) return;
+        try {
+            await personalApi.deleteRound(round.id, scope);
+            showModal = false;
+            await load();
+        } catch (cause) {
+            error = cause instanceof Error ? cause.message : '회차를 삭제하지 못했습니다.';
+        }
+    }
 
 	onMount(load);
 </script>
@@ -311,7 +439,6 @@
 	<div>
 		<p class="eyebrow">Aura clinic</p>
 		<h1>아우라 클리닉</h1>
-		<p>캘린더에서 일정과 리포트를 관리하고, 학교 정보는 필요할 때만 확인하세요.</p>
 	</div>
 	<button class="primary-button" onclick={() => openCreate()}>＋ 새 회차</button>
 </div>
@@ -325,14 +452,10 @@
 		>
 	</article>
 	<article class="card stat-card peach">
-		<span>전체 회차</span><strong>{rounds.length}<small>회</small></strong><span
-			>캘린더 연결 일정</span
-		>
+		<span>전체 회차</span><strong>{rounds.length}<small>회</small></strong>
 	</article>
 	<article class="card stat-card lilac">
-		<span>미완료 리포트</span><strong>{pendingCount}<small>건</small></strong><span
-			>학생 이름 기준</span
-		>
+		<span>미완료 리포트</span><strong>{pendingCount}<small>건</small></strong>
 	</article>
 	<article class="card stat-card yellow">
 		<span>이번 달 정산</span><strong>{monthTotal.toLocaleString()}<small>원</small></strong><a
@@ -341,7 +464,12 @@
 	</article>
 </section>
 
-    <CalendarWorkspace aura initialView="week" refreshKey={JSON.stringify(rounds.map(r => [r.id,r.startTime,r.endTime]))} onCreate={openCreate} onChanged={() => void load()} onDate={(date) => { roomRequestDate=date; roomRequestNotice=''; }} onAuraEdit={(eventId) => { const round=rounds.find(r=>r.eventId===eventId); if(round) openEdit(round); }} />
+<AuraWeekScheduler
+	sessions={rounds}
+	onselect={openCreate}
+	onedit={openEdit}
+	ondate={openRoomRequest}
+/>
 
 <section class="card round-panel">
 	<header>
@@ -358,10 +486,10 @@
 					<a href={`/personal-project/aura/schools/${round.schoolId}`}>
 						<span class="round-number">{round.roundNumbers.join(',')}</span>
 						<span
-							><strong>{round.schoolName} · {progressStageLabels[round.progressStage]}</strong><small
-								>{formatDate(round.startTime)} · 학생 {round.targets.length}명</small
-							></span
+							><strong>{round.schoolName} · {progressStageLabels[round.progressStage]}</strong
+							><small>{formatDate(round.startTime)} · 학생 {round.targets.length}명</small></span
 						>
+						<span class="status-pill">{modalityLabel(round.modality)}</span>
 						<span class="status-pill"
 							>{round.targets.filter((target) => target.report?.status === 'submitted')
 								.length}/{round.targets.length} 제출</span
@@ -374,7 +502,7 @@
 	{:else}
 		<div class="empty">
 			<strong>등록된 회차가 없습니다.</strong>
-			<p>학교를 먼저 등록한 뒤 첫 회차를 만들어보세요.</p>
+			<a class="primary-button" href="/personal-project/aura/schools">학교 등록</a>
 		</div>
 	{/if}
 </section>
@@ -410,7 +538,7 @@
 					</div>
 				</section>
 			{/if}
-			<div class="form-grid">
+			<div class="form-grid" inert={saving}>
 				<div class="field">
 					<label for="round-school">학교</label>
 					<select id="round-school" bind:value={schoolId} onchange={schoolChanged}>
@@ -426,11 +554,12 @@
 						bind:value={progressStage}
 						onchange={() => !selectedRound && setNextRound()}
 					>
-						{#each availableProgressStages(
-							schools.find((school) => school.id === Number(schoolId))?.currentStage ?? progressStage
-						) as stage}
+						{#each progressStages as stage}
 							<option value={stage}>{progressStageLabels[stage]}</option>
 						{/each}
+						{#if selectedRound && !progressStages.includes(selectedRound.progressStage as (typeof progressStages)[number])}
+							<option value={selectedRound.progressStage}>{progressStageLabels[selectedRound.progressStage]}</option>
+						{/if}
 					</select>
 					<small>지난 단계의 클리닉도 선택해서 등록할 수 있습니다.</small>
 				</div>
@@ -451,23 +580,33 @@
 					{/if}
 				</div>
 				<div class="field full important-students">
-					<label for="round-students">학생 이름</label>
-					<textarea
-						id="round-students"
-						bind:value={studentNames}
-						placeholder="한 줄에 한 명씩 입력하세요&#10;김대호&#10;이민지"
-						required
-					></textarea>
-					<small
-						>현재 입력 기준 조교 시급: {clinicHourlyCost(progressStage).toLocaleString()}원
-						{progressStage === 'deep' ? ' (심층)' : ''}</small
-					>
+					{#if selectedRound}
+						<p class="target-edit-heading">참여 학생</p>
+						{#each targetEdits as target, index (target.id ?? `new-${index}`)}
+							<div class="target-edit-row">
+								<input aria-label={`학생 ${index + 1} 이름`} bind:value={target.student_name} required maxlength="80" />
+								<button type="button" aria-label="위로 이동" disabled={index === 0} onclick={() => moveTarget(index, -1)}>↑</button>
+								<button type="button" aria-label="아래로 이동" disabled={index === targetEdits.length - 1} onclick={() => moveTarget(index, 1)}>↓</button>
+								<button type="button" aria-label="학생 제거" disabled={targetEdits.length === 1 || !!selectedRound.targets.find((item) => item.id === target.id)?.report} onclick={() => targetEdits = targetEdits.filter((_, position) => position !== index)}>제거</button>
+							</div>
+						{/each}
+						<button type="button" onclick={() => targetEdits = [...targetEdits, { student_name: '' }]}>＋ 학생 추가</button>
+						<small>작성한 리포트는 학생별로 유지됩니다.</small>
+					{:else}
+						<label for="round-students">학생 이름</label>
+						<textarea
+							id="round-students"
+							bind:value={studentNames}
+							placeholder="한 줄에 한 명씩 입력하세요&#10;김대호&#10;이민지"
+							required
+						></textarea>
+					{/if}
 				</div>
 				<div class="field">
 					<label for="round-start">시작</label><input
 						id="round-start"
 						type="datetime-local"
-						step="1800"
+						step="60"
 						bind:value={startTime}
 						required
 					/>
@@ -476,11 +615,12 @@
 					<label for="round-end">종료</label><input
 						id="round-end"
 						type="datetime-local"
-						step="1800"
+						step="60"
 						bind:value={endTime}
 						required
 					/>
 				</div>
+				{#if scheduleTimeSummary}<p class="full" role="status">{scheduleTimeSummary}</p>{/if}
 				{#if !selectedRound}
 					<label class="repeat-toggle full">
 						<input type="checkbox" bind:checked={isRecurring} />
@@ -534,10 +674,20 @@
 						<label for="round-scope">반복 일정 수정 범위</label>
 						<select id="round-scope" bind:value={editScope}>
 							<option value="this">이 일정만 변경</option>
-							<option value="following">이 일정 및 이후 일정 변경</option>
+							<option value="following">이 일정 및 이후 일정</option>
+							<option value="all">반복 일정 전체</option>
 						</select>
 					</div>
 				{/if}
+				<div class="field full">
+					<label for="round-modality">진행 방식</label>
+					<select id="round-modality" bind:value={modality}>
+						{#if modality === 'unverified'}<option value="unverified">미지정</option>{/if}
+						<option value="in_person">대면</option>
+						<option value="remote">비대면</option>
+					</select>
+				</div>
+
 				<div class="field full">
 					<label for="round-description">메모</label><textarea
 						id="round-description"
@@ -545,8 +695,13 @@
 					></textarea>
 				</div>
 			</div>
+			{#if error}<p class="error-banner" role="alert">{error}</p>{/if}
 			<div class="modal-actions">
-				{#if selectedRound}<button type="button" class="danger-button" onclick={() => selectedRound && removeRound(selectedRound)}>일정 삭제</button>{/if}
+				{#if selectedRound}<button
+						type="button"
+						class="danger-button"
+						onclick={() => selectedRound && removeRound(selectedRound)}>{editScope === 'all' ? '반복 일정 전체 삭제' : editScope === 'following' ? '이후 일정 삭제' : '일정 삭제'}</button
+					>{/if}
 				<button type="button" class="ghost-button" onclick={() => (showModal = false)}>취소</button
 				><button class="primary-button" disabled={saving}
 					>{saving ? '저장 중…' : selectedRound ? '일정 수정' : '회차 등록'}</button
@@ -558,21 +713,35 @@
 
 {#if roomRequestDate}
 	<div
-		class="modal-backdrop"
+		class="modal-backdrop request-backdrop"
 		role="presentation"
-		onclick={(event) => event.target === event.currentTarget && (roomRequestDate = null)}
+		onclick={(event) => event.target === event.currentTarget && closeRoomRequest()}
 	>
-		<div class="modal room-request" role="dialog" aria-labelledby="room-request-title">
-			<p class="eyebrow">Classroom request</p>
-			<h2 id="room-request-title">강의실 배정 요청문</h2>
-			<p>선택한 날짜의 취소되지 않은 클리닉 일정만 모았습니다.</p>
-			<textarea readonly value={roomRequestText(roomRequestDate)} aria-label="강의실 배정 요청문"></textarea>
-			{#if roomRequestNotice}<small class="copy-notice">{roomRequestNotice}</small>{/if}
-			<div class="modal-actions">
-				<button class="ghost-button" onclick={() => (roomRequestDate = null)}>닫기</button>
-				<button class="primary-button" onclick={copyRoomRequest}>복사하기</button>
-			</div>
-		</div>
+        <div class="modal room-request" role="dialog" aria-modal="true" aria-labelledby="room-request-title" onkeydown={(event) => { if (event.key === 'Escape') closeRoomRequest(); }} tabindex="-1">
+            <header class="request-header">
+                <h2 id="room-request-title" tabindex="-1">강의실 배정 요청문</h2>
+                <p>{new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'long' }).format(roomRequestDate)}</p>
+            </header>
+            {#if roomRequestLoading}
+                <p class="request-empty" role="status">일정을 불러오는 중…</p>
+            {:else if roomRequestLoadError}
+                <p class="request-empty" role="alert">{roomRequestNotice}</p>
+            {:else if roomPreview?.text}
+                <textarea bind:this={roomRequestTextarea} readonly value={roomPreview.text} aria-label="강의실 배정 요청문" spellcheck="false"></textarea>
+            {:else if roomPreview?.reason === 'no_in_person'}
+                <p class="request-empty">이날은 강의실이 필요한 대면 수업이 없습니다.</p>
+            {:else if roomPreview?.reason === 'unverified'}
+                <p class="request-empty">진행 방식이 지정되지 않은 수업이 있습니다. 해당 수업에서 대면·비대면을 선택해주세요.</p>
+            {:else if roomPreview?.reason === 'invalid_round'}
+                <p class="request-empty">수업 시간이나 학생 정보가 누락된 일정이 있습니다.</p>
+            {/if}
+            {#if roomRequestNotice && !roomRequestLoadError}<p class="copy-notice" role="status">{roomRequestNotice}</p>{/if}
+            <div class="modal-actions">
+                {#if roomRequestNotice && !roomPreview?.text}<button class="ghost-button" onclick={() => roomRequestDate && openRoomRequest(roomRequestDate)}>다시 불러오기</button>{/if}
+                <button class="ghost-button" onclick={closeRoomRequest}>닫기</button>
+                <button class="primary-button" onclick={copyRoomRequest} disabled={!roomPreview?.text || roomRequestLoading}>{roomRequestCopied ? '복사됨' : '복사하기'}</button>
+            </div>
+        </div>
 	</div>
 {/if}
 
@@ -580,43 +749,27 @@
 	.modal {
 		width: min(680px, calc(100vw - 32px));
 	}
-	.room-request {
-		max-width: 580px;
-	}
-	.room-request h2 {
-		margin: 0;
-		font: 500 20px Georgia, 'Noto Sans KR', serif;
-	}
-	.room-request > p:not(.eyebrow) {
-		color: var(--pp-muted);
-		font-size: 10px;
-	}
-	.room-request textarea {
-		width: 100%;
-		min-height: 250px;
-		box-sizing: border-box;
-		padding: 13px;
-		border: 1px solid var(--pp-line);
-		border-radius: 8px;
-		background: #fffefb;
-		font: 12px/1.6 'Noto Sans KR', sans-serif;
-		resize: vertical;
-	}
-	.copy-notice {
-		display: block;
-		margin-top: 7px;
-		color: var(--pp-sage-dark);
-		font-size: 10px;
-	}
+
+    .request-backdrop { backdrop-filter: none; background: rgba(15, 23, 42, 0.32); }
+    .room-request { width: min(560px, calc(100vw - 32px)); padding: 24px; border-radius: 12px; }
+    .request-header { margin-bottom: 18px; }
+    .room-request h2 { margin: 0; font: inherit; font-size: 18px; font-weight: 700; }
+    .room-request h2:focus { outline: none; }
+    .request-header p { margin: 6px 0 0; color: var(--pp-muted); font-size: 13px; }
+    .room-request textarea { display: block; width: 100%; min-height: 250px; max-height: 48vh; box-sizing: border-box; padding: 16px; border: 1px solid var(--pp-line); border-radius: 8px; background: white; color: inherit; font: 14px/1.8 'Noto Sans KR', sans-serif; resize: vertical; }
+    .request-empty { padding: 32px 0; margin: 0; color: var(--pp-muted); font-size: 14px; line-height: 1.6; }
+    .copy-notice { margin: 10px 0 0; color: var(--pp-sage-dark); font-size: 12px; }
+    .room-request .modal-actions { margin-top: 18px; }
+
 	.quick-report-links {
 		margin: 0 0 16px;
 		padding: 13px;
 		display: grid;
 		grid-template-columns: 145px 1fr;
 		gap: 12px;
-		border: 1px solid #ccd8cf;
+		border: 1px solid #dedbd3;
 		border-radius: 10px;
-		background: #f4f7f3;
+		background: #f7f6f2;
 	}
 	.quick-report-links strong,
 	.quick-report-links small {
@@ -654,16 +807,16 @@
 		font-weight: 700;
 		text-decoration: none;
 	}
-	.quick-report-students .pdf-link {
-		align-items: center;
-		justify-content: center;
-		background: #eef3ef;
-		color: var(--pp-sage-dark);
-		white-space: nowrap;
-	}
 	.quick-report-students a span {
 		color: var(--pp-sage-dark);
 		font-size: 8px;
+		white-space: nowrap;
+	}
+	.quick-report-students .pdf-link {
+		align-items: center;
+		justify-content: center;
+		background: #f1f0eb;
+		color: var(--pp-sage-dark);
 		white-space: nowrap;
 	}
 	.repeat-placeholder {
@@ -737,6 +890,10 @@
 		border: 1px solid var(--pp-line);
 		border-radius: 7px;
 	}
+	.target-edit-heading { margin: 0; font-weight: 700; }
+	.target-edit-row { display: flex; align-items: center; gap: 6px; }
+	.target-edit-row input { flex: 1; min-width: 0; }
+	.target-edit-row button { flex: none; padding: 7px; }
 	.important-students textarea {
 		min-height: 105px;
 		background: #fffef8;
@@ -754,7 +911,7 @@
 	.stat-card {
 		min-height: 138px;
 		padding: 21px;
-		border-top: 3px solid;
+		border-top: 1px solid var(--pp-line);
 	}
 	.stat-card > span:first-child {
 		color: var(--pp-muted);
@@ -781,16 +938,16 @@
 		text-decoration: none;
 	}
 	.sage {
-		border-color: var(--pp-sage);
+		border-color: var(--pp-line);
 	}
 	.peach {
-		border-color: var(--pp-peach);
+		border-color: var(--pp-line);
 	}
 	.lilac {
-		border-color: var(--pp-lilac);
+		border-color: var(--pp-line);
 	}
 	.yellow {
-		border-color: var(--pp-yellow);
+		border-color: var(--pp-line);
 	}
 	.round-panel {
 		margin-top: 18px;
@@ -842,7 +999,7 @@
 		display: grid;
 		place-items: center;
 		border-radius: 50%;
-		background: #e5ebe5;
+		background: #e8e7e1;
 		color: var(--pp-sage-dark);
 		font:
 			700 14px Georgia,
@@ -878,9 +1035,6 @@
 		color: var(--pp-muted);
 		font-size: 11px;
 		text-align: center;
-	}
-	.empty p {
-		margin: 7px 0;
 	}
 	@media (max-width: 900px) {
 		.stat-grid {

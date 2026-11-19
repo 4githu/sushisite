@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale, copy } from "$lib/odi/i18n";
 	import { templateMutationBusy } from '$lib/odi/domain/templateMutation';
 	import { template, isTemplateDirty } from '$lib/odi/stores/template';
 	import Button from '$lib/odi/components/common/Button.svelte';
@@ -29,21 +30,21 @@
 
 <aside class="template-save">
 	<div>
-		<strong>{title || '새 환경'}</strong>
+		<strong>{title || copy($locale, "새 환경")}</strong>
 		<p>
 			{$template?.id
 				? $isTemplateDirty
-					? '이번 세션에서 수정됨'
-					: '저장된 기본 환경'
-				: '새로운 환경 · 처음 저장하거나 시작할 때 템플릿이 만들어져요'}
+					? copy($locale, "이번 세션에서 수정됨")
+					: copy($locale, "저장된 기본 환경")
+				: copy($locale, "새로운 환경 · 처음 저장하거나 시작할 때 템플릿이 만들어져요")}
 		</p>
 	</div>
 	<Button variant="secondary" onclick={save} disabled={saving || $templateMutationBusy}
 		>{saving
-			? '저장 중…'
+			? copy($locale, "저장 중…")
 			: $template?.id
-				? '이 템플릿의 기본 환경으로 저장'
-				: '새 환경 저장'}</Button
+				? copy($locale, "이 템플릿의 기본 환경으로 저장")
+				: copy($locale, "새 환경 저장")}</Button
 	>
 	{#if message}<p class:error={failed} role="status">{message}</p>{/if}
 </aside>

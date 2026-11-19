@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import Modal from './Modal.svelte';
 	import Button from '$lib/odi/components/common/Button.svelte';
 	import { odiuser } from '$lib/odi/stores';
@@ -65,27 +66,27 @@
 	<div class="settings-modal">
 		<header>
 			<p>Settings</p>
-			<h2 id={titleId}>Re:hear 계정 설정</h2>
-			<span>리포트 표시 방식과 XR 세션 음성 인식 공급자를 선택하세요.</span>
+			<h2 id={titleId}>{tr($siteLocale, "Re:hear 계정 설정")}</h2>
+			<span>{tr($siteLocale, "리포트 표시 방식과 XR 세션 음성 인식 공급자를 선택하세요.")}</span>
 		</header>
 
 		<fieldset>
-			<legend>리포트 버전</legend>
+			<legend>{tr($siteLocale, "리포트 버전")}</legend>
 			<label class:selected={selectedVersion === 'v1'}>
 				<input type="radio" name="report-version" value="v1" bind:group={selectedVersion} />
-				<span><strong>버전 1 · 기본형</strong><small>기존 카드 중심의 리포트 배치</small></span>
+				<span><strong>{tr($siteLocale, "버전 1 · 기본형")}</strong><small>{tr($siteLocale, "기존 카드 중심의 리포트 배치")}</small></span>
 			</label>
 			<label class:selected={selectedVersion === 'v2'}>
 				<input type="radio" name="report-version" value="v2" bind:group={selectedVersion} />
 				<span
-					><strong>버전 2 · 개선형</strong><small>결과와 행동을 순서대로 읽는 정보 위계</small
+					><strong>{tr($siteLocale, "버전 2 · 개선형")}</strong><small>{tr($siteLocale, "결과와 행동을 순서대로 읽는 정보 위계")}</small
 					></span
 				>
 			</label>
 			<label class:selected={selectedVersion === 'v3'}>
 				<input type="radio" name="report-version" value="v3" bind:group={selectedVersion} />
 				<span
-					><strong>버전 3 · 최종형</strong><small>최종 UX/UI 시안의 탭형 분석 리포트</small></span
+					><strong>{tr($siteLocale, "버전 3 · 최종형")}</strong><small>{tr($siteLocale, "최종 UX/UI 시안의 탭형 분석 리포트")}</small></span
 				>
 			</label>
 		</fieldset>
@@ -93,31 +94,31 @@
 		<label class="video-setting">
 			<input type="checkbox" bind:checked={showTimelineVideo} />
 			<span>
-				<strong>타임라인 연동 영상 표시</strong>
-				<small>영상이 연결된 리포트에서 문제 구간과 함께 재생 화면을 표시합니다.</small>
+				<strong>{tr($siteLocale, "타임라인 연동 영상 표시")}</strong>
+				<small>{tr($siteLocale, "영상이 연결된 리포트에서 문제 구간과 함께 재생 화면을 표시합니다.")}</small>
 			</span>
 		</label>
 
 		<fieldset>
-			<legend>XR 음성 인식</legend>
+			<legend>{tr($siteLocale, "XR 음성 인식")}</legend>
 			<label class:selected={sttProvider === 'deepgram'}>
 				<input type="radio" name="stt-provider" value="deepgram" bind:group={sttProvider} />
-				<span><strong>Deepgram</strong><small>발표와 Q&A 답변을 Deepgram으로 인식합니다.</small></span>
+				<span><strong>Deepgram</strong><small>{tr($siteLocale, "발표와 Q&A 답변을 Deepgram으로 인식합니다.")}</small></span>
 			</label>
 			<label class:selected={sttProvider === 'azure'}>
 				<input type="radio" name="stt-provider" value="azure" bind:group={sttProvider} />
-				<span><strong>Azure Speech</strong><small>발표와 Q&A 답변을 Azure Speech로 인식합니다.</small></span>
+				<span><strong>Azure Speech</strong><small>{tr($siteLocale, "발표와 Q&A 답변을 Azure Speech로 인식합니다.")}</small></span>
 			</label>
-			<p class="provider-note">서버에 선택한 공급자의 API 키가 없으면 XR 세션 시작이 차단되며 자동 전환되지 않습니다.</p>
+			<p class="provider-note">{tr($siteLocale, "서버에 선택한 공급자의 API 키가 없으면 XR 세션 시작이 차단되며 자동 전환되지 않습니다.")}</p>
 		</fieldset>
 
 		{#if message}<p class="message" role="status">{message}</p>{/if}
 		{#if errorMessage}<p class="error-message" role="alert">{errorMessage}</p>{/if}
 
 		<footer>
-			<Button variant="secondary" width="140px" onclick={onClose}>취소</Button>
+			<Button variant="secondary" width="140px" onclick={onClose}>{tr($siteLocale, "취소")}</Button>
 			<Button variant="primary" width="180px" disabled={saving} onclick={save}>
-				{saving ? '저장 중' : '설정 저장'}
+				{saving ? tr($siteLocale, "저장 중") : tr($siteLocale, "설정 저장")}
 			</Button>
 		</footer>
 	</div>

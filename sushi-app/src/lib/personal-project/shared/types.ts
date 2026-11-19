@@ -5,12 +5,18 @@ export type AttendanceStatus = 'scheduled' | 'completed' | 'cancelled' | 'absent
 export type ReportStatus = 'draft' | 'ready' | 'submitted';
 
 export type CalendarEvent = {
-    location?: string;
-    webUrl?: string;
-    projectId?: number | null;
-    canEdit?: boolean;
-    googleAccount?: string;
-    googleCalendar?: string;
+	timeUnspecified?: boolean;
+	hideInMonth?: boolean;
+	taskAvailableFrom?: string | null;
+	taskDueAt?: string | null;
+	taskUnplanned?: boolean;
+	completionSource?: 'manual' | 'external';
+	location?: string;
+	webUrl?: string;
+	projectId?: number | null;
+	canEdit?: boolean;
+	googleAccount?: string;
+	googleCalendar?: string;
 	id: number;
 	title: string;
 	description: string;
@@ -97,8 +103,11 @@ export type RoundTarget = {
 	} | null;
 };
 
+export type RoundModality = 'in_person' | 'remote' | 'unverified';
+
 export type ClinicRound = {
 	id: number;
+	modality: RoundModality;
 	schoolId: number;
 	schoolName: string;
 	progressStage: import('../aura/stages').ProgressStage;
@@ -128,6 +137,18 @@ export type SchoolSettlement = {
 	settlementCount: number;
 	generatedAt: string | null;
 	items: ClinicRound[];
+};
+
+export type ParentSettlementStatus = 'pending' | 'paid' | 'needs_review';
+
+export type ParentSettlementItem = {
+	studentKey: string;
+	status: ParentSettlementStatus;
+	amount: number;
+	paidAmount: number;
+	updatedAt: string | null;
+	manualDeliveryConfirmed: boolean;
+	manualDeliveryConfirmedAt: string | null;
 };
 
 export type TargetReport = {
@@ -168,6 +189,7 @@ export type TargetReport = {
 
 export type AiReportOutput = {
 	schemaVersion: 'aura.clinic-report-output.v2';
+	runId?: number;
 	target: Record<string, unknown>;
 	assessment: null | {
 		formatName: string;
