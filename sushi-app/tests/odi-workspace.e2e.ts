@@ -120,9 +120,9 @@ test('템플릿 전체 목록, 즐겨찾기, 검색과 페이지 이동 및 저�
 	});
 	await page.goto('/odi/favorites');
 	await expect(page).toHaveURL(/\/odi\/templates$/);
-	await expect(page.getByText('총 12개 템플릿')).toBeVisible();
+	await expect(page.getByText('총 12개 주제')).toBeVisible();
 	await page.getByRole('button', { name: '즐겨찾기', exact: true }).click();
-	await expect(page.getByText('총 1개 템플릿')).toBeVisible();
+	await expect(page.getByText('총 1개 주제')).toBeVisible();
 	await page.getByRole('button', { name: '수정', exact: true }).click();
 	await expect(page.getByText('저장된 기본 환경', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: '이 템플릿의 기본 환경으로 저장' }).click();

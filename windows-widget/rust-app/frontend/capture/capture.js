@@ -1,0 +1,8 @@
+const $=id=>document.getElementById(id),invoke=(action,args={})=>window.__TAURI__.core.invoke('widget_call',{action,args});
+let draftId=crypto.randomUUID(),queue=Promise.resolve(),connected=false,sessionId="";
+function persist(){const value=$('text').value;const item=value?{id:draftId,text:value}:null;queue=queue.catch(()=>{}).then(()=>invoke('draft',{value:item,sessionId}));queue.catch(e=>{$('error').textContent=String(e)});return queue;}
+$('text').oninput=()=>{if(connected)void persist();};
+$('text').onkeydown=e=>{if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();const t=e.currentTarget,a=t.selectionStart,b=t.selectionEnd;t.setRangeText('  ',a,b,'end');void persist();}};
+$('close').onclick=async()=>{try{await queue;}catch{}await invoke('window',{action:'close'});};
+$('save').onclick=async()=>{const text=$('text').value;if(!text.trim())return;$('save').disabled=true;$('text').disabled=true;$('error').textContent='';$('status').textContent='기록 중…';try{await queue;await invoke('capture',{id:draftId,text,sessionId});$('text').value='';draftId=crypto.randomUUID();await invoke('draft',{value:null,sessionId});$('status').textContent='정리함에 기록했어요.';}catch(e){$('error').textContent=String(e);$('status').textContent='입력 내용은 이 기기에 보관돼요';}finally{$('save').disabled=false;$('text').disabled=false;}};
+void(async()=>{try{const state=await invoke('state');connected=state.connected;sessionId=state.sessionId || "";if(state.draft){draftId=state.draft.id;$('text').value=state.draft.text;}if(!connected){$('status').textContent='먼저 위젯에서 계정을 연결해주세요.';$('save').disabled=true;$('text').disabled=true;}else $('text').focus();}catch(e){$('error').textContent=String(e);$('save').disabled=true;$('text').disabled=true;}})();

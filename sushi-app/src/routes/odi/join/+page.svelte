@@ -1,5 +1,7 @@
 <!-- src/routes/odi/join/+page.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import '$lib/odi/styles/globals.css';
 
 	import { goto } from '$app/navigation';
@@ -260,12 +262,12 @@
 		<header class="page-header">
 			<div class="title-group">
 				<h1 class="text-title-main">
-					{currentStep === 0 ? 'Re:hear 시작하기' : '훈련 목표 설정하기'}
+					{currentStep === 0 ? tr($siteLocale, "Re:hear 시작하기") : tr($siteLocale, "훈련 목표 설정하기")}
 				</h1>
 				<p class="subtitle text-caption-main">
 					{currentStep === 0
-						? '현재 로그인된 계정을 확인하고 Re:hear를 시작해보세요'
-						: '훈련 목표를 설정하고 나에게 맞는 미션을 제공받으세요'}
+						? tr($siteLocale, "현재 로그인된 계정을 확인하고 Re:hear를 시작해보세요")
+						: tr($siteLocale, "훈련 목표를 설정하고 나에게 맞는 미션을 제공받으세요")}
 				</p>
 			</div>
 		</header>
@@ -285,30 +287,30 @@
 						</div>
 
 						<div class="summary-text">
-							<p class="text-caption-main">현재 로그인된 MainAuth 계정</p>
+							<p class="text-caption-main">{tr($siteLocale, "현재 로그인된 MainAuth 계정")}</p>
 							<strong>{mainName || '이름 없음'}</strong>
 							<span>{mainEmail || '이메일 정보 없음'}</span>
 						</div>
 
 						<Button variant="secondary" width="180px" onclick={logoutMainAuth}>
-							다른 계정으로
+							{tr($siteLocale, "다른 계정으로")}
 						</Button>
 					</div>
 
 					<div class="nickname-grid">
 						<AuthField
-							label="닉네임"
-							placeholder="Re:hear에서 사용할 닉네임"
+							label={tr($siteLocale, "닉네임")}
+							placeholder={tr($siteLocale, "Re:hear에서 사용할 닉네임")}
 							icon={Person}
 							bind:value={nickname}
-							success={nicknameOk ? '사용할 수 있는 닉네임입니다' : ''}
+							success={nicknameOk ? tr($siteLocale, "사용할 수 있는 닉네임입니다") : ''}
 							required
 						/>
 
 						<AuthField
-							label="이메일"
+							label={copy($locale, "이메일")}
 							type="email"
-							placeholder="현재 로그인 이메일"
+							placeholder={tr($siteLocale, "현재 로그인 이메일")}
 							icon={Mail}
 							value={mainEmail}
 							disabled
@@ -329,7 +331,7 @@
 		</section>
 
 		<footer class="page-actions">
-			<Button variant="secondary" width="360px" onclick={goPrevious}>이전 단계</Button>
+			<Button variant="secondary" width="360px" onclick={goPrevious}>{copy($locale, "이전 단계")}</Button>
 
 			{#if currentStep === 0}
 				<Button
@@ -338,11 +340,11 @@
 					disabled={!canNextFromAccount}
 					onclick={goNextFromAccount}
 				>
-					다음 단계
+					{copy($locale, "다음 단계")}
 				</Button>
 			{:else}
 				<Button variant="primary" width="360px" disabled={!canFinishGoal} onclick={completeJoin}>
-					계정 설정 완료
+					{tr($siteLocale, "계정 설정 완료")}
 				</Button>
 			{/if}
 		</footer>

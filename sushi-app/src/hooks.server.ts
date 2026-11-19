@@ -15,11 +15,13 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 				html
 					.replace('%paraglide.lang%', locale)
 					.replace('%paraglide.dir%', getTextDirection(locale))
+					.replace('</head>', event.url.pathname.startsWith('/personal-project/') ? '<script src="/netaq-cache-recovery-v2.js"></script></head>' : '</head>')
 		});
 	});
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
-	const session = await auth.api.getSession({ headers: event.request.headers });
+	const hasSessionCookie = /(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=/.test(event.request.headers.get('cookie') || '');
+	const session = hasSessionCookie ? await auth.api.getSession({ headers: event.request.headers }) : null;
 
 	if (session) {
 		event.locals.session = session.session;

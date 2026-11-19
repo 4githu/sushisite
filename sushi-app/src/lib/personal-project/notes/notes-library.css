@@ -1,0 +1,490 @@
+.note-library {
+	--notes-border: #e1e3e8;
+	display: grid;
+	grid-template-columns: 180px 210px minmax(0, 1fr);
+	height: 100dvh;
+	min-height: 0;
+	background: #fff;
+	color: #27292f;
+	font:
+		13px 'Noto Sans KR',
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	overflow: hidden;
+}
+.note-library * {
+	box-sizing: border-box;
+}
+.note-library button,
+.note-library input,
+.note-library select {
+	font: inherit;
+}
+.note-library button {
+	cursor: pointer;
+	color: inherit;
+}
+.note-library button:disabled {
+	opacity: 0.5;
+	cursor: wait;
+}
+.note-library button:focus-visible,
+.note-library a:focus-visible {
+	outline: 2px solid #bf503d;
+	outline-offset: 2px;
+}
+.notebook-navigation,
+.note-page-navigation {
+	min-width: 0;
+	min-height: 0;
+	border-right: 1px solid var(--notes-border);
+	display: flex;
+	flex-direction: column;
+	padding: 20px 12px 12px;
+	background: #fafafb;
+	overflow: auto;
+}
+.note-page-navigation {
+	background: #fff;
+	padding-top: 22px;
+}
+.notes-brand {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	color: #242529;
+	text-decoration: none;
+	font-size: 18px;
+	font-weight: 700;
+	margin: 0 0 30px 4px;
+	white-space: nowrap;
+}
+.notes-brand i {
+	width: 5px;
+	height: 22px;
+	background: #bd4e36;
+	border-radius: 2px;
+	margin-right: 3px;
+}
+.notes-brand span {
+	font-weight: 400;
+	color: #757880;
+	font-size: 14px;
+}
+.book-select {
+	display: grid;
+	gap: 7px;
+	margin-bottom: 20px;
+}
+.book-select > span,
+.section-heading {
+	font-size: 10px;
+	color: #83868e;
+}
+.book-select select {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	color: #27292f;
+	padding: 7px 2px;
+	font-weight: 600;
+}
+.section-heading,
+.note-section-title {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 5px;
+}
+.section-heading button,
+.note-section-title button {
+	background: none;
+	border: 0;
+	padding: 5px;
+}
+.note-library svg {
+	width: 15px;
+	height: 15px;
+	vertical-align: middle;
+}
+.notebook-navigation nav {
+	display: grid;
+	gap: 3px;
+	margin: 9px 0 12px;
+}
+.notebook-navigation nav button {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	text-align: left;
+	min-height: 36px;
+	border: 0;
+	background: none;
+	border-radius: 4px;
+	padding: 8px;
+}
+.notebook-navigation nav button span:last-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.section-mark {
+	height: 17px;
+	width: 3px;
+	background: #919dae;
+	border-radius: 1px;
+	flex: none;
+}
+.notebook-navigation nav .current {
+	background: #ebecef;
+	font-weight: 500;
+}
+.notebook-navigation nav .current .section-mark {
+	background: #bd4e36;
+}
+.add-section,
+.add-notebook {
+	border: 0;
+	background: none;
+	text-align: left;
+	color: #6e727b !important;
+	padding: 9px 7px;
+	font-size: 11px !important;
+}
+.library-bottom {
+	display: grid;
+	gap: 6px;
+	margin-top: auto;
+	padding: 32px 5px 5px;
+}
+.library-bottom button {
+	background: none;
+	border: 0;
+	text-align: left;
+	padding: 5px 0;
+	font-size: 11px;
+}
+.library-bottom a {
+	color: #747984;
+	text-decoration: none;
+	font-size: 11px;
+	padding: 5px 0;
+}
+.library-bottom small {
+	font-size: 10px;
+	color: #91949d;
+	margin-top: 10px;
+	line-height: 1.6;
+}
+.library-bottom small a {
+	display: block;
+	font-size: 10px;
+}
+.note-section-title {
+	margin: 0 2px 16px;
+}
+.note-section-title strong {
+	font-size: 16px;
+	font-weight: 600;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.note-search {
+	width: 100%;
+	padding: 8px 9px;
+	border: 1px solid var(--notes-border);
+	border-radius: 4px;
+	background: #fafafb;
+	margin-bottom: 13px;
+	font-size: 11px !important;
+	outline: none;
+}
+.library-add-page {
+	display: flex;
+	margin-bottom: 14px;
+	border: 1px solid var(--notes-border);
+	border-radius: 4px;
+	overflow: hidden;
+	flex-shrink: 0;
+}
+.library-add-page button {
+	background: white;
+	border: 0;
+	padding: 9px;
+	font-size: 11px;
+}
+.library-add-page button:first-child {
+	flex: 1;
+	text-align: left;
+}
+.library-add-page button:last-child {
+	border-left: 1px solid var(--notes-border);
+	width: 30px;
+}
+.library-page-list {
+	display: grid;
+	align-content: start;
+	gap: 4px;
+	overflow: auto;
+}
+.library-page-entry {
+	display: flex;
+	align-items: center;
+	border-radius: 4px;
+	min-width: 0;
+}
+.library-page-entry.current {
+	background: #f1eeeb;
+	box-shadow: inset 2px 0 #ba4d36;
+}
+.page-name {
+	min-width: 0;
+	flex: 1;
+	border: 0;
+	background: none;
+	text-align: left;
+	padding: 12px;
+}
+.page-name span {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+}
+.page-name small {
+	display: block;
+	font-size: 10px;
+	color: #93969f;
+	margin-top: 6px;
+}
+.delete-page {
+	border: 0;
+	background: none;
+	padding: 6px;
+	opacity: 0;
+}
+.library-page-entry:hover .delete-page,
+.delete-page:focus-visible {
+	opacity: 1;
+}
+.delete-page svg {
+	width: 13px;
+}
+.empty-pages {
+	font-size: 11px;
+	color: #8d919a;
+	padding: 10px;
+	line-height: 1.7;
+}
+.library-workspace-host {
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+.library-workspace-host .netaq-notebook {
+	border: 0;
+	border-radius: 0;
+	margin: 0;
+	width: 100%;
+	height: var(--reader-height, 100%);
+	min-height: 0;
+}
+.library-workspace-host .app-header {
+	height: 56px;
+	min-height: 56px;
+	padding: 10px 12px;
+}
+.library-workspace-host .workspace {
+	min-height: 0;
+}
+.library-workspace-host .app-header .save-state {
+	font-size: 10px;
+}
+.library-workspace-host .app-header .doc-title {
+	max-width: none;
+	flex: 1;
+	width: 100px;
+	font-size: 13px;
+}
+.library-workspace-host .viewport {
+	padding: 24px 30px 90px;
+}
+.library-name-form {
+	border: 1px solid var(--notes-border);
+	border-radius: 4px;
+	background: #fff;
+	padding: 9px;
+	margin-top: 10px;
+}
+.library-name-form label {
+	display: grid;
+	gap: 6px;
+	font-size: 11px;
+}
+.library-name-form input {
+	width: 100%;
+	padding: 6px;
+	border: 1px solid #ced0d7;
+}
+.library-name-form div {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+}
+.library-name-form button {
+	border: 1px solid #dddfe4;
+	border-radius: 3px;
+	background: #fff;
+	padding: 5px 10px;
+	font-size: 11px;
+}
+.library-empty,
+.library-loading {
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	font: 13px sans-serif;
+	color: #686d78;
+}
+.library-empty {
+	height: 100%;
+}
+.library-empty h1 {
+	font-size: 20px;
+	font-weight: 500;
+	color: #303238;
+	margin: 0;
+}
+.library-empty p {
+	margin: 0;
+}
+.library-empty button,
+.library-loading button {
+	border: 1px solid #d9dce3;
+	background: #fff;
+	border-radius: 5px;
+	padding: 10px 16px;
+	cursor: pointer;
+}
+.library-notice {
+	position: fixed;
+	bottom: 15px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: #fff;
+	border: 1px solid #c95e4e;
+	border-radius: 5px;
+	color: #984536;
+	padding: 10px 14px;
+	max-width: calc(100vw - 24px);
+	z-index: 100;
+}
+.library-notice button {
+	margin-left: 10px;
+	border: 0;
+	background: #fff;
+	white-space: nowrap;
+}
+.library-shade,
+.close-library-mobile,
+.library-mobile-menu {
+	display: none;
+}
+@media (max-width: 1100px) {
+	.note-library {
+		grid-template-columns: 150px 180px minmax(0, 1fr);
+	}
+	.notebook-navigation,
+	.note-page-navigation {
+		padding-left: 9px;
+		padding-right: 9px;
+	}
+	.notes-brand {
+		font-size: 16px;
+		gap: 3px;
+	}
+	.notes-brand span {
+		font-size: 12px;
+	}
+	.library-workspace-host .save-state {
+		display: none;
+	}
+	.library-workspace-host .app-header .backup span {
+		display: none;
+	}
+}
+@media (max-width: 850px) {
+	.note-library {
+		display: block;
+	}
+	.notebook-navigation,
+	.note-page-navigation {
+		display: none;
+	}
+	.library-workspace-host {
+		height: 100%;
+	}
+	.note-library.nav-open .notebook-navigation,
+	.note-library.nav-open .note-page-navigation {
+		display: flex;
+		position: fixed;
+		top: 0;
+		bottom: 0;
+		z-index: 71;
+		width: 160px;
+		left: 0;
+	}
+	.note-library.nav-open .note-page-navigation {
+		left: 160px;
+		width: min(220px, calc(100vw - 160px));
+	}
+	.note-library.nav-open .library-shade {
+		display: block;
+		position: fixed;
+		inset: 0;
+		background: #24252945;
+		z-index: 70;
+		border: 0;
+	}
+	.close-library-mobile {
+		display: block;
+		margin-top: auto;
+		border: 1px solid #dedfe4;
+		border-radius: 4px;
+		background: #fff;
+		padding: 10px;
+		font-size: 11px !important;
+	}
+	.library-mobile-menu {
+		display: block;
+	}
+	.library-workspace-host .viewport {
+		padding: 20px 14px 85px;
+	}
+	.delete-page {
+		opacity: 1;
+	}
+	.library-workspace-host .app-header .doc-title {
+		display: block;
+	}
+	.library-workspace-host .netaq-notebook .main-tools {
+		padding-left: 6px;
+		padding-right: 6px;
+	}
+	.library-workspace-host .tool-settings {
+		overflow-x: auto;
+		overflow-y: visible;
+		white-space: nowrap;
+	}
+}
+
+.library-workspace-host .view-controls {
+	left: 50%;
+	max-width: calc(100% - 24px);
+}

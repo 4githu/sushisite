@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/RegisterVerifyStep.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import {
 		authMail as Mail,
 		authCheck as Check
@@ -32,13 +33,13 @@
 			<img src={Mail} alt="" />
 		</div>
 
-		<h2 class="text-title-middle">이메일 인증</h2>
-		<p class="text-caption-main"><strong>{email}</strong>으로 인증번호를 보냈습니다.</p>
+		<h2 class="text-title-middle">{tr($siteLocale, "이메일 인증")}</h2>
+		<p class="text-caption-main"><strong>{email}</strong>{tr($siteLocale, "으로 인증번호를 보냈습니다.")}</p>
 
 		<div class="verify-input">
 			<AuthField
-				label="인증번호"
-				placeholder="인증번호 6자리를 입력해주세요"
+				label={tr($siteLocale, "인증번호")}
+				placeholder={tr($siteLocale, "인증번호 6자리를 입력해주세요")}
 				bind:value={code}
 				error={error}
 				success={success}
@@ -51,7 +52,7 @@
 
 			<button type="button" class="resend-button clickable text-button" onclick={onResend}>
 				<img src={Check} alt="" />
-				<span>인증번호 재전송</span>
+				<span>{tr($siteLocale, "인증번호 재전송")}</span>
 			</button>
 		</div>
 	</div>

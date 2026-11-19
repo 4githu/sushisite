@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale, copy } from "$lib/odi/i18n";
 	import hero from '$lib/odi/assets/home-202609/hero.png';
 	import heroNew from '$lib/odi/assets/home-202609/hero-new.png';
 	import Button from '../common/Button.svelte';
@@ -13,13 +14,11 @@
 	<div>
 		{#if first}<p class="eyebrow">START YOUR FIRST PRACTICE</p>{/if}
 		<h2>
-			{first ? '첫 번째 발표 연습을' : 'AI 청중과 실전처럼,'}<br />{first
-				? '시작해보세요'
-				: '새로운 발표를 시작해보세요.'}
+			{copy($locale, first ? "첫 번째 발표 연습을" : "AI 청중과 실전처럼,")}<br />{copy($locale, first ? "시작해보세요" : "새로운 발표를 시작해보세요.")}
 		</h2>
-		<p>발표 자료를 준비하고, AI 청중 앞에서 연습한 뒤<br />상세한 피드백을 받아보세요.</p>
-		<Button onclick={onstart}>＋ 새 세션 시작하기 →</Button>{#if first}<small
-				>발표 자료 업로드 · AI 청중과 발표 · 결과 확인</small
+		<p>{copy($locale, "발표 자료를 준비하고, AI 청중 앞에서 연습한 뒤")}<br />{copy($locale, "상세한 피드백을 받아보세요.")}</p>
+		<Button onclick={onstart}>{copy($locale, "＋ 새 세션 시작하기 →")}</Button>{#if first}<small
+				>{copy($locale, "발표 자료 업로드 · AI 청중과 발표 · 결과 확인")}</small
 			>{/if}
 	</div>
 </section>

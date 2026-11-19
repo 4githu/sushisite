@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/Modal.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { Snippet } from "svelte";
 
 	let {
@@ -31,7 +32,7 @@
 	<button
 		type="button"
 		class="modal-backdrop"
-		aria-label="모달 닫기"
+		aria-label={tr($siteLocale, "모달 닫기")}
 		onclick={onClose}
 	></button>
 

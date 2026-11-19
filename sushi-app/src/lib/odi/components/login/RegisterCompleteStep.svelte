@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/RegisterCompleteStep.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import {
 		authCheck as Check,
 		authLock as Lock
@@ -18,12 +19,12 @@
 			<img src={Check} alt="" />
 		</div>
 
-		<h2 class="text-title-middle">계정 생성이 완료되었습니다</h2>
+		<h2 class="text-title-middle">{tr($siteLocale, "계정 생성이 완료되었습니다")}</h2>
 		<p class="text-caption-main">{email} 계정으로 Re:hear를 시작할 수 있어요.</p>
 
 		<div class="guide-box">
 			<img src={Lock} alt="" />
-			<p>다음 단계에서 Re:hear 서비스 이용을 위한 약관 동의와 기본 설정을 완료합니다.</p>
+			<p>{tr($siteLocale, "다음 단계에서 Re:hear 서비스 이용을 위한 약관 동의와 기본 설정을 완료합니다.")}</p>
 		</div>
 	</div>
 </div>

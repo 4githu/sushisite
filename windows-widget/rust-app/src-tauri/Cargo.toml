@@ -1,0 +1,24 @@
+[package]
+name = "netaq-desktop"
+version = "0.13.2"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-wallpaper = "=4.1.0"
+tauri-plugin-updater = "=2.10.1"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["sync"] }
+keyring = { version = "3", features = ["windows-native", "apple-native"] }
+chacha20poly1305 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+open = "5"

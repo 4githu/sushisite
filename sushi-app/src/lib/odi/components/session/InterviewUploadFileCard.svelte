@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
 	import UploadSection from '$lib/odi/components/session/UploadSection.svelte';
 
@@ -14,14 +15,14 @@
 <SurfaceCard padding="43px 36px" minHeight="609px">
 	<div class="upload-card-content">
 		<UploadSection
-			title="이력서 / 자기소개서 PDF"
+			title={tr($siteLocale, "이력서 / 자기소개서 PDF")}
 			required
 			accept=".pdf"
 			maxSizeMB={300}
 			bind:file={resumeFile}
 		/>
 
-		<UploadSection title="포트폴리오 PDF" accept=".pdf" maxSizeMB={300} bind:file={portfolioFile} />
+		<UploadSection title={tr($siteLocale, "포트폴리오 PDF")} accept=".pdf" maxSizeMB={300} bind:file={portfolioFile} />
 	</div>
 </SurfaceCard>
 

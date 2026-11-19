@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import SurfaceCard from "$lib/odi/components/common/SurfaceCard.svelte";
 	import SegmentedControl from "$lib/odi/components/session/SegmentedControl.svelte";
 
@@ -28,59 +29,59 @@
 		interviewStyle?: InterviewStyle;
 	} = $props();
 
-	const personaItems = [
+	const personaItems = $derived([
 		{
 			value: "hr",
 			icon: Person,
-			label: "인사담당자(HR)",
-			description: "조직 적합성과 성장 가능성\n중심으로 평가합니다."
+			label: tr($siteLocale, "인사담당자(HR)"),
+			description: tr($siteLocale, "조직 적합성과 성장 가능성\n중심으로 평가합니다.")
 		},
 		{
 			value: "practical",
 			icon: Person,
-			label: "실무자(Practical)",
-			description: "직무 역량과 실무 적합성을\n중심으로 평가합니다."
+			label: tr($siteLocale, "실무자(Practical)"),
+			description: tr($siteLocale, "직무 역량과 실무 적합성을\n중심으로 평가합니다.")
 		},
 		{
 			value: "executive",
 			icon: Person,
-			label: "임원(Executive)",
-			description: "전략적 사고와 리더십 역량을\n중심으로 평가합니다."
+			label: tr($siteLocale, "임원(Executive)"),
+			description: tr($siteLocale, "전략적 사고와 리더십 역량을\n중심으로 평가합니다.")
 		},
 		{
 			value: "mixed",
 			icon: Person,
-			label: "혼합(Mixed)",
-			description: "다양한 관점에서 다각도로\n평가받을 수 있습니다."
+			label: tr($siteLocale, "혼합(Mixed)"),
+			description: tr($siteLocale, "다양한 관점에서 다각도로\n평가받을 수 있습니다.")
 		}
-	];
+	]);
 
-	const styleItems = [
+	const styleItems = $derived([
 		{
 			value: "friendly",
 			icon: Person,
-			label: "우호적(Friendly)",
-			description: "편안하고 긍정적인 분위기에서\n대화를 이끌어갑니다."
+			label: tr($siteLocale, "우호적(Friendly)"),
+			description: tr($siteLocale, "편안하고 긍정적인 분위기에서\n대화를 이끌어갑니다.")
 		},
 		{
 			value: "neutral",
 			icon: Person,
-			label: "일반적(Neutral)",
-			description: "균형 잡힌 태도로 공정하고\n객관적인 질문을 합니다."
+			label: tr($siteLocale, "일반적(Neutral)"),
+			description: tr($siteLocale, "균형 잡힌 태도로 공정하고\n객관적인 질문을 합니다.")
 		},
 		{
 			value: "critical",
 			icon: Person,
-			label: "비판적(Critical)",
-			description: "날카로운 질문으로 깊이 있는\n답변을 요구합니다."
+			label: tr($siteLocale, "비판적(Critical)"),
+			description: tr($siteLocale, "날카로운 질문으로 깊이 있는\n답변을 요구합니다.")
 		},
 		{
 			value: "pressure",
 			icon: Person,
-			label: "압박형(Pressure)",
-			description: "빠른 판단과 강한 압박 속에서\n역량을 테스트합니다."
+			label: tr($siteLocale, "압박형(Pressure)"),
+			description: tr($siteLocale, "빠른 판단과 강한 압박 속에서\n역량을 테스트합니다.")
 		}
-	];
+	]);
 </script>
 
 <SurfaceCard padding="43px 36px" minHeight="609px">
@@ -92,7 +93,7 @@
 				</div>
 
 				<h2 class="text-title-middle">
-					면접관 페르소나
+					{tr($siteLocale, "면접관 페르소나")}
 				</h2>
 			</div>
 
@@ -111,7 +112,7 @@
 				</div>
 
 				<h2 class="text-title-middle">
-					면접 스타일
+					{tr($siteLocale, "면접 스타일")}
 				</h2>
 			</div>
 

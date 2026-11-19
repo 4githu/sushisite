@@ -9,7 +9,9 @@ import os
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 
-def make_jwt(sub, data, index):
+MAIN_SESSION_SECONDS = 30 * 24 * 60 * 60
+
+def make_jwt(sub, data, index, lifetime_seconds=60 * 60):
     data = dict(data)
 
     payload = {k: data[k] for k in index if k in data}
@@ -18,7 +20,7 @@ def make_jwt(sub, data, index):
         {
             "sub": str(sub),
             "data": payload,
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+            "exp": datetime.now(timezone.utc) + timedelta(seconds=lifetime_seconds),
         },
         SECRET_KEY,
         algorithm=ALGORITHM,

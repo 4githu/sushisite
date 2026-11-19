@@ -1,6 +1,7 @@
 <!-- src/lib/odi/components/report/ReportHeader.svelte -->
 
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import type { ReportFeedback, ReportSession, ReportTemplate } from './reportTypes';
 	import { formatDateTime, formatKoreanDuration } from './reportUtils';
 
@@ -41,7 +42,7 @@
 
 <header class="report-header">
 	<div class="header-main">
-		<p class="eyebrow">이번 세션 결과</p>
+		<p class="eyebrow">{copy($locale, "이번 세션 결과")}</p>
 
 		<h1>{title}</h1>
 
@@ -57,7 +58,7 @@
 
 		{#if fileNames.length > 0}
 			<div class="file-row">
-				<span class="file-label">첨부 자료</span>
+				<span class="file-label">{copy($locale, "첨부 자료")}</span>
 
 				<div class="file-list">
 					{#each fileNames as fileName, index}
@@ -74,11 +75,11 @@
 
 	<div class="header-actions">
 		<button type="button" class="action-button clickable" onclick={onOpenPrevious}>
-			이전 리포트 보기
+			{copy($locale, "이전 리포트 보기")}
 		</button>
 
 		<button type="button" class="action-button clickable" onclick={onDownload}>
-			리포트 다운로드
+			{copy($locale, "리포트 다운로드")}
 		</button>
 	</div>
 </header>

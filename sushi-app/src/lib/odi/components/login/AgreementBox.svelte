@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/AgreementBox.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import {
 		authCheckboxChecked as CheckBox,
 		authCheckboxUnchecked as CheckBoxOutlineBlank,
@@ -49,17 +50,17 @@
 </script>
 
 <div class="agreement-section">
-	<p class="agreement-label text-body-active">약관 동의</p>
+	<p class="agreement-label text-body-active">{tr($siteLocale, "약관 동의")}</p>
 
 	<div class="agreement-box">
 		<div class="agreement-row">
 			<button type="button" class="check-area clickable" role="checkbox" aria-checked={allAgreed} onclick={toggleAll}>
 				<img src={allAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
-				<span class="text-body">모든 약관에 동의합니다.</span>
+				<span class="text-body">{tr($siteLocale, "모든 약관에 동의합니다.")}</span>
 			</button>
 
 			<button type="button" class="term-button clickable" onclick={() => onOpenTerm?.("all")}>
-				<span>전문 보기</span>
+				<span>{tr($siteLocale, "전문 보기")}</span>
 				<img src={ChevronRight} alt="" />
 			</button>
 		</div>
@@ -67,11 +68,11 @@
 		<div class="agreement-row">
 			<button type="button" class="check-area clickable" role="checkbox" aria-checked={serviceAgreed} onclick={toggleService}>
 				<img src={serviceAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
-				<span class="text-body">[필수] 서비스 이용약관 동의</span>
+				<span class="text-body">{tr($siteLocale, "[필수] 서비스 이용약관 동의")}</span>
 			</button>
 
 			<button type="button" class="term-button clickable" onclick={() => onOpenTerm?.("service")}>
-				<span>전문 보기</span>
+				<span>{tr($siteLocale, "전문 보기")}</span>
 				<img src={ChevronRight} alt="" />
 			</button>
 		</div>
@@ -79,11 +80,11 @@
 		<div class="agreement-row">
 			<button type="button" class="check-area clickable" role="checkbox" aria-checked={privacyAgreed} onclick={togglePrivacy}>
 				<img src={privacyAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
-				<span class="text-body">[필수] 개인정보 수집 및 이용 동의</span>
+				<span class="text-body">{tr($siteLocale, "[필수] 개인정보 수집 및 이용 동의")}</span>
 			</button>
 
 			<button type="button" class="term-button clickable" onclick={() => onOpenTerm?.("privacy")}>
-				<span>전문 보기</span>
+				<span>{tr($siteLocale, "전문 보기")}</span>
 				<img src={ChevronRight} alt="" />
 			</button>
 		</div>
@@ -91,11 +92,11 @@
 		<div class="agreement-row">
 			<button type="button" class="check-area clickable" role="checkbox" aria-checked={marketingAgreed} onclick={toggleMarketing}>
 				<img src={marketingAgreed ? CheckBox : CheckBoxOutlineBlank} alt="" />
-				<span class="text-body">[선택] 서비스 소식 및 혜택 알림 수신 동의</span>
+				<span class="text-body">{tr($siteLocale, "[선택] 서비스 소식 및 혜택 알림 수신 동의")}</span>
 			</button>
 
 			<button type="button" class="term-button clickable" onclick={() => onOpenTerm?.("marketing")}>
-				<span>전문 보기</span>
+				<span>{tr($siteLocale, "전문 보기")}</span>
 				<img src={ChevronRight} alt="" />
 			</button>
 		</div>

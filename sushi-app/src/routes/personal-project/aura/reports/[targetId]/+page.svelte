@@ -1,11 +1,20 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AuraReportEditor from '$lib/personal-project/aura/components/AuraReportEditor.svelte';
+	import { fromRich, toRich } from '$lib/personal-project/editor/document';
 	import { progressStageLabels } from '$lib/personal-project/aura/stages';
 	import { createDocument, normalizeDocument } from '$lib/textediter/model';
 	import type { EditorDocument } from '$lib/textediter/types';
-	import { personalApi, type ReportAttachment } from '$lib/personal-project/shared/api';
+	import {
+		request,
+		personalApi,
+		PersonalApiError,
+		type ReportAttachment
+	} from '$lib/personal-project/shared/api';
+	import { deliveryView, type DeliveryResult } from '$lib/personal-project/aura/delivery-result';
+	import { privateCacheUser } from '$lib/personal-project/shared/auth';
 	import type {
 		AiReportModel,
 		AiReportResult,
@@ -19,6 +28,8 @@
 	let sourceNotes = $state('');
 	let questionChecks = $state<Record<string, boolean>>({});
 	let saving = $state(false);
+	let saveStatus = $state<'saved' | 'pending' | 'saving' | 'failed'>('saved');
+	let switching = $state(false);
 	let message = $state('');
 	let error = $state('');
 	let autosaveTimer: number | undefined;
@@ -26,7 +37,10 @@
 	let aiModels = $state<AiReportModel[]>([]);
 	let selectedModel = $state('');
 	let aiResults = $state<AiReportResult[]>([]);
-	let aiGenerating = $state(false);
+	let aiHistoryLoaded = $state(false);
+	let generatingTargets = $state<Record<number, boolean>>({});
+	let generationNotices = $state<Record<number, string>>({});
+	let aiGenerating = $derived(Boolean(report && generatingTargets[report.targetId]));
 	let scoreMode = $state<'auto' | 'none'>('auto');
 	type HighlightMeaning = 'fixed' | 'unfixed' | 'not_reasked';
 	let highlightSemantics = $state<{
@@ -40,6 +54,7 @@
 	});
 	let includeQuestionChecks = $state(false);
 	let generatedReport = $state<AiReportResult['output'] | null>(null);
+	let selectedAiRunId = $state('');
 	let aiModel = $state<string | null>(null);
 	let modalStage = $state<'closed' | 'generate' | 'final'>('closed');
 
@@ -55,17 +70,261 @@
 	let problemImages = $state<AttachmentPreview[]>([]);
 	let attachmentBusy = $state(false);
 	let attachmentNotice = $state('');
-	let pdfPreview = $state<HTMLElement>();
 	let pdfBusy = $state(false);
 	let kakaoBusy = $state(false);
 	let nativeKakaoBusy = $state(false);
+	type ScheduledDelivery = {
+		id: string;
+		targetId: number;
+		state:
+			| 'queued'
+			| 'generating'
+			| 'ready'
+			| 'sending'
+			| 'sent'
+			| 'failed'
+			| 'unknown'
+			| 'partial'
+			| 'cancelled';
+		requestedAt: number;
+		sendAfter: number;
+		errorCode: string | null;
+	};
+	let scheduledDelivery = $state<ScheduledDelivery | null>(null);
+	let scheduleReady = $state(false);
+	let scheduleBusy = $state(false);
+	let scheduleNotice = $state('');
+	let scheduleTimer: number | undefined;
+	let scheduleReadVersion = 0;
+	let scheduleOutcomeUncertain = $state(false);
+	let immediateOutcomeUncertain = $state(false);
+	let deliveryRecoveryVersion = 0;
+	let deliveryNotice = $state('');
+	let replacedScheduleNotice = $state('');
+	const immediateOutcomeKey = (targetId: number) => `aura-clinic-send-uncertain:${targetId}`;
+	function applyDeliveryResult(targetId: number, result: DeliveryResult) {
+		if (loadingTargetId !== targetId || destroyed) return;
+		const view = deliveryView(result);
+		deliveryNotice = view.message;
+		if (view.unlock) {
+			try {
+				localStorage.removeItem(immediateOutcomeKey(targetId));
+				immediateOutcomeUncertain = false;
+			} catch {
+				immediateOutcomeUncertain = true;
+			}
+		}
+		if (view.verified && result.completionStatus !== 'pending' && report?.targetId === targetId) {
+			cancelAutosave();
+			report = { ...report, status: 'submitted' };
+		}
+	}
+	async function recoverDelivery(targetId: number, requestId: string, revision: number) {
+		const recoveryVersion = deliveryRecoveryVersion;
+		try {
+			const result = await personalApi.clinicDeliveryResult(targetId, requestId);
+			if (revision === loadRevision && recoveryVersion === deliveryRecoveryVersion) applyDeliveryResult(targetId, result);
+		} catch {
+			if (revision === loadRevision && recoveryVersion === deliveryRecoveryVersion && loadingTargetId === targetId)
+				deliveryNotice = deliveryView({}).message;
+		}
+	}
+	const scheduleLabels: Record<ScheduledDelivery['state'], string> = {
+		queued: '예약 대기',
+		generating: '리포트 생성 중',
+		ready: '전송 준비 완료',
+		sending: '전송 중',
+		sent: '전송 완료',
+		failed: '예약 실패',
+		unknown: '전송 결과 확인 필요',
+		partial: '일부 전송 · 확인 필요',
+		cancelled: '예약 취소됨'
+	};
+	async function refreshSchedule(targetId: number, revision: number) {
+		const readVersion = ++scheduleReadVersion;
+		try {
+			const result = await request<ScheduledDelivery | null>(
+				`/aura/targets/${targetId}/kakao-clinic/scheduled-deliveries`
+			);
+			if (
+				destroyed ||
+				revision !== loadRevision ||
+				loadingTargetId !== targetId ||
+				readVersion !== scheduleReadVersion
+			)
+				return;
+			if (
+				scheduleOutcomeUncertain &&
+				(!result ||
+					((scheduledDelivery?.state === 'failed' || scheduledDelivery?.state === 'cancelled') &&
+						result.id === scheduledDelivery.id))
+			) {
+				scheduleReady = false;
+				scheduleNotice = '예약 결과가 아직 확인되지 않았습니다. 잠시 후 상태를 확인하세요.';
+				return;
+			}
+			scheduleOutcomeUncertain = false;
+			scheduledDelivery = result;
+			scheduleReady = true;
+			scheduleNotice = '';
+		} catch {
+			if (destroyed || revision !== loadRevision || loadingTargetId !== targetId) return;
+			scheduleReady = false;
+			scheduleNotice = '예약 상태를 확인하지 못했습니다. 연결을 확인한 뒤 다시 확인하세요.';
+		}
+	}
+	async function scheduleDelivery() {
+		if (
+			!report ||
+			scheduleBusy ||
+			nativeKakaoBusy ||
+			!scheduleReady ||
+			(scheduledDelivery &&
+				scheduledDelivery.state !== 'failed' &&
+				scheduledDelivery.state !== 'cancelled')
+		)
+			return;
+		const targetId = report.targetId;
+		const revision = loadRevision;
+		scheduleBusy = true;
+		try {
+			if (!(await save(false, true))) {
+				scheduleNotice = '저장하지 못해 예약하지 않았습니다.';
+				return;
+			}
+			if (destroyed || revision !== loadRevision || report?.targetId !== targetId) return;
+			scheduleReady = false;
+			++scheduleReadVersion;
+			scheduleOutcomeUncertain = true;
+			const result = await request<ScheduledDelivery>(
+				`/aura/targets/${targetId}/kakao-clinic/scheduled-deliveries`,
+				{ method: 'POST' }
+			);
+			if (destroyed || revision !== loadRevision) return;
+			scheduleOutcomeUncertain = false;
+			scheduledDelivery = result;
+			scheduleReady = true;
+			scheduleNotice = '';
+		} catch {
+			if (!destroyed && revision === loadRevision) {
+				scheduleReady = false;
+				scheduleNotice = '예약 결과를 확인하지 못했습니다. 상태를 다시 확인하세요.';
+			}
+		} finally {
+			scheduleBusy = false;
+		}
+	}
+	async function cancelScheduledDelivery() {
+		if (
+			!report ||
+			scheduleBusy ||
+			!scheduleReady ||
+			!scheduledDelivery ||
+			!['queued', 'generating', 'ready'].includes(scheduledDelivery.state)
+		)
+			return;
+		const targetId = report.targetId,
+			id = scheduledDelivery.id,
+			revision = loadRevision;
+		scheduleBusy = true;
+		scheduleReady = false;
+		++scheduleReadVersion;
+		try {
+			const result = await request<ScheduledDelivery>(
+				`/aura/targets/${targetId}/kakao-clinic/scheduled-deliveries/${id}`,
+				{ method: 'DELETE' }
+			);
+			if (destroyed || revision !== loadRevision) return;
+			scheduledDelivery = result;
+			scheduleReady = true;
+			scheduleNotice = '';
+		} catch {
+			if (!destroyed && revision === loadRevision)
+				scheduleNotice = '취소 결과를 확인하지 못했습니다. 상태를 다시 확인하세요.';
+		} finally {
+			scheduleBusy = false;
+		}
+	}
 	let nativeKakaoAvailable = $state(false);
 	let nativeKakaoChecked = $state(false);
 	let preparedShareFiles = $state<File[]>([]);
 	let shareStatus = $state('');
 	let finalControlsCollapsed = $state(false);
 	let noteCollapsed = $state(false);
+	let recoveryDraft = $state<Record<string, any> | null>(null);
+	let recoveryInitialized = $state(false);
+	let lastSavedFingerprint = '';
 	let loadingTargetId = 0;
+	let loadRevision = 0;
+	let savePromise: Promise<boolean> | null = null;
+	let destroyed = false;
+	function recoveryKey(targetId: number) {
+		const userId = privateCacheUser();
+		return userId ? `ondo-private:aura-report:${userId}:${targetId}` : '';
+	}
+	function recoverySnapshot() {
+		if (!report) return '';
+		return JSON.stringify({
+			targetId: report.targetId,
+			savedAt: Date.now(),
+			document: editor?.getJSON() ?? draftDocument,
+			sourceNotes,
+			questionChecks,
+			lectureProgress,
+			lectureComprehension,
+			memoryBefore,
+			memoryAfter,
+			assessmentCsv,
+			generatedReport,
+			aiModel,
+			finalParagraphs,
+			problemSolvingNote,
+			scoreMode
+		});
+	}
+	function recoveryFingerprint(savedSnapshot?: Record<string, any>) {
+		const snapshot = savedSnapshot ? JSON.stringify(savedSnapshot) : recoverySnapshot();
+		if (!snapshot) return '';
+		const value = JSON.parse(snapshot);
+		delete value.savedAt;
+		if (value.document) delete value.document.updatedAt;
+		return JSON.stringify(value);
+	}
+	function persistRecovery() {
+		if (!report || report.status === 'submitted') return;
+		const key = recoveryKey(report.targetId);
+		if (!key) return;
+		try {
+			const fingerprint = recoveryFingerprint();
+			if (lastSavedFingerprint && fingerprint === lastSavedFingerprint)
+				localStorage.removeItem(key);
+			else {
+				const snapshot = recoverySnapshot();
+				localStorage.setItem(key, snapshot);
+			}
+		} catch {
+			/* local recovery is best effort */
+		}
+	}
+	function cancelAutosave() {
+		if (autosaveTimer) window.clearTimeout(autosaveTimer);
+		autosaveTimer = undefined;
+	}
+	onDestroy(() => {
+		destroyed = true;
+		cancelAutosave();
+		if (scheduleTimer) window.clearInterval(scheduleTimer);
+	});
+	onMount(() => {
+		const handleSaveShortcut = (event: KeyboardEvent) => {
+			if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
+				event.preventDefault();
+				if (report) void save(false);
+			}
+		};
+		window.addEventListener('keydown', handleSaveShortcut);
+		return () => window.removeEventListener('keydown', handleSaveShortcut);
+	});
 
 	function hasAppendixContent(document: EditorDocument) {
 		return document.blocks.some((block) => {
@@ -80,56 +339,44 @@
 		});
 	}
 
-	async function reportPageFiles() {
-		if (!pdfPreview) return [];
-		const { captureReport } = await import('$lib/personal-project/aura/reportExport.client');
-		const source = await captureReport(pdfPreview);
-		const pageHeight = Math.round((source.width * 297) / 210);
-		const files: File[] = [];
-		for (let top = 0, pageNumber = 1; top < source.height; top += pageHeight, pageNumber++) {
-			const pageCanvas = document.createElement('canvas');
-			pageCanvas.width = source.width;
-			pageCanvas.height = pageHeight;
-			const context = pageCanvas.getContext('2d');
-			if (!context) continue;
-			context.fillStyle = '#ffffff';
-			context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-			context.drawImage(
-				source,
-				0,
-				top,
-				source.width,
-				Math.min(pageHeight, source.height - top),
-				0,
-				0,
-				source.width,
-				Math.min(pageHeight, source.height - top)
-			);
-			const blob = await new Promise<Blob>((resolve, reject) =>
-				pageCanvas.toBlob(
-					(value) =>
-						value ? resolve(value) : reject(new Error('리포트 이미지를 만들지 못했습니다.')),
-					'image/jpeg',
-					0.9
-				)
-			);
-			files.push(new File([blob], `clinic-report-${pageNumber}.jpg`, { type: 'image/jpeg' }));
-		}
-		return files;
-	}
-
 	let assessmentLocked = $derived(aiResults.length > 0 || Boolean(report?.generatedReportJson));
+	let hasSavedGeneration = $derived(aiResults.length > 0 || Boolean(generatedReport));
 	let includeAppendix = $derived(hasAppendixContent(draftDocument));
 
 	async function load(targetId: number) {
 		loadingTargetId = targetId;
+		const revision = ++loadRevision;
+		scheduledDelivery = null;
+		scheduleReady = false;
+		scheduleOutcomeUncertain = false;
+		deliveryNotice = '';
+		replacedScheduleNotice = '';
+		try {
+			const pending = localStorage.getItem(immediateOutcomeKey(targetId));
+			immediateOutcomeUncertain = Boolean(pending);
+			if (pending && pending !== '1') void recoverDelivery(targetId, pending, revision);
+			else if (pending) deliveryNotice = deliveryView({}).message;
+		} catch {
+			immediateOutcomeUncertain = true;
+			deliveryNotice = deliveryView({}).message;
+		}
+		scheduleNotice = '';
+		recoveryInitialized = false;
+		cancelAutosave();
+		report = null;
+		message = '';
+		error = '';
+		modalStage = 'closed';
+		aiResults = [];
+		aiHistoryLoaded = false;
 		try {
 			const [nextReport, attachments] = await Promise.all([
 				personalApi.targetReport(targetId),
 				personalApi.targetReportAttachments(targetId)
 			]);
-			if (loadingTargetId !== targetId) return;
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 			report = nextReport;
+			loadUnitTemplates();
 			const document = normalizeDocument(nextReport.contentJson);
 			initialDocument = document;
 			draftDocument = document;
@@ -145,7 +392,12 @@
 			generatedReport = nextReport.generatedReportJson;
 			finalParagraphs = [...(generatedReport?.learningContent.paragraphs ?? [])];
 			problemSolvingNote = generatedReport?.problemSolvingNote ?? '';
-			if (generatedReport && !generatedReport.assessment) scoreMode = 'none';
+			if (generatedReport) {
+				assessmentCsv = (generatedReport.assessment?.items ?? [])
+					.map((item) => `${item.name},${item.score}`)
+					.join('\n');
+				scoreMode = generatedReport.assessment ? 'auto' : 'none';
+			}
 			aiModel = nextReport.aiModel;
 			blankTestImages = attachments
 				.filter((item) => item.kind === 'blank_test')
@@ -153,12 +405,50 @@
 			problemImages = attachments
 				.filter((item) => item.kind === 'problem_solving')
 				.map((item) => ({ ...item, url: personalApi.targetReportAttachmentUrl(item.id) }));
-			await loadAi(targetId);
-			if (page.url.searchParams.get('pdf') === '1') {
-				modalStage = generatedReport ? 'final' : 'generate';
+			recoveryDraft = null;
+			const key = recoveryKey(targetId);
+			if (key) {
+				try {
+					const cached = JSON.parse(localStorage.getItem(key) || 'null');
+					if (cached?.targetId === targetId && cached.document) recoveryDraft = cached;
+				} catch {
+					localStorage.removeItem(key);
+				}
 			}
+			void refreshSchedule(targetId, revision);
+			if (scheduleTimer) window.clearInterval(scheduleTimer);
+			scheduleTimer = window.setInterval(() => {
+				if (!scheduleBusy && !nativeKakaoBusy) void refreshSchedule(targetId, revision);
+			}, 15000);
+			await loadAi(targetId, revision);
+			if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
+			lastSavedFingerprint = recoveryFingerprint();
+			if (recoveryDraft) {
+				if (recoveryFingerprint(recoveryDraft) === lastSavedFingerprint) {
+					if (key) localStorage.removeItem(key);
+					recoveryDraft = null;
+				} else {
+					applyRecovery(recoveryDraft);
+					const savedGeneration = report.generatedReportJson;
+					if (savedGeneration && recoveryDraft.generatedReport?.runId !== savedGeneration.runId) {
+						// A stale local draft must not replace the server's durable AI
+						// generation with an older or empty result.
+						generatedReport = savedGeneration;
+						finalParagraphs = [...(savedGeneration.learningContent?.paragraphs ?? [])];
+						problemSolvingNote = savedGeneration.problemSolvingNote ?? '';
+					}
+					recoveryDraft = null;
+					message = '이 기기에 남아 있던 작성 내용을 복구해 서버에 저장하고 있습니다.';
+				}
+			}
+			recoveryInitialized = true;
+			// Show the saved report by default. A saved generation opens its final
+			// editor/preview; never send it back through AI generation.
+			modalStage = generatedReport ? 'final' : 'closed';
+			if (page.url.searchParams.get('pdf') === '1' && !hasSavedGeneration) modalStage = 'generate';
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
+			if (!destroyed && loadingTargetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 불러오지 못했습니다.';
 		}
 	}
 
@@ -195,25 +485,41 @@
 		assessmentCsv = rows.map((item) => `${item.name},${item.score}`).join('\n');
 	}
 
-	async function loadAi(targetId: number) {
+	async function loadAi(targetId: number, revision: number) {
 		const [options, saved] = await Promise.all([
 			personalApi.aiReportModels(),
 			personalApi.aiReportResults(targetId)
 		]);
-		if (loadingTargetId !== targetId) return;
+		if (destroyed || loadingTargetId !== targetId || revision !== loadRevision) return;
 		aiModels = options.models;
 		selectedModel = aiModels.some((item) => item.id === aiModel)
 			? (aiModel as string)
 			: options.defaultModel;
 		aiResults = saved.results;
+		aiHistoryLoaded = true;
+		const savedRunId = report?.generatedReportJson?.runId;
+		const activeRun = savedRunId
+			? saved.results.find((item) => item.runId === savedRunId)
+			: saved.results.find(
+					(item) => JSON.stringify(item.output) === JSON.stringify(generatedReport)
+				);
+		selectedAiRunId = activeRun
+			? String(activeRun.runId)
+			: saved.results[0]
+				? String(saved.results[0].runId)
+				: '';
 		if (!generatedReport && saved.results[0]) {
-			generatedReport = saved.results[0].output;
+			generatedReport = { ...saved.results[0].output, runId: saved.results[0].runId };
 			aiModel = saved.results[0].model;
 			finalParagraphs = [...generatedReport.learningContent.paragraphs];
 			problemSolvingNote = generatedReport.problemSolvingNote ?? '';
 			assessmentCsv = (generatedReport.assessment?.items ?? [])
 				.map((item) => `${item.name},${item.score}`)
 				.join('\n');
+			// Keep the newest durable generation on the report itself. The report
+			// row is the default source for PDFs and survives reloads independently
+			// of whether the generation-history request is available later.
+			await save(false, true);
 		}
 		if (
 			!generatedReport?.assessment &&
@@ -224,17 +530,85 @@
 		}
 	}
 
-	async function save(submit = false, silent = false) {
+	async function restoreAiGeneration(runId: string) {
+		const result = aiResults.find((item) => String(item.runId) === runId);
+		if (!result) return;
+		generatedReport = { ...structuredClone(result.output), runId: result.runId };
+		aiModel = result.model;
+		finalParagraphs = [...(result.output.learningContent?.paragraphs ?? [])];
+		problemSolvingNote = result.output.problemSolvingNote ?? '';
+		assessmentCsv = (result.output.assessment?.items ?? [])
+			.map((item) => `${item.name},${item.score}`)
+			.join('\n');
+		scoreMode = result.output.assessment ? 'auto' : 'none';
+		modalStage = 'final';
+		message = `저장된 ${new Date(result.completedAt ?? Date.now()).toLocaleString('ko-KR')} 생성본을 불러왔습니다. 새 AI 생성을 하지 않았습니다.`;
+		await save(false, true);
+	}
+
+	async function save(submit = false, silent = false): Promise<boolean> {
+		const targetId = report?.targetId;
+		cancelAutosave();
+		while (savePromise) await savePromise;
+		if (destroyed || !targetId || report?.targetId !== targetId) return false;
+		const pending = saveSnapshot(submit, silent);
+		savePromise = pending;
+		try {
+			return await pending;
+		} finally {
+			if (savePromise === pending) savePromise = null;
+		}
+	}
+
+	async function saveSnapshot(submit = false, silent = false) {
 		if (!report) return false;
+		const reportId = report.id;
+		const targetId = report.targetId;
+		const revision = loadRevision;
 		saving = true;
+		saveStatus = 'saving';
 		if (!silent) {
 			message = '';
 			error = '';
 		}
 		try {
-			const assessment = parseAssessmentCsv();
+			let assessment = report.assessmentJson ?? { formatName: '', items: [] };
+			let assessmentIsValid = false;
+			try {
+				assessment = parseAssessmentCsv();
+				assessmentIsValid = true;
+			} catch (cause) {
+				if (!silent) throw cause;
+			}
 			draftDocument = editor?.getJSON() ?? draftDocument;
-			report = await personalApi.updateTargetReport(report.id, {
+			if (generatedReport) {
+				generatedReport = {
+					...generatedReport,
+					problemSolvingNote: problemSolvingNote.trim(),
+					assessment:
+						scoreMode === 'none'
+							? null
+							: assessmentIsValid
+								? {
+										formatName: '학습 내용 및 암기 정도 평가',
+										items: assessment.items ?? []
+									}
+								: generatedReport.assessment,
+					learningContent: { paragraphs: finalParagraphs.filter((item) => item.trim()) }
+				};
+			}
+			const recoveryText = recoverySnapshot();
+			const recoverySavedAt = JSON.parse(recoveryText).savedAt as number;
+			const savedFingerprint = recoveryFingerprint();
+			const recoveryStorageKey = recoveryKey(targetId);
+			if (recoveryStorageKey) {
+				try {
+					localStorage.setItem(recoveryStorageKey, recoveryText);
+				} catch {
+					/* server save still proceeds */
+				}
+			}
+			let savedReport = await personalApi.updateTargetReport(reportId, {
 				content_json: draftDocument,
 				source_notes: sourceNotes,
 				question_checks: questionChecks,
@@ -242,38 +616,130 @@
 				lecture_comprehension: lectureComprehension,
 				memory_before: memoryBefore,
 				memory_after: memoryAfter,
-				assessment_json: assessment,
-				generated_report_json: generatedReport,
-				ai_model: aiModel,
+				assessment_json: assessmentIsValid ? assessment : report.assessmentJson,
+				...(generatingTargets[targetId]
+					? {}
+					: {
+							generated_report_json: generatedReport,
+							ai_model: aiModel
+						}),
 				status: submit ? 'ready' : report.status === 'submitted' ? 'submitted' : 'draft'
 			});
-			if (submit) report = await personalApi.submitTargetReport(report.id);
-			if (!silent) message = submit ? 'PDF 생성용 리포트를 확정했습니다.' : '임시저장했습니다.';
+			if (submit) savedReport = await personalApi.submitTargetReport(reportId);
+			if (
+				destroyed ||
+				report?.targetId !== targetId ||
+				loadingTargetId !== targetId ||
+				revision !== loadRevision
+			)
+				return true;
+			report = savedReport;
+			lastSavedFingerprint = savedFingerprint;
+			saveStatus = recoveryFingerprint() === savedFingerprint ? 'saved' : 'pending';
+			const key = recoveryKey(targetId);
+			if (key) {
+				try {
+					const current = localStorage.getItem(key);
+					if (current && JSON.parse(current).savedAt <= recoverySavedAt)
+						localStorage.removeItem(key);
+				} catch {
+					/* keep server save successful even if local storage is unavailable */
+				}
+			}
+			message = submit
+				? 'PDF 생성용 리포트를 확정했습니다.'
+				: silent
+					? '자동 저장했습니다.'
+					: '임시저장했습니다.';
 			return true;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
+			saveStatus = 'failed';
+			if (!destroyed && report?.targetId === targetId && revision === loadRevision)
+				error = cause instanceof Error ? cause.message : '리포트를 저장하지 못했습니다.';
 			return false;
 		} finally {
 			saving = false;
 		}
 	}
 
+	async function completeReport() {
+		if (!report || report.status === 'submitted' || saving) return;
+		if (!(await save(true))) return;
+		// Submission intentionally removes only temporary image attachments. The
+		// saved editor content and generated report remain available for PDF output.
+		blankTestImages = [];
+		problemImages = [];
+		preparedShareFiles = [];
+		shareStatus = '';
+	}
+
 	function queueAutosave(value: EditorDocument) {
 		draftDocument = value;
-		if (!report || report.status === 'submitted') return;
-		if (autosaveTimer) window.clearTimeout(autosaveTimer);
-		autosaveTimer = window.setTimeout(() => {
-			autosaveTimer = undefined;
-			void save(false, true);
-		}, 1_500);
+		saveStatus = 'pending';
+		persistRecovery();
 	}
+
+	function applyRecovery(saved: Record<string, any>) {
+		draftDocument = normalizeDocument(saved.document);
+		initialDocument = draftDocument;
+		if (editor) editor.setJSON(draftDocument);
+		sourceNotes = saved.sourceNotes ?? sourceNotes;
+		questionChecks = saved.questionChecks ?? questionChecks;
+		lectureProgress = saved.lectureProgress ?? lectureProgress;
+		lectureComprehension = saved.lectureComprehension ?? lectureComprehension;
+		memoryBefore = saved.memoryBefore ?? memoryBefore;
+		memoryAfter = saved.memoryAfter ?? memoryAfter;
+		assessmentCsv = saved.assessmentCsv ?? assessmentCsv;
+		generatedReport = saved.generatedReport ?? generatedReport;
+		aiModel = saved.aiModel ?? aiModel;
+		finalParagraphs = saved.finalParagraphs ?? finalParagraphs;
+		problemSolvingNote = saved.problemSolvingNote ?? problemSolvingNote;
+		scoreMode = saved.scoreMode ?? scoreMode;
+	}
+
+	$effect(() => {
+		if (!report || !recoveryInitialized || loadingTargetId !== report.targetId) return;
+		void draftDocument;
+		const fingerprint = recoveryFingerprint();
+		persistRecovery();
+		if (fingerprint === lastSavedFingerprint) return;
+		cancelAutosave();
+		const targetId = report.targetId;
+		const runAutosave = () => {
+			if (nativeKakaoBusy) {
+				autosaveTimer = window.setTimeout(runAutosave, 2_500);
+				return;
+			}
+			autosaveTimer = undefined;
+			if (!destroyed && report?.targetId === targetId && loadingTargetId === targetId)
+				void save(false, true);
+		};
+		autosaveTimer = window.setTimeout(runAutosave, 2_500);
+		return cancelAutosave;
+	});
 
 	async function openGenerateModal() {
 		if (!report || saving) return;
 		draftDocument = editor?.getJSON() ?? draftDocument;
 		if (report.status !== 'submitted' && !(await save(false, true))) return;
+		if (!generatedReport && aiResults[0]) {
+			await restoreAiGeneration(String(aiResults[0].runId));
+			return;
+		}
 		finalParagraphs = [...(generatedReport?.learningContent.paragraphs ?? finalParagraphs)];
 		modalStage = generatedReport ? 'final' : 'generate';
+	}
+
+	async function openRegenerationOptions() {
+		if (!report || saving || aiGenerating) return;
+		if (
+			hasSavedGeneration &&
+			!window.confirm(
+				'저장된 리포트 대신 새 AI 리포트를 생성할까요? 기존 생성본은 저장 기록에 남습니다.'
+			)
+		)
+			return;
+		modalStage = 'generate';
 	}
 
 	async function closeReportModal() {
@@ -296,7 +762,7 @@
 			};
 			await save(false, true);
 		}
-		modalStage = 'closed';
+		modalStage = generatedReport ? 'final' : 'closed';
 	}
 
 	async function generateAi(force = false) {
@@ -308,36 +774,102 @@
 			error = cause instanceof Error ? cause.message : '평가 항목을 확인해주세요.';
 			return;
 		}
-		if (!(await save(false, true))) return;
-		aiGenerating = true;
+		const targetId = report.targetId;
+		const reportId = report.id;
+		const options = {
+			model: selectedModel,
+			score_mode: scoreMode,
+			assessment_items: assessment.items,
+			highlight_semantics: { ...highlightSemantics },
+			include_question_checks: includeQuestionChecks,
+			force
+		};
+		generatingTargets[targetId] = true;
+		delete generationNotices[targetId];
 		error = '';
 		try {
-			const response = await personalApi.generateAiReports(report.targetId, {
-				model: selectedModel,
-				score_mode: scoreMode,
-				assessment_items: assessment.items,
-				highlight_semantics: highlightSemantics,
-				include_question_checks: includeQuestionChecks,
-				force
-			});
+			if (!(await save(false, true))) {
+				generationNotices[targetId] = '생성 전 저장에 실패해 AI 생성을 시작하지 못했습니다.';
+				return;
+			}
+			const response = await personalApi.generateAiReports(targetId, options);
 			const result = response.results[0];
 			if (!result) throw new Error(response.errors[0]?.message ?? 'AI 결과가 없습니다.');
-			aiResults = response.results;
-			generatedReport = result.output;
+
+			// Persist only generation fields to the original report, never a snapshot
+			// of whichever student's editor happens to be visible on completion.
+			while (savePromise) await savePromise;
+			const resultSave = personalApi
+				.updateTargetReport(reportId, {
+					generated_report_json: { ...result.output, runId: result.runId },
+					ai_model: result.model
+				})
+				.then(
+					() => true,
+					() => false
+				);
+			savePromise = resultSave;
+			try {
+				if (!(await resultSave)) throw new Error('AI 결과를 저장하지 못했습니다.');
+			} finally {
+				if (savePromise === resultSave) savePromise = null;
+			}
+			generationNotices[targetId] = 'AI 생성 결과를 저장했습니다.';
+			if (destroyed || report?.targetId !== targetId || loadingTargetId !== targetId) return;
+			const activeRevision = loadRevision;
+			let historyRefreshFailed = false;
+			let results: AiReportResult[];
+			try {
+				results = (await personalApi.aiReportResults(targetId)).results;
+			} catch {
+				historyRefreshFailed = true;
+				results = [result];
+			}
+			if (destroyed || report?.targetId !== targetId || activeRevision !== loadRevision) return;
+			aiResults = historyRefreshFailed
+				? [result, ...aiResults.filter((item) => item.runId !== result.runId)]
+				: results;
+
+			selectedAiRunId = String(result.runId);
+			generatedReport = { ...result.output, runId: result.runId };
 			aiModel = result.model;
 			assessmentCsv = (result.output.assessment?.items ?? [])
 				.map((item) => `${item.name},${item.score}`)
 				.join('\n');
 			finalParagraphs = [...result.output.learningContent.paragraphs];
 			problemSolvingNote = result.output.problemSolvingNote ?? problemSolvingNote;
-			message = result.reused
+			const generatedMessage = result.reused
 				? '동일한 입력의 저장된 AI 결과를 불러왔습니다.'
 				: 'AI 리포트를 생성했습니다.';
 			modalStage = 'final';
+			const reportSaved = await save(false, true);
+			if (destroyed || report?.targetId !== targetId || activeRevision !== loadRevision) return;
+			message = `${generatedMessage} ${reportSaved ? '서버에 저장했습니다.' : '다만 서버 저장에 실패해 이 기기에 복구본을 남겼습니다.'}${historyRefreshFailed ? ' 생성 기록을 불러오지 못했지만 결과 생성은 성공했습니다. 중복 생성을 피하고 나중에 다시 확인해주세요.' : ''}`;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : 'AI 리포트를 생성하지 못했습니다.';
+			generationNotices[targetId] =
+				'AI 생성 또는 결과 저장을 확인하지 못했습니다. 중복 생성을 피하려면 생성 기록을 확인해주세요.';
+			if (destroyed || report?.targetId !== targetId || loadingTargetId !== targetId) return;
+			if (cause instanceof PersonalApiError && cause.code === 'ai_report_provider_blocked') {
+				error =
+					'AI 제공자가 이 자료의 생성을 제한했습니다. 입력 자료를 검토해 주세요. 같은 자료로 다시 시도해도 해결되지 않을 수 있습니다.';
+			} else if (
+				cause instanceof PersonalApiError &&
+				cause.code === 'ai_report_provider_unavailable'
+			) {
+				error = 'AI 제공자가 일시적으로 요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.';
+			} else if (cause instanceof PersonalApiError && cause.status === 0) {
+				error =
+					'서버에 연결하지 못해 AI 리포트 생성 결과를 확인할 수 없습니다. 중복 생성을 피하려면 연결을 확인하고 생성 기록을 확인한 뒤 다시 시도해 주세요.';
+			} else if (cause instanceof PersonalApiError && cause.status >= 500) {
+				error = `AI 리포트를 생성하지 못했습니다. 원인은 확인되지 않았습니다 (오류 ${cause.status}). 중복 생성을 피하려면 생성 기록을 확인한 뒤 다시 시도해 주세요.`;
+			} else {
+				error =
+					cause instanceof Error
+						? cause.message
+						: 'AI 리포트를 생성하지 못했습니다. 입력 내용을 확인해 주세요.';
+			}
 		} finally {
-			aiGenerating = false;
+			delete generatingTargets[targetId];
 		}
 	}
 
@@ -412,7 +944,7 @@
 			import.meta.url
 		).toString();
 		const pdfDocument = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
-		if (pdfDocument.numPages > 20) throw new Error('PDF는 최대 20페이지까지 첨부할 수 있습니다.');
+		if (pdfDocument.numPages > 30) throw new Error('PDF는 최대 30페이지까지 첨부할 수 있습니다.');
 		const files: File[] = [];
 		for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber++) {
 			const page = await pdfDocument.getPage(pageNumber);
@@ -512,7 +1044,7 @@
 	}
 
 	async function downloadPdf() {
-		if (!report || !pdfPreview || pdfBusy) return;
+		if (!report || pdfBusy) return;
 		pdfBusy = true;
 		error = '';
 		try {
@@ -532,46 +1064,19 @@
 				};
 			}
 			if (!(await save(false, true))) return;
-			const { captureReport, jsPDF } =
-				await import('$lib/personal-project/aura/reportExport.client');
-			const canvas = await captureReport(pdfPreview);
-			const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
-			const margin = 10;
-			const width = 210 - margin * 2;
-			const pageHeight = 297 - margin * 2;
-			const height = (canvas.height * width) / canvas.width;
-			// PNG 원본은 리포트 한 장만으로도 수 MB가 될 수 있어 JPEG로 압축합니다.
-			const image = canvas.toDataURL('image/jpeg', 0.76);
-			let offset = 0;
-			while (offset < height) {
-				if (offset > 0) pdf.addPage();
-				pdf.addImage(image, 'JPEG', margin, margin - offset, width, height, undefined, 'FAST');
-				const footerCanvas = globalThis.document.createElement('canvas');
-				footerCanvas.width = 600;
-				footerCanvas.height = 50;
-				const footerContext = footerCanvas.getContext('2d');
-				if (footerContext) {
-					footerContext.fillStyle = '#ffffff';
-					footerContext.fillRect(0, 0, 600, 50);
-					footerContext.fillStyle = '#222222';
-					footerContext.font = '20px sans-serif';
-					footerContext.textAlign = 'center';
-					footerContext.fillText(
-						`아우라 클리닉 페이지 ${Math.floor(offset / pageHeight) + 1}`,
-						300,
-						31
-					);
-					pdf.addImage(footerCanvas.toDataURL('image/png'), 'PNG', 70, 288, 70, 6);
-				}
-				offset += pageHeight;
-			}
-			const safeName = `${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
-				/[\\/:*?"<>|]/g,
-				'_'
-			);
-			pdf.save(`${safeName}_클리닉리포트.pdf`);
+			const pdf = await personalApi.targetReportPdf(report.targetId);
+			const safeName =
+				`${report.schoolName}_${progressStageLabels[report.progressStage]}_${report.roundLabel}_${report.studentName}`.replace(
+					/[\\/:*?"<>|]/g,
+					'_'
+				);
+			const url = URL.createObjectURL(pdf);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `${safeName}_클리닉리포트.pdf`;
+			link.click();
+			URL.revokeObjectURL(url);
 			message = 'PDF 다운로드를 시작했습니다.';
-			modalStage = 'closed';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'PDF를 만들지 못했습니다.';
 		} finally {
@@ -583,7 +1088,7 @@
 		if (!report || kakaoBusy) return;
 		kakaoBusy = true;
 		error = '';
-		shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
+		shareStatus = '서버에서 리포트 PDF를 만드는 중입니다…';
 		try {
 			const assessment = parseAssessmentCsv();
 			if (generatedReport) {
@@ -598,16 +1103,18 @@
 				};
 			}
 			if (!(await save(false, true))) return;
-			const pageFiles = await reportPageFiles();
-			if (!pageFiles.length) throw new Error('공유할 리포트 이미지가 없습니다.');
-			const shareData: ShareData = { files: pageFiles };
+			const pdf = await personalApi.targetReportPdf(report.targetId);
+			const file = new File([pdf], `clinic-report-${report.targetId}.pdf`, {
+				type: 'application/pdf'
+			});
+			const shareData: ShareData = { files: [file] };
 			if (!navigator.share || !navigator.canShare?.(shareData)) {
 				throw new Error(
 					'이 브라우저는 이미지 묶음 공유를 지원하지 않습니다. 모바일 Chrome 또는 Safari에서 열어주세요.'
 				);
 			}
-			preparedShareFiles = pageFiles;
-			shareStatus = `이미지 ${pageFiles.length}장 준비 완료 — 아래 버튼을 한 번 더 눌러주세요.`;
+			preparedShareFiles = [file];
+			shareStatus = '서버에서 만든 PDF가 준비되었습니다. 아래 버튼을 한 번 더 눌러주세요.';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : '카카오톡으로 보내지 못했습니다.';
 			shareStatus = '';
@@ -622,10 +1129,9 @@
 		const files = preparedShareFiles;
 		navigator.share({ files }).then(
 			() => {
-				message = `리포트 이미지 ${files.length}장을 묶음 공유했습니다.`;
+				message = '서버에서 만든 클리닉 리포트 PDF를 공유했습니다.';
 				preparedShareFiles = [];
 				shareStatus = '';
-				modalStage = 'closed';
 			},
 			(cause: unknown) => {
 				if (cause instanceof DOMException && cause.name === 'AbortError') {
@@ -650,12 +1156,23 @@
 	}
 
 	async function sendToNativeKakao() {
-		if (!report || nativeKakaoBusy || kakaoBusy) return;
-		if (!confirm('Mac mini의 카카오톡 ‘나와의 채팅’으로 리포트 이미지 묶음을 보낼까요?')) return;
+		if (
+			!report ||
+			nativeKakaoBusy ||
+			scheduleBusy ||
+			kakaoBusy ||
+			(scheduledDelivery && ['generating', 'sending'].includes(scheduledDelivery.state))
+		)
+			return;
+
 		nativeKakaoBusy = true;
+		++scheduleReadVersion;
+		deliveryRecoveryVersion++;
+		deliveryNotice = '';
+		replacedScheduleNotice = '';
 		error = '';
 		message = '';
-		shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
+		shareStatus = '서버에서 리포트를 만들고 카카오톡 전송을 준비하는 중입니다…';
 		try {
 			const assessment = parseAssessmentCsv();
 			if (generatedReport) {
@@ -671,33 +1188,54 @@
 			}
 			if (!(await save(false, true)))
 				throw new Error('리포트를 저장하지 못해 전송을 중단했습니다.');
-			shareStatus = 'Mac mini에서 자기 채팅과 접근성 권한을 확인하는 중입니다…';
-			const job = await personalApi.createNativeKakaoJob(report.targetId);
-			shareStatus = '리포트를 이미지 묶음으로 만드는 중입니다…';
-			const pageFiles = await reportPageFiles();
-			if (!pageFiles.length) throw new Error('전송할 리포트 이미지가 없습니다.');
-
-			shareStatus = `서버에 이미지 ${pageFiles.length}장을 안전하게 준비하는 중입니다…`;
-			if (pageFiles.length > job.maxPages) {
-				throw new Error(
-					`리포트가 ${pageFiles.length}장입니다. 한 번에 최대 ${job.maxPages}장까지 보낼 수 있습니다.`
+			shareStatus = 'Mac mini에서 서버 PDF 생성과 카카오톡 전송을 진행하는 중입니다…';
+			const sendingTargetId = report.targetId;
+			const sendingRevision = loadRevision;
+			const replacedScheduleId = scheduledDelivery && ['queued', 'ready'].includes(scheduledDelivery.state)
+				? scheduledDelivery.id : null;
+			const requestId = crypto.randomUUID();
+			try {
+				localStorage.setItem(immediateOutcomeKey(sendingTargetId), requestId);
+			} catch {
+				throw new Error('전송 상태를 안전하게 저장할 수 없어 전송하지 않았습니다.');
+			}
+			immediateOutcomeUncertain = true;
+			try {
+				const result = await personalApi.sendServerGeneratedClinicReport(
+					sendingTargetId,
+					requestId
 				);
+				applyDeliveryResult(sendingTargetId, result);
+			} catch (cause) {
+				const detail = cause instanceof PersonalApiError ? cause.detail : null;
+				if (detail && typeof detail === 'object' && 'deliveryStatus' in detail)
+					applyDeliveryResult(sendingTargetId, detail as DeliveryResult);
+				else await recoverDelivery(sendingTargetId, requestId, loadRevision);
 			}
-			for (const [index, file] of pageFiles.entries()) {
-				shareStatus = `이미지 업로드 중… ${index + 1}/${pageFiles.length}`;
-				await personalApi.uploadNativeKakaoPage(report.targetId, job.jobId, index + 1, file);
+			if (replacedScheduleId) {
+				try {
+					const previous = await request<ScheduledDelivery>(`/aura/targets/${sendingTargetId}/kakao-clinic/scheduled-deliveries/${encodeURIComponent(replacedScheduleId)}`);
+					if (!destroyed && sendingRevision === loadRevision && loadingTargetId === sendingTargetId) {
+						if (previous.state === 'cancelled' && previous.errorCode === 'superseded_by_immediate') {
+							replacedScheduleNotice = '기존 예약이 취소되었습니다. 즉시 전송이 실패해도 예약은 복원되지 않습니다.';
+							scheduledDelivery = previous;
+						} else {
+							replacedScheduleNotice = '기존 예약이 즉시 전송으로 취소되었는지 확인되지 않았습니다.';
+						}
+					}
+				} catch {
+					if (!destroyed && sendingRevision === loadRevision && loadingTargetId === sendingTargetId)
+						replacedScheduleNotice = '기존 예약이 즉시 전송으로 취소되었는지 확인되지 않았습니다.';
+				}
 			}
-			shareStatus = 'Mac mini에서 자기 채팅과 첨부 화면을 확인하는 중입니다…';
-			const result = await personalApi.sendNativeKakaoJob(report.targetId, job.jobId);
-			if (!result.sent || result.destination !== '나와의 채팅') {
-				throw new Error('카카오톡 전송 완료 증거를 확인하지 못했습니다.');
-			}
-			message = `나와의 채팅에 리포트 이미지 ${result.sentCount}장을 묶음으로 보냈습니다.`;
 			shareStatus = '';
 			preparedShareFiles = [];
-			modalStage = 'closed';
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '나와의 채팅 전송에 실패했습니다.';
+			error = immediateOutcomeUncertain
+				? '전송 결과를 확인할 수 없습니다.'
+				: cause instanceof Error
+					? cause.message
+					: '클리닉 리포트 전송에 실패했습니다.';
 			shareStatus = '';
 		} finally {
 			nativeKakaoBusy = false;
@@ -705,21 +1243,143 @@
 	}
 
 	async function switchStudent(targetId: number) {
-		if (!report || targetId === report.targetId || saving) return;
-		if (report.status !== 'submitted' && !(await save(false, true))) return;
-		await goto(`/personal-project/aura/reports/${targetId}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		templateConfirm = false;
+		previousDraft = null;
+		if (!report || targetId === report.targetId || switching) return;
+		switching = true;
+		try {
+			if (!(await save(false, true))) return;
+			await goto(`/personal-project/aura/reports/${targetId}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: false
+			});
+		} finally {
+			switching = false;
+		}
+	}
+
+	let templateConfirm = $state(false);
+	let previousDraft = $state<EditorDocument | null>(null);
+	type UnitTemplate = { id: string; name: string; document: EditorDocument; updatedAt: string };
+	let unitTemplates = $state<UnitTemplate[]>([]);
+	let unitTemplateName = $state('');
+	let selectedUnitTemplate = $state('');
+	let unitTemplateNotice = $state('');
+	function unitTemplateKey() {
+		const userId = privateCacheUser();
+		return userId ? `ondo-private:aura-unit-templates:${userId}` : '';
+	}
+	function loadUnitTemplates() {
+		const key = unitTemplateKey();
+		if (!key) return;
+		try {
+			const stored = JSON.parse(localStorage.getItem(key) || '[]');
+			unitTemplates = Array.isArray(stored)
+				? stored.filter((item): item is UnitTemplate =>
+						Boolean(
+							item && typeof item.id === 'string' && typeof item.name === 'string' && item.document
+						)
+					)
+				: [];
+		} catch {
+			unitTemplates = [];
+		}
+	}
+	function saveUnitTemplate() {
+		const name = unitTemplateName.trim();
+		if (!name || !report || report.status === 'submitted') return;
+		const key = unitTemplateKey();
+		if (!key) return;
+		loadUnitTemplates();
+		if (
+			unitTemplates.some((item) => item.name === name) &&
+			!confirm(`‘${name}’ 단원 양식을 현재 내용으로 덮어쓸까요?`)
+		)
+			return;
+		const entry: UnitTemplate = {
+			id: crypto.randomUUID(),
+			name,
+			document: editor?.getJSON() ?? draftDocument,
+			updatedAt: new Date().toISOString()
+		};
+		const next = [entry, ...unitTemplates.filter((item) => item.name !== name)];
+		try {
+			localStorage.setItem(key, JSON.stringify(next));
+			unitTemplates = next;
+		} catch {
+			unitTemplateNotice = '기기 저장 공간에 양식을 저장하지 못했습니다.';
+			return;
+		}
+		selectedUnitTemplate = entry.id;
+		unitTemplateName = '';
+		unitTemplateNotice = `‘${name}’ 단원 양식을 저장했습니다.`;
+	}
+	function applyUnitTemplate() {
+		const template = unitTemplates.find((item) => item.id === selectedUnitTemplate);
+		if (!template) {
+			unitTemplateNotice = '단원 양식을 다시 선택해주세요.';
+			return;
+		}
+		if (!editor) {
+			unitTemplateNotice = '편집기가 준비되면 다시 눌러주세요.';
+			return;
+		}
+		if (!report || report.status === 'submitted') {
+			unitTemplateNotice = '작성 중인 리포트에서만 내용을 추가할 수 있습니다.';
+			return;
+		}
+		const current = editor.getJSON();
+		const templateRich = JSON.parse(JSON.stringify(toRich(template.document))) as ReturnType<
+			typeof toRich
+		>;
+		const renewIds = (node: typeof templateRich) => {
+			if (node.attrs?.id) node.attrs.id = crypto.randomUUID();
+			node.content?.forEach(renewIds);
+		};
+		templateRich.content?.forEach(renewIds);
+		const rich = toRich(current);
+		const next = fromRich(
+			{
+				type: 'doc',
+				content: [
+					...(rich.content ?? []),
+					{
+						type: 'heading',
+						attrs: { id: crypto.randomUUID(), level: 2, indent: 0 },
+						content: [{ type: 'text', text: template.name }]
+					},
+					...(templateRich.content ?? [])
+				]
+			},
+			current
+		);
+		editor.setJSON(next);
+		queueAutosave(next);
+		unitTemplateNotice = `‘${template.name}’ 내용을 뒤에 추가했습니다. 필요에 따라 수정하세요.`;
+	}
+	async function useTemplate() {
+		if (!report || saving || switching) return;
+		const targetId = report.targetId;
+		if (!(await save(false, true))) return;
+		try {
+			const result = await request<{ document: EditorDocument }>(
+				`/aura/targets/${targetId}/template`
+			);
+			if (report?.targetId !== targetId) return;
+			previousDraft = editor?.getJSON() ?? draftDocument;
+			editor?.setJSON(result.document);
+			questionChecks = {};
+			queueAutosave(editor?.getJSON() ?? result.document);
+			message = '기본양식으로 전환했습니다. 이전 내용으로 되돌릴 수 있습니다.';
+		} catch (cause) {
+			error = String(cause);
+		}
 	}
 
 	async function saveAsTemplate() {
-		if (
-			!report ||
-			!confirm(`${report.schoolName} ${progressStageLabels[report.progressStage]} ${report.roundLabel}의 새 기본 양식으로 저장할까요?`)
-		)
-			return;
+		if (!report || saving || report.roundNumbers.length > 1) return;
+		templateConfirm = false;
 		saving = true;
 		try {
 			draftDocument = editor?.getJSON() ?? draftDocument;
@@ -739,7 +1399,7 @@
 
 	$effect(() => {
 		const targetId = Number(page.params.targetId);
-		if (targetId && targetId !== report?.targetId) void load(targetId);
+		if (targetId && targetId !== loadingTargetId) void load(targetId);
 		void checkNativeKakao();
 	});
 </script>
@@ -754,17 +1414,18 @@
 				: '잠시만 기다려주세요.'}
 		</p>
 	</div>
-	<a
-		class="ghost-button back"
-		href={report
-			? `/personal-project/aura/schools/${report.schoolId}`
-			: '/personal-project/aura/schools'}>← 회차 목록</a
-	>
+	<div class="page-head-actions">
+		<a
+			class="ghost-button back"
+			href={report
+				? `/personal-project/aura/schools/${report.schoolId}`
+				: '/personal-project/aura/schools'}>← 회차 목록</a
+		>
+	</div>
 </div>
 
 {#if error}<div class="error-banner">{error}</div>{/if}
 {#if message}<div class="success-banner">{message}</div>{/if}
-
 {#if report}
 	<nav class="student-switcher card" aria-label="같은 클리닉 학생 전환">
 		<div>
@@ -778,14 +1439,17 @@
 					type="button"
 					class:active={target.id === report.targetId}
 					onclick={() => switchStudent(target.id)}
-					disabled={saving}
+					disabled={switching}
 				>
 					{target.studentName}<span
-						>{target.status === 'submitted'
-							? '완료'
-							: target.status === 'unwritten'
-								? '미작성'
-								: '작성 중'}</span
+						>{generatingTargets[target.id]
+							? 'AI 생성 중'
+							: generationNotices[target.id] ||
+								(target.status === 'submitted'
+									? '완료'
+									: target.status === 'unwritten'
+										? '미작성'
+										: '작성 중')}</span
 					>
 				</button>
 			{/each}
@@ -796,34 +1460,51 @@
 		<aside class="card note-panel" class:note-collapsed={noteCollapsed}>
 			<div class="note-heading">
 				<div>
-					<p class="eyebrow">Quick notes</p>
-					<h2>관찰 메모</h2>
+					<p class="eyebrow">Report tools</p>
+					<h2>리포트 도구</h2>
 				</div>
 				<button class="note-toggle" onclick={() => (noteCollapsed = !noteCollapsed)}
 					>{noteCollapsed ? '열기' : '접기'}</button
 				>
 			</div>
-			{#if !noteCollapsed}<p>
-					학생에게만 해당하는 메모입니다. 기본 양식에는 자동 반영되지 않습니다.
-				</p>
-				<textarea bind:value={sourceNotes} placeholder="발음, 태도, 다음 회차에서 확인할 점…"
-				></textarea>
+			{#if !noteCollapsed}<div class="quick-actions">
+					<button
+						disabled={!aiHistoryLoaded || aiGenerating || saving}
+						onclick={async () => {
+							await openGenerateModal();
+							if (!hasSavedGeneration) await generateAi(false);
+						}}>{hasSavedGeneration ? '저장된 리포트 열기' : 'AI 리포트 생성'}</button
+					>
+					<button disabled={saving} onclick={useTemplate}>기본양식으로 전환</button>
+				</div>
+				{#if previousDraft}<button
+						onclick={() => {
+							if (previousDraft) {
+								editor?.setJSON(previousDraft);
+								previousDraft = null;
+								queueAutosave(editor?.getJSON() ?? draftDocument);
+							}
+						}}>양식 전환 되돌리기</button
+					>{/if}
+				{@render attachments()}
 				<div class="highlight-guide">
-					<span></span><strong>형광 표시 부분을 AI가 부족한 내용으로 읽습니다.</strong>
+					<span></span><strong>형광 표시 단축키</strong>
 					<small>Ctrl/Cmd+Alt+1 살구 · +2 노랑 · +3 주황 · +H 최근 색</small>
 				</div>
 				<details class="note-shortcuts">
 					<summary>에디터 단축키 보기</summary>
 					<div>
 						<span><kbd>Ctrl/Cmd+B</kbd> 굵게</span>
+						<span><kbd>Ctrl/Cmd+S</kbd> 수동 저장</span>
 						<span><kbd>Ctrl/Cmd+Z</kbd> 실행 취소</span>
 						<span><kbd>Ctrl/Cmd+Shift+Z</kbd> 다시 실행</span>
-						<span><kbd>Ctrl/Cmd+Alt+Q</kbd> 물어봤음</span>
+						<span><kbd>Ctrl/Cmd+Shift+B</kbd> 인용 전환</span>
 						<span><kbd>Ctrl/Cmd+Alt+H</kbd> 최근 형광색</span>
 						<span><kbd>Ctrl/Cmd+Alt+1/2/3</kbd> 살구/노랑/주황</span>
 						<span><kbd>Tab / Shift+Tab</kbd> 들여쓰기/내어쓰기</span>
 					</div>
 				</details>
+				{@render reportTools()}
 			{/if}
 		</aside>
 
@@ -837,440 +1518,700 @@
 					{#if noteCollapsed}<button class="note-toggle" onclick={() => (noteCollapsed = false)}
 							>퀵메모 열기</button
 						>{/if}
+					<button class="ghost-button" onclick={() => void save(false)} disabled={saving}
+						>저장 · Ctrl/Cmd+S</button
+					>
+					<button class="ghost-button" onclick={downloadPdf} disabled={pdfBusy || saving}
+						>{pdfBusy ? 'PDF 준비 중…' : 'PDF 받기'}</button
+					>
 					{#if report.status !== 'submitted'}<button
 							class="complete-status-button"
-							onclick={() => save(true)}
+							onclick={completeReport}
 							disabled={saving}>작성 완료</button
 						>{/if}
 					<span class={`status-pill ${report.status}`}
-						>{report.status === 'submitted' ? '제출 완료' : '작성 중'}</span
+						>{saving
+							? '저장 중…'
+							: saveStatus === 'failed'
+								? '저장 실패 · 다시 저장하세요'
+								: saveStatus === 'pending'
+									? '저장 대기 중…'
+									: report.status === 'submitted'
+										? '제출 완료'
+										: '저장됨'}</span
 					>
 				</div>
 			</header>
 			<div class="editor-wrap">
+				<div class="schedule-panel" aria-label="카카오 예약 전송">
+					<div class="schedule-actions">
+						<button
+							class="schedule-primary"
+							onclick={scheduleDelivery}
+							disabled={scheduleBusy ||
+								nativeKakaoBusy ||
+								saving ||
+													!scheduleReady ||
+								(!!scheduledDelivery &&
+									scheduledDelivery.state !== 'failed' &&
+									scheduledDelivery.state !== 'cancelled')}
+						>
+							{scheduleBusy
+								? '예약 중…'
+								: scheduledDelivery?.state === 'failed'
+									? '90분 후 다시 예약'
+									: '90분 후 전송 예약'}
+						</button>
+						{#if scheduleReady && scheduledDelivery && ['queued', 'generating', 'ready'].includes(scheduledDelivery.state)}<button
+								onclick={cancelScheduledDelivery}
+								disabled={scheduleBusy}>예약 취소</button
+							>{/if}
+
+						{#if !scheduleReady && !scheduleBusy}<button
+								onclick={() => void refreshSchedule(report!.targetId, loadRevision)}
+								>상태 다시 확인</button
+							>{/if}
+					</div>
+					<div class="schedule-status" role="status">
+						{#if scheduledDelivery}<strong>{scheduleLabels[scheduledDelivery.state]}</strong
+							>{#if !['cancelled', 'failed'].includes(scheduledDelivery.state)}<span
+									>예정 시각: {new Date(scheduledDelivery.sendAfter * 1000).toLocaleString(
+										'ko-KR'
+									)}</span
+								>{/if}{/if}
+						{#if scheduleNotice}<span>{scheduleNotice}</span>{/if}
+						{#if immediateOutcomeUncertain && !nativeKakaoBusy}<span
+								>이전 전송 결과를 확인할 수 없습니다.</span
+							>{/if}
+					</div>
+				</div>
 				<p class="question-check-guide">
-					Ctrl/Cmd+Alt+Q로 선택한 부분을 ‘물어봤음’으로 저장합니다.
+					질문이나 참고 문구는 인용으로 구분하세요. Ctrl/Cmd+Shift+B로 전환합니다.
 				</p>
-				<AuraReportEditor
-					bind:this={editor}
-					initialValue={initialDocument}
-					readonly={false}
-					placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
-					onchange={queueAutosave}
-					{questionChecks}
-					onquestionchange={(blockId, checked) => {
-						questionChecks = { ...questionChecks, [blockId]: checked };
-					}}
-				/>
+				<div class="unit-template-tools" aria-label="단원 양식">
+					<strong>단원 양식</strong>
+					<p>
+						지금 편집기에 적힌 단원 내용 전체를 이름 붙여 저장합니다. 다른 리포트에서는 양식을 골라
+						기존 내용 뒤에 추가할 수 있습니다.
+					</p>
+					<div class="unit-template-actions">
+						<input
+							aria-label="저장할 단원 양식 이름"
+							placeholder="단원 이름, 예: 세포호흡"
+							bind:value={unitTemplateName}
+						/>
+						<button
+							class="template-button"
+							onclick={saveUnitTemplate}
+							disabled={saving || report.status === 'submitted' || !unitTemplateName.trim()}
+							>현재 내용으로 양식 저장</button
+						>
+						<select
+							aria-label="적용할 단원 양식"
+							bind:value={selectedUnitTemplate}
+							onfocus={loadUnitTemplates}
+						>
+							<option value="">저장된 단원 양식 선택</option>
+							{#each unitTemplates as template (template.id)}<option value={template.id}
+									>{template.name}</option
+								>{/each}
+						</select>
+						<button
+							class="template-button"
+							onclick={applyUnitTemplate}
+							disabled={saving || report.status === 'submitted' || !selectedUnitTemplate}
+							>선택 내용 추가</button
+						>
+					</div>
+					{#if unitTemplateNotice}<small role="status">{unitTemplateNotice}</small>{/if}
+				</div>
+				{#key report.targetId}
+					<AuraReportEditor
+						bind:this={editor}
+						initialValue={initialDocument}
+						readonly={switching}
+						placeholder="회차 기본 양식을 바탕으로 리포트를 작성하세요."
+						onchange={queueAutosave}
+						{questionChecks}
+						onquestionchange={(blockId, checked) => {
+							if (switching) return;
+							questionChecks = { ...questionChecks, [blockId]: checked };
+							queueAutosave(editor?.getJSON() ?? draftDocument);
+						}}
+					/>
+				{/key}
 			</div>
+			{#if templateConfirm}<section
+					class="template-confirm"
+					role="group"
+					aria-label="학교·회차 기본 양식 저장 확인"
+				>
+					<button class="template-button" disabled={saving} onclick={saveAsTemplate}>저장</button
+					><button class="template-cancel" onclick={() => (templateConfirm = false)}>취소</button>
+				</section>{/if}
 			<footer>
 				<button
 					class="template-button"
-					onclick={saveAsTemplate}
-					disabled={saving || report.status === 'submitted' || report.roundNumbers.length > 1}
+					onclick={() => (templateConfirm = true)}
+					disabled={saving || report.roundNumbers.length > 1}
 				>
 					{report.roundNumbers.length > 1
 						? '복수 회차 결합 리포트'
-						: '현재 내용을 새 기본 양식으로 저장'}</button
+						: '이 학교·회차 기본 양식 저장'}</button
 				>
-				<div>
-					<button class="ghost-button" onclick={() => save(false)} disabled={saving}
-						>{report.status === 'submitted' ? '수정 저장' : '임시저장'}</button
-					>
-					<button class="primary-button" onclick={openGenerateModal} disabled={saving}
-						>{report.status === 'submitted' || generatedReport
-							? 'PDF 다시 받기'
-							: '클리닉 제출'}</button
-					>
-				</div>
 			</footer>
 		</section>
 	</div>
 {/if}
 
-{#if report && modalStage !== 'closed'}
-	<div class="modal-backdrop" role="presentation">
-		<dialog open class="report-modal" aria-label="클리닉 리포트 생성">
-			<button class="mobile-modal-close" onclick={closeReportModal} aria-label="창 닫기">×</button>
-			<header>
-				<div>
-					<p class="eyebrow">Clinic report</p>
-					<h2>{modalStage === 'generate' ? 'AI 리포트 생성' : '최종 PDF 편집'}</h2>
-				</div>
-				<div class="modal-actions">
-					{#if modalStage === 'generate'}
-						<select bind:value={selectedModel} aria-label="AI 모델 선택">
-							{#each aiModels as model}<option value={model.id} disabled={model.available === false}
-									>{model.label}{model.available === false ? ' · API 키 필요' : ''}</option
-								>{/each}
-						</select>
-						<button class="primary-button" onclick={() => generateAi(false)} disabled={aiGenerating}
-							>{aiGenerating ? '생성 중…' : 'AI 생성하기'}</button
+{#snippet attachments()}<div class="attachment-fields">
+		{#if attachmentNotice}<p
+				class="attachment-notice"
+				class:attachment-error={attachmentNotice.includes('실패')}
+			>
+				{attachmentNotice}
+			</p>{/if}
+		<label
+			><strong>백지테스트 사진</strong><small>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
+			><input
+				type="file"
+				accept="image/*,.heic,.heif,application/pdf"
+				multiple
+				capture="environment"
+				onchange={async (event) => {
+					const input = event.currentTarget;
+					await addAttachmentImages(input.files, 'blank');
+					input.value = '';
+				}}
+				disabled={attachmentBusy}
+			/></label
+		>
+		<button
+			type="button"
+			class="paste-image-button"
+			onpaste={(event) => pasteAttachmentImages(event, 'blank')}
+			>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+		>
+		{#if blankTestImages.length}<div class="attachment-list">
+				{#each blankTestImages as image, index}<figure>
+						<img src={image.url} alt={`백지테스트 ${index + 1}`} /><button
+							aria-label={`백지테스트 ${index + 1} 삭제`}
+							onclick={() => removeAttachmentImage('blank', index)}>×</button
 						>
-					{/if}
-					<button class="ghost-button" onclick={closeReportModal}>닫기</button>
-				</div>
-			</header>
+						<figcaption>백지테스트 {index + 1}</figcaption>
+					</figure>{/each}
+			</div>{/if}
+		<label
+			><strong>문제 풀이 사진</strong><small
+				>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
+			><input
+				type="file"
+				accept="image/*,.heic,.heif,application/pdf"
+				multiple
+				capture="environment"
+				onchange={async (event) => {
+					const input = event.currentTarget;
+					await addAttachmentImages(input.files, 'problem');
+					input.value = '';
+				}}
+				disabled={attachmentBusy}
+			/></label
+		>
+		<button
+			type="button"
+			class="paste-image-button"
+			onpaste={(event) => pasteAttachmentImages(event, 'problem')}
+			>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
+		>
+		{#if problemImages.length}<div class="attachment-list">
+				{#each problemImages as image, index}<figure>
+						<img src={image.url} alt={`문제풀이 ${index + 1}`} /><button
+							aria-label={`문제풀이 ${index + 1} 삭제`}
+							onclick={() => removeAttachmentImage('problem', index)}>×</button
+						>
+						<figcaption>문제풀이 {index + 1}</figcaption>
+					</figure>{/each}
+			</div>{/if}
+	</div>{/snippet}
 
-			{#if modalStage === 'generate'}
-				<div class="generate-columns">
-					<section class="generate-input">
-						<div class="student-summary">
-							<strong>{report.studentName}</strong><span
-								>{report.schoolName} · {progressStageLabels[report.progressStage]} · {report.roundLabel}</span
-							>
-						</div>
-						<label class="score-mode"
-							><span>평가 항목</span><select
-								bind:value={scoreMode}
-								disabled={assessmentLocked && lockedAssessmentRows().length === 0}
-								><option value="auto">평가 포함</option><option value="none">학습 내용만</option
-								></select
-							></label
-						>
-						<section class="generation-rules">
-							<strong>형광색 의미</strong>
-							<small>이번 AI 생성에서만 적용됩니다.</small>
-							<label
-								><span>노랑</span><select bind:value={highlightSemantics.yellow}>
-									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
-										value="not_reasked">재질문 못함</option
-									>
-								</select></label
-							>
-							<label
-								><span>주황</span><select bind:value={highlightSemantics.orange}>
-									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
-										value="not_reasked">재질문 못함</option
-									>
-								</select></label
-							>
-							<label
-								><span>살구</span><select bind:value={highlightSemantics.peach}>
-									<option value="fixed">고침</option><option value="unfixed">못고침</option><option
-										value="not_reasked">재질문 못함</option
-									>
-								</select></label
-							>
-							<label class="question-rule"
-								><input type="checkbox" bind:checked={includeQuestionChecks} />
-								<span>초록색 질문 표시(Ctrl+Alt+Q)도 AI에 전달</span></label
-							>
-						</section>
-						<div class="rating-grid">
-							<label
-								><span>강의 수강도</span><input
-									type="number"
-									min="1"
-									max="5"
-									bind:value={lectureProgress}
-								/></label
-							>
-							<label
-								><span>강의 이해도</span><input
-									type="number"
-									min="1"
-									max="5"
-									bind:value={lectureComprehension}
-								/></label
-							>
-							<label
-								><span>클리닉 전 암기</span><input
-									type="number"
-									min="1"
-									max="5"
-									bind:value={memoryBefore}
-								/></label
-							>
-							<label
-								><span>클리닉 후 암기</span><input
-									type="number"
-									min="1"
-									max="5"
-									bind:value={memoryAfter}
-								/></label
-							>
-						</div>
-						{#if scoreMode === 'auto'}
-							<div class="assessment-entry">
-								<strong>학습 내용 및 암기 정도 평가</strong>
-								{#if assessmentLocked && lockedAssessmentRows().length}
-									<p>이미 생성된 항목명은 유지하고 점수만 수정합니다.</p>
-									<div class="fixed-scores">
-										{#each lockedAssessmentRows() as item, index}<label
-												><span>{item.name}</span><input
-													type="number"
-													min="1"
-													max="5"
-													value={item.score}
-													onchange={(event) =>
-														updateLockedScore(index, Number(event.currentTarget.value))}
-												/></label
-											>{/each}
-									</div>
-								{:else}
-									<p>
-										첫 생성에만 사용됩니다. 비워두면 AI가 항목을 만들고, 입력하면 그 항목과 점수를
-										그대로 기준으로 사용합니다.
-									</p>
-									<textarea bind:value={assessmentCsv} placeholder="광합성 명반응,4&#10;캘빈 회로,3"
-									></textarea>
-								{/if}
-							</div>
-						{/if}
-						{#if assessmentLocked && lockedAssessmentRows().length === 0}
-							<p class="locked-none">
-								최초 AI 생성에서 평가 항목을 만들지 않았으므로 이후 생성에서도 학습 내용만 만듭니다.
-							</p>
-						{/if}
-					</section>
-					<section class="source-compare">
-						<div class="pane-title">
-							<strong>내가 작성한 원문</strong><span>형광 표시와 비교</span>
-						</div>
-						<AuraReportEditor initialValue={draftDocument} readonly={true} {questionChecks} />
-					</section>
-				</div>
+{#snippet reportTools()}{#if report}
+		<div class="inline-report-tools">
+			{#if modalStage === 'closed'}
+				{#if aiHistoryLoaded && !hasSavedGeneration}<button
+						class="primary-button"
+						onclick={openGenerateModal}>AI 리포트 생성</button
+					>{/if}
 			{:else}
-				<div class="final-columns" class:controls-collapsed={finalControlsCollapsed}>
-					<section class="final-controls">
-						<div class="final-controls-heading">
-							<h3>학습 내용 최종 수정</h3>
-							<button class="panel-collapse" onclick={() => (finalControlsCollapsed = true)}
-								>접기</button
-							>
+				<section class="report-modal" aria-label="클리닉 리포트 생성">
+					<header>
+						<div>
+							<p class="eyebrow">Clinic report</p>
+							<h2>{modalStage !== 'final' ? '리포트 생성' : '생성된 리포트'}</h2>
 						</div>
-						<p>PDF에 들어가기 전에 문장을 한 번 더 고칠 수 있습니다.</p>
-						{#each finalParagraphs as paragraph, index}<div class="paragraph-row">
-								<textarea bind:value={finalParagraphs[index]}></textarea><button
-									aria-label="문단 삭제"
-									onclick={() => (finalParagraphs = finalParagraphs.filter((_, i) => i !== index))}
-									>×</button
+						<div class="modal-actions">
+							{#if modalStage !== 'final'}
+								<select bind:value={selectedModel} aria-label="AI 모델 선택">
+									{#each aiModels as model}<option
+											value={model.id}
+											disabled={model.available === false}
+											>{model.label}{model.available === false ? ' · API 키 필요' : ''}</option
+										>{/each}
+								</select>
+								<button
+									class="primary-button"
+									onclick={() => generateAi(hasSavedGeneration)}
+									disabled={aiGenerating}
+									>{aiGenerating
+										? '생성 중…'
+										: hasSavedGeneration
+											? '새 AI 리포트 생성'
+											: 'AI 생성하기'}</button
 								>
-							</div>{/each}
-						<button
-							class="ghost-button"
-							onclick={() => (finalParagraphs = [...finalParagraphs, ''])}>+ 문단 추가</button
-						>
-						{#if scoreMode === 'auto'}
-							<label class="final-assessment">
-								<strong>평가 항목·점수 최종 수정</strong>
-								<small>한 줄에 `항목,점수`로 입력하세요.</small>
-								<textarea bind:value={assessmentCsv} placeholder="광합성 명반응,4&#10;캘빈 회로,3"
-								></textarea>
-							</label>
-						{/if}
-						<label class="problem-note-field">
-							<strong>문제풀이 설명</strong>
-							<small>입력한 문장은 문제풀이 사진 위에 표시됩니다.</small>
-							<textarea
-								bind:value={problemSolvingNote}
-								placeholder="이해한 내용을 정리할 겸 문제를 풀게 했고 잘 풀어주었습니다."
-							></textarea>
-						</label>
-						<div class="attachment-fields">
-							{#if attachmentNotice}<p
-									class="attachment-notice"
-									class:attachment-error={attachmentNotice.includes('실패')}
-								>
-									{attachmentNotice}
-								</p>{/if}
-							<label
-								><strong>백지테스트 사진</strong><small
-									>JPG, PNG, WebP와 아이폰 HEIC/HEIF를 지원합니다.</small
-								><input
-									type="file"
-									accept="image/*,.heic,.heif,application/pdf"
-									multiple
-									capture="environment"
-									onchange={async (event) => {
-										await addAttachmentImages(event.currentTarget.files, 'blank');
-										event.currentTarget.value = '';
-									}}
-									disabled={attachmentBusy}
-								/></label
-							>
-							<button
-								type="button"
-								class="paste-image-button"
-								onpaste={(event) => pasteAttachmentImages(event, 'blank')}
-								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
-							>
-							{#if blankTestImages.length}<div class="attachment-list">
-									{#each blankTestImages as image, index}<figure>
-											<img src={image.url} alt={`백지테스트 ${index + 1}`} /><button
-												aria-label={`백지테스트 ${index + 1} 삭제`}
-												onclick={() => removeAttachmentImage('blank', index)}>×</button
-											>
-											<figcaption>백지테스트 {index + 1}</figcaption>
-										</figure>{/each}
-								</div>{/if}
-							<label
-								><strong>문제 풀이 사진</strong><small
-									>추가한 사진을 아래에서 확인하고 개별 삭제할 수 있습니다.</small
-								><input
-									type="file"
-									accept="image/*,.heic,.heif,application/pdf"
-									multiple
-									capture="environment"
-									onchange={async (event) => {
-										await addAttachmentImages(event.currentTarget.files, 'problem');
-										event.currentTarget.value = '';
-									}}
-									disabled={attachmentBusy}
-								/></label
-							>
-							<button
-								type="button"
-								class="paste-image-button"
-								onpaste={(event) => pasteAttachmentImages(event, 'problem')}
-								>복사한 사진 붙여넣기: 이 버튼을 누른 뒤 Ctrl/Cmd+V</button
-							>
-							{#if problemImages.length}<div class="attachment-list">
-									{#each problemImages as image, index}<figure>
-											<img src={image.url} alt={`문제풀이 ${index + 1}`} /><button
-												aria-label={`문제풀이 ${index + 1} 삭제`}
-												onclick={() => removeAttachmentImage('problem', index)}>×</button
-											>
-											<figcaption>문제풀이 {index + 1}</figcaption>
-										</figure>{/each}
-								</div>{/if}
+							{/if}
 						</div>
-						<div class="final-buttons">
-							<button class="ghost-button" onclick={() => (modalStage = 'generate')}>이전</button>
-							<div class="export-group">
-								{#if shareStatus}<small class="share-status">{shareStatus}</small>{/if}
-								<div class="export-actions">
-									<button
-										class="ghost-button"
-										onclick={() => save(true)}
-										disabled={saving || report?.status === 'submitted'}
-										>{report?.status === 'submitted'
-											? '작성 완료됨'
-											: '작성 완료 및 임시 사진 정리'}</button
-									><button
-										class="ghost-button"
-										onclick={preparedShareFiles.length ? sharePreparedImages : prepareKakaoShare}
-										disabled={kakaoBusy || nativeKakaoBusy || pdfBusy}
-										>{kakaoBusy
-											? '이미지 묶음 만드는 중…'
-											: preparedShareFiles.length
-												? '카카오톡 선택하기'
-												: '카카오톡 이미지 묶음 준비'}</button
-									>{#if nativeKakaoAvailable}<button
-											class="native-kakao-button"
-											onclick={sendToNativeKakao}
-											disabled={nativeKakaoBusy || kakaoBusy || pdfBusy}
-											>{nativeKakaoBusy
-												? '나와의 채팅 전송 중…'
-												: 'Mac 카카오톡 나와의 채팅 전송'}</button
-										>{/if}<button
-										class="primary-button"
-										onclick={downloadPdf}
-										disabled={pdfBusy || kakaoBusy || nativeKakaoBusy}
-										>{pdfBusy ? 'PDF 만드는 중…' : 'PDF 저장 및 다운로드'}</button
+					</header>
+
+					{#if modalStage !== 'final'}
+						<div class="generate-columns">
+							<section class="generate-input">
+								<div class="student-summary">
+									<strong>{report.studentName}</strong><span
+										>{report.schoolName} · {progressStageLabels[report.progressStage]} · {report.roundLabel}</span
 									>
 								</div>
-							</div>
-						</div>
-					</section>
-					<section class="pdf-scroll">
-						{#if finalControlsCollapsed}<button
-								class="panel-expand"
-								onclick={() => (finalControlsCollapsed = false)}>최종 수정 열기</button
-							>{/if}
-						<article class="pdf-preview" bind:this={pdfPreview}>
-							<h1>⊙ {report.studentName} 클리닉 리포트</h1>
-							<table class="summary-table">
-								<tbody>
-									<tr
-										><th>구분</th><td>{report.schoolName} {progressStageLabels[report.progressStage]} {report.roundLabel}</td><th>강의수강도</th
-										><td>{lectureProgress}</td></tr
-									>
-									<tr
-										><th>이름</th><td>{report.studentName}</td><th>강의이해도</th><td
-											>{lectureComprehension}</td
-										></tr
-									>
-									<tr
-										><th>수업날짜</th><td
-											>{new Intl.DateTimeFormat('ko-KR', {
-												month: 'numeric',
-												day: 'numeric'
-											}).format(new Date(report.startTime))}</td
-										><th>클리닉 전 암기</th><td>{memoryBefore}</td></tr
-									>
-									<tr
-										><th>시간</th><td
-											>{new Intl.DateTimeFormat('ko-KR', {
-												hour: '2-digit',
-												minute: '2-digit',
-												hour12: false
-											}).format(new Date(report.startTime))}~{new Intl.DateTimeFormat('ko-KR', {
-												hour: '2-digit',
-												minute: '2-digit',
-												hour12: false
-											}).format(new Date(report.endTime))}</td
-										><th>클리닉 후 암기</th><td>{memoryAfter}</td></tr
-									>
-								</tbody>
-							</table>
-							{#if scoreMode === 'auto' && lockedAssessmentRows().length}<section
-									class="report-section assessment-section"
+								<label class="score-mode"
+									><span>평가 항목</span><select
+										bind:value={scoreMode}
+										disabled={assessmentLocked && lockedAssessmentRows().length === 0}
+										><option value="auto">평가 포함</option><option value="none">학습 내용만</option
+										></select
+									></label
 								>
-									<h2>학습내용 암기 정도 평가</h2>
-									<table>
-										<tbody
-											><tr
-												><th
-													>{#each lockedAssessmentRows() as item}<div>{item.name}</div>{/each}</th
-												><td
-													>{#each lockedAssessmentRows() as item}<div>{item.score}</div>{/each}</td
-												></tr
-											></tbody
-										>
-									</table>
-								</section>{/if}
-							<section class="report-section learning-section">
-								<h2>클리닉 학습 내용, 부족한 점</h2>
-								<div>
-									{#each finalParagraphs as paragraph}<p>{paragraph}</p>{/each}
+								<section class="generation-rules">
+									<strong>형광색 의미</strong>
+									<small>이번 AI 생성에서만 적용됩니다.</small>
+									<label
+										><span>노랑</span><select bind:value={highlightSemantics.yellow}>
+											<option value="fixed">고침</option><option value="unfixed">못고침</option
+											><option value="not_reasked">재질문 못함</option>
+										</select></label
+									>
+									<label
+										><span>주황</span><select bind:value={highlightSemantics.orange}>
+											<option value="fixed">고침</option><option value="unfixed">못고침</option
+											><option value="not_reasked">재질문 못함</option>
+										</select></label
+									>
+									<label
+										><span>살구</span><select bind:value={highlightSemantics.peach}>
+											<option value="fixed">고침</option><option value="unfixed">못고침</option
+											><option value="not_reasked">재질문 못함</option>
+										</select></label
+									>
+									<label class="question-rule"
+										><input type="checkbox" bind:checked={includeQuestionChecks} />
+										<span>과거 리포트의 질문 표시도 AI에 전달</span></label
+									>
+								</section>
+								<div class="rating-grid">
+									<label
+										><span>강의 수강도</span><input
+											type="number"
+											min="1"
+											max="5"
+											bind:value={lectureProgress}
+										/></label
+									>
+									<label
+										><span>강의 이해도</span><input
+											type="number"
+											min="1"
+											max="5"
+											bind:value={lectureComprehension}
+										/></label
+									>
+									<label
+										><span>클리닉 전 암기</span><input
+											type="number"
+											min="1"
+											max="5"
+											bind:value={memoryBefore}
+										/></label
+									>
+									<label
+										><span>클리닉 후 암기</span><input
+											type="number"
+											min="1"
+											max="5"
+											bind:value={memoryAfter}
+										/></label
+									>
 								</div>
-							</section>
-							<section class="report-section image-section">
-								<h2>백지 테스트 결과</h2>
-								{#if blankTestImages.length}<div class="image-grid">
-										{#each blankTestImages as image}<img src={image.url} alt="백지테스트" />{/each}
-									</div>{:else}<p class="not-submitted">백지테스트를 제출하지 않았습니다.</p>{/if}
-							</section>
-							{#if problemImages.length || problemSolvingNote.trim()}<section
-									class="report-section image-section"
-								>
-									<h2>문제풀이</h2>
-									<div class="image-grid problem-image-grid">
-										{#each problemImages as image}<img src={image.url} alt="문제 풀이" />{/each}
-										{#if problemSolvingNote.trim()}<p class="problem-note">
-												{problemSolvingNote}
-											</p>{/if}
+								{#if scoreMode === 'auto'}
+									<div class="assessment-entry">
+										<strong>학습 내용 및 암기 정도 평가</strong>
+										{#if assessmentLocked && lockedAssessmentRows().length}
+											<p>이미 생성된 항목명은 유지하고 점수만 수정합니다.</p>
+											<div class="fixed-scores">
+												{#each lockedAssessmentRows() as item, index}<label
+														><span>{item.name}</span><input
+															type="number"
+															min="1"
+															max="5"
+															value={item.score}
+															onchange={(event) =>
+																updateLockedScore(index, Number(event.currentTarget.value))}
+														/></label
+													>{/each}
+											</div>
+										{:else}
+											<p>
+												첫 생성에만 사용됩니다. 비워두면 AI가 항목을 만들고, 입력하면 그 항목과
+												점수를 그대로 기준으로 사용합니다.
+											</p>
+											<textarea
+												bind:value={assessmentCsv}
+												placeholder="광합성 명반응,4&#10;캘빈 회로,3"
+											></textarea>
+										{/if}
 									</div>
-								</section>{/if}
-							{#if includeAppendix}<section class="report-section pdf-appendix">
-									<h2>(부록) 이번 단원 학습 내용</h2>
-									<p class="appendix-notice">
-										제가 개인적으로 수업 내용을 정리했으나 사소한 오류가 있을 수 있습니다.<br
-										/>클리닉을 진행하며 학생이 잘 모르는 부분을 형광으로 표시해뒀습니다.
-									</p>
-									<AuraReportEditor initialValue={draftDocument} readonly={true} {questionChecks} />
-								</section>{/if}
-						</article>
-					</section>
-				</div>
+								{/if}
+							</section>
+						</div>
+					{:else}
+						<div class="quick-report-actions">
+							<div class="quick-score-controls">
+								<strong>단원별 점수</strong>
+								{#if scoreMode === 'auto'}<label class="final-assessment">
+										<small>한 줄에 `항목,점수`로 입력하세요.</small>
+										<textarea
+											bind:value={assessmentCsv}
+											placeholder="광합성 명반응,4&#10;캘빈 회로,3"
+										></textarea>
+									</label>{:else}<button class="ghost-button" onclick={() => (scoreMode = 'auto')}
+										>단원별 점수 입력</button
+									>{/if}
+							</div>
+							<button
+								class="native-kakao-button"
+								onclick={sendToNativeKakao}
+								disabled={!nativeKakaoAvailable ||
+									nativeKakaoBusy ||
+									scheduleBusy ||
+									kakaoBusy ||
+									pdfBusy ||
+										(!!scheduledDelivery &&
+										['generating', 'sending'].includes(scheduledDelivery.state))}
+								>{nativeKakaoBusy
+									? '클리닉 리포트 전송 중…'
+									: nativeKakaoAvailable
+										? '카카오톡으로 받기'
+										: nativeKakaoChecked
+											? '카카오톡 전송 연결 확인 필요'
+											: '카카오톡 연결 확인 중…'}</button
+							><small class="share-status" role="status" aria-live="polite"
+								>{deliveryNotice || shareStatus}</small
+							>
+							{#if replacedScheduleNotice}<small class="share-status" role="status">{replacedScheduleNotice}</small>{/if}
+						</div>
+						<div class="final-columns" class:controls-collapsed={finalControlsCollapsed}>
+							<section class="final-controls">
+								<div class="final-controls-heading">
+									<h3>학습 내용 최종 수정</h3>
+									{#if aiResults.length > 0}<label class="saved-generation-picker">
+											<span>저장된 AI 생성본</span>
+											<select
+												bind:value={selectedAiRunId}
+												onchange={() => restoreAiGeneration(selectedAiRunId)}
+											>
+												{#each aiResults as result (result.runId)}<option
+														value={String(result.runId)}
+													>
+														{new Date(result.completedAt ?? Date.now()).toLocaleString('ko-KR')} · {result.model}
+													</option>{/each}
+											</select>
+										</label>{/if}
+									<button class="panel-collapse" onclick={() => (finalControlsCollapsed = true)}
+										>접기</button
+									>
+								</div>
+								<p>PDF에 들어가기 전에 문장을 한 번 더 고칠 수 있습니다.</p>
+								{#each finalParagraphs as paragraph, index}<div class="paragraph-row">
+										<textarea bind:value={finalParagraphs[index]}></textarea><button
+											aria-label="문단 삭제"
+											onclick={() =>
+												(finalParagraphs = finalParagraphs.filter((_, i) => i !== index))}>×</button
+										>
+									</div>{/each}
+								<button
+									class="ghost-button"
+									onclick={() => (finalParagraphs = [...finalParagraphs, ''])}>+ 문단 추가</button
+								>
+								<label class="problem-note-field">
+									<strong>문제풀이 설명</strong>
+									<small>입력한 문장은 문제풀이 사진 위에 표시됩니다.</small>
+									<textarea
+										bind:value={problemSolvingNote}
+										placeholder="이해한 내용을 정리할 겸 문제를 풀게 했고 잘 풀어주었습니다."
+									></textarea>
+								</label>
+
+								<div class="final-buttons">
+									<button class="ghost-button" onclick={openRegenerationOptions}
+										>새 AI 리포트 다시 생성</button
+									>
+									<div class="export-group">
+										<div class="export-actions">
+											<button
+												class="ghost-button"
+												onclick={preparedShareFiles.length
+													? sharePreparedImages
+													: prepareKakaoShare}
+												disabled={kakaoBusy || nativeKakaoBusy || pdfBusy}
+												>{kakaoBusy
+													? 'PDF 준비 중…'
+													: preparedShareFiles.length
+														? 'PDF 공유하기'
+														: 'PDF 공유 준비'}</button
+											>
+										</div>
+									</div>
+								</div>
+							</section>
+							<section class="pdf-scroll">
+								{#if finalControlsCollapsed}<button
+										class="panel-expand"
+										onclick={() => (finalControlsCollapsed = false)}>최종 수정 열기</button
+									>{/if}
+								<article class="pdf-preview">
+									<h1>⊙ {report.studentName} 클리닉 리포트</h1>
+									<table class="summary-table">
+										<tbody>
+											<tr
+												><th>구분</th><td
+													>{report.schoolName}
+													{progressStageLabels[report.progressStage]}
+													{report.roundLabel}</td
+												><th>강의수강도</th><td>{lectureProgress}</td></tr
+											>
+											<tr
+												><th>이름</th><td>{report.studentName}</td><th>강의이해도</th><td
+													>{lectureComprehension}</td
+												></tr
+											>
+											<tr
+												><th>수업날짜</th><td
+													>{new Intl.DateTimeFormat('ko-KR', {
+														month: 'numeric',
+														day: 'numeric'
+													}).format(new Date(report.startTime))}</td
+												><th>클리닉 전 암기</th><td>{memoryBefore}</td></tr
+											>
+											<tr
+												><th>시간</th><td
+													>{new Intl.DateTimeFormat('ko-KR', {
+														hour: '2-digit',
+														minute: '2-digit',
+														hour12: false
+													}).format(new Date(report.startTime))}~{new Intl.DateTimeFormat('ko-KR', {
+														hour: '2-digit',
+														minute: '2-digit',
+														hour12: false
+													}).format(new Date(report.endTime))}</td
+												><th>클리닉 후 암기</th><td>{memoryAfter}</td></tr
+											>
+										</tbody>
+									</table>
+									{#if scoreMode === 'auto' && lockedAssessmentRows().length}<section
+											class="report-section assessment-section"
+										>
+											<h2>학습내용 암기 정도 평가</h2>
+											<table>
+												<tbody
+													><tr
+														><th
+															>{#each lockedAssessmentRows() as item}<div>
+																	{item.name}
+																</div>{/each}</th
+														><td
+															>{#each lockedAssessmentRows() as item}<div>
+																	{item.score}
+																</div>{/each}</td
+														></tr
+													></tbody
+												>
+											</table>
+										</section>{/if}
+									<section class="report-section learning-section">
+										<h2>클리닉 학습 내용, 부족한 점</h2>
+										<div>
+											{#each finalParagraphs as paragraph}<p>{paragraph}</p>{/each}
+										</div>
+									</section>
+									<section class="report-section image-section">
+										<h2>백지 테스트 결과</h2>
+										{#if blankTestImages.length}<div class="image-grid">
+												{#each blankTestImages as image}<img
+														src={image.url}
+														alt="백지테스트"
+													/>{/each}
+											</div>{:else}<p class="not-submitted">
+												백지테스트를 제출하지 않았습니다.
+											</p>{/if}
+									</section>
+									{#if problemImages.length || problemSolvingNote.trim()}<section
+											class="report-section image-section"
+										>
+											<h2>문제풀이</h2>
+											<div class="image-grid problem-image-grid">
+												{#each problemImages as image}<img src={image.url} alt="문제 풀이" />{/each}
+												{#if problemSolvingNote.trim()}<p class="problem-note">
+														{problemSolvingNote}
+													</p>{/if}
+											</div>
+										</section>{/if}
+									{#if includeAppendix}<section class="report-section pdf-appendix">
+											<h2>(부록) 이번 단원 학습 내용</h2>
+											<p class="appendix-notice">
+												제가 개인적으로 수업 내용을 정리했으나 사소한 오류가 있을 수 있습니다.<br
+												/>클리닉을 진행하며 학생이 잘 모르는 부분을 형광으로 표시해뒀습니다.
+											</p>
+											<AuraReportEditor
+												initialValue={draftDocument}
+												readonly={true}
+												{questionChecks}
+											/>
+										</section>{/if}
+								</article>
+							</section>
+						</div>
+					{/if}
+				</section>
 			{/if}
-		</dialog>
-	</div>
-{/if}
+		</div>
+	{/if}
+{/snippet}
 
 <style>
+	.schedule-panel {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 18px;
+		padding: 14px 16px;
+		margin-bottom: 12px;
+		border: 1px solid #d8e1ed;
+		border-radius: 12px;
+		background: #f7faff;
+	}
+	.schedule-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.schedule-actions button {
+		min-height: 42px;
+		padding: 9px 16px;
+		border: 1px solid #bdcbe0;
+		border-radius: 8px;
+		background: white;
+		color: #273d60;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.schedule-actions button.schedule-primary {
+		border-color: #285cc5;
+		background: #285cc5;
+		color: white;
+	}
+	.schedule-actions button:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+	.schedule-actions button:focus-visible {
+		outline: 3px solid #85aaf4;
+		outline-offset: 2px;
+	}
+	.schedule-status {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 12px;
+		color: #52637a;
+		font-size: 0.9rem;
+	}
+	.schedule-status strong {
+		color: #263c5b;
+	}
+	.inline-report-tools {
+		margin-top: 12px;
+		min-width: 0;
+	}
+	.note-panel,
+	.editor-panel {
+		min-width: 0;
+	}
+	.note-panel :global(input[type='file']) {
+		width: 100%;
+		min-width: 0;
+	}
+	.inline-report-tools .generate-input,
+	.inline-report-tools .final-controls {
+		min-width: 0;
+		padding: 12px 0;
+		overflow: visible;
+	}
+	.inline-report-tools .report-modal > header {
+		height: auto;
+		padding: 12px 0;
+		flex-wrap: wrap;
+	}
+	.inline-report-tools .modal-actions {
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+	.inline-report-tools .report-modal {
+		position: static;
+		width: 100%;
+		height: auto;
+		max-width: none;
+		max-height: none;
+		padding: 0;
+		border: 0;
+		box-shadow: none;
+		overflow: visible;
+	}
+	.inline-report-tools .generate-columns,
+	.inline-report-tools .final-columns {
+		display: flex;
+		flex-direction: column;
+		height: auto;
+	}
+	.inline-report-tools .final-columns {
+		flex-direction: column;
+	}
+	.quick-report-actions {
+		margin: 8px 0 14px;
+		display: grid;
+		align-items: start;
+		gap: 8px;
+	}
+	.quick-score-controls {
+		display: grid;
+		gap: 5px;
+	}
+	.quick-score-controls .final-assessment {
+		margin-top: 0;
+	}
+	.inline-report-tools .pdf-scroll {
+		overflow: visible;
+		max-height: none;
+	}
+	.quick-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
 	.back {
 		display: inline-flex;
 		align-items: center;
@@ -1283,11 +2224,11 @@
 		border-radius: 9px;
 		background: #eff7f0;
 		color: #4e6c57;
-		font-size: 11px;
+		font-size: 14px;
 	}
 	.report-layout {
 		display: grid;
-		grid-template-columns: 250px minmax(0, 1fr);
+		grid-template-columns: minmax(340px, 40%) minmax(0, 1fr);
 		gap: 18px;
 		align-items: start;
 	}
@@ -1311,12 +2252,19 @@
 		font-size: 10px;
 		cursor: pointer;
 	}
+	.page-head-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
 	.complete-status-button:disabled {
 		opacity: 0.55;
 		cursor: wait;
 	}
 	.note-panel {
-		position: sticky;
+		position: static;
 		top: 18px;
 		padding: 20px;
 	}
@@ -1425,9 +2373,82 @@
 	.editor-panel > footer {
 		border-top: 1px solid var(--pp-line);
 	}
-	.editor-panel footer > div {
+	.editor-panel > footer {
+		justify-content: flex-end;
+	}
+	.template-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 40px;
+		padding: 8px 14px;
+		border: 1px solid #b7b9b4;
+		border-radius: 7px;
+		background: #fff;
+		color: #303330;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.template-button:disabled {
+		opacity: 0.5;
+		cursor: wait;
+	}
+	.template-confirm {
 		display: flex;
+		justify-content: flex-end;
 		gap: 8px;
+		padding: 12px 20px;
+		border-top: 1px solid var(--pp-line);
+	}
+	.unit-template-tools {
+		width: 100%;
+		margin-right: auto;
+		padding: 14px 16px;
+		border: 1px solid var(--pp-line);
+		border-radius: 10px;
+	}
+	.unit-template-tools > p {
+		margin: 4px 0 10px;
+		color: var(--pp-muted);
+		font-size: 13px;
+	}
+	.unit-template-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.unit-template-actions input,
+	.unit-template-actions select {
+		min-height: 38px;
+		padding: 7px 10px;
+		border: 1px solid var(--pp-line);
+		border-radius: 7px;
+		background: var(--pp-surface);
+		color: inherit;
+		font: inherit;
+	}
+	.unit-template-actions input {
+		flex: 1 1 150px;
+	}
+	.unit-template-actions select {
+		flex: 1 1 190px;
+	}
+	.unit-template-tools small {
+		display: block;
+		margin-top: 8px;
+		color: var(--pp-muted);
+	}
+	.template-cancel {
+		min-height: 40px;
+		padding: 8px 12px;
+		border: 1px solid transparent;
+		border-radius: 7px;
+		background: transparent;
+		color: var(--pp-muted);
+		font: inherit;
+		cursor: pointer;
 	}
 	.editor-wrap {
 		padding: 14px 20px 20px;
@@ -1536,6 +2557,9 @@
 		display: grid;
 		grid-template-columns: minmax(430px, 38%) minmax(0, 62%);
 	}
+	.generate-columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
 	.final-controls-heading {
 		display: flex;
 		align-items: center;
@@ -1566,10 +2590,7 @@
 		grid-template-columns: 0 minmax(0, 100%);
 	}
 	.final-columns.controls-collapsed .final-controls {
-		overflow: hidden;
-		padding: 0;
-		border: 0;
-		opacity: 0;
+		display: none;
 	}
 	.generate-input,
 	.source-compare,
@@ -1904,17 +2925,22 @@
 	.pdf-scroll {
 		padding: 24px;
 		background: #e9e9e6;
+		overflow-x: auto;
 	}
 	.pdf-preview {
 		box-sizing: border-box;
-		width: 900px;
-		min-height: 1273px;
+		width: 100%;
+		min-height: 0;
 		margin: 0 auto;
-		padding: 62px 72px;
+		padding: 24px;
 		background: #fff;
 		color: #171717;
 		font-family: Arial, 'Noto Sans KR', sans-serif;
 		box-shadow: 0 3px 18px rgb(0 0 0 / 12%);
+	}
+	.pdf-preview,
+	.pdf-preview :global(*) {
+		color: #111 !important;
 	}
 	.pdf-preview h1 {
 		margin: 0 0 18px;
@@ -2001,28 +3027,48 @@
 		overflow: visible;
 		font-size: 12px;
 	}
+	.saved-generation-picker {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		font-size: 12px;
+	}
+	.saved-generation-picker select {
+		max-width: 260px;
+		padding: 6px 8px;
+		border: 1px solid #c9c9c4;
+		border-radius: 7px;
+		background: #fff;
+		color: #171717;
+	}
 	.image-grid {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: 10px;
+		align-items: start;
+		gap: 4px;
 	}
 	.image-grid img {
 		width: 100%;
+		height: auto;
+		object-fit: contain;
 		margin: 0;
+		break-inside: avoid;
+		page-break-inside: avoid;
 	}
 	.problem-image-grid {
-		display: flex;
-		align-items: flex-start;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		align-items: start;
+		gap: 8px;
 	}
 	.problem-image-grid img {
-		width: 48%;
-		max-width: 48%;
+		width: 100%;
+		max-height: 420px;
 		height: auto;
+		object-fit: contain;
 	}
 	.problem-note {
-		flex-basis: 100%;
-		order: 2;
+		grid-column: 1 / -1;
 		padding: 2px 0 8px;
 	}
 	.not-submitted {
@@ -2032,6 +3078,21 @@
 		background: #f6f6f3;
 	}
 	@media (max-width: 850px) {
+		.editor-panel > header {
+			flex-wrap: wrap;
+		}
+		.editor-header-actions {
+			width: 100%;
+			flex-wrap: wrap;
+		}
+		.editor-header-actions > button {
+			flex: 1 1 auto;
+			white-space: nowrap;
+		}
+		.editor-header-actions .status-pill {
+			margin-left: auto;
+			white-space: nowrap;
+		}
 		.mobile-modal-close {
 			position: absolute;
 			top: 10px;
@@ -2051,11 +3112,8 @@
 		.report-modal > header {
 			padding-right: 58px;
 		}
-		.modal-actions > .ghost-button {
-			display: none;
-		}
 		.report-layout {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 		.note-panel {
 			position: static;

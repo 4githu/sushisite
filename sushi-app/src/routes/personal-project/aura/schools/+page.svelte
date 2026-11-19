@@ -13,6 +13,10 @@
 	let schoolName = $state('');
 	let memo = $state('');
 	let freeForThreePlus = $state(false);
+	let draggedSchoolId = $state<number | null>(null);
+	let dragTargetId = $state<number | null>(null);
+	let dragSaving = $state(false);
+	let orderMessage = $state('');
 
 	async function load() {
 		try {
@@ -67,13 +71,57 @@
 		}
 	}
 
-	async function moveSchool(school: School, direction: 'up' | 'down') {
+	function startSchoolDrag(event: DragEvent, school: School) {
+		draggedSchoolId = school.id;
+		dragTargetId = null;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', String(school.id));
+		}
+	}
+
+	async function reorderSchool(sourceId: number, targetId: number) {
+		if (dragSaving) return;
+		const from = schools.findIndex((item) => item.id === sourceId);
+		const to = schools.findIndex((item) => item.id === targetId);
+		if (from < 0 || to < 0) return;
+		const source = schools[from];
+		if (from === to || source.termStatus !== schools[to].termStatus) return;
+		error = '';
+		orderMessage = '';
+		const reordered = [...schools];
+		reordered.splice(from, 1);
+		reordered.splice(to, 0, source);
+		schools = reordered;
+		dragSaving = true;
 		try {
-			await personalApi.moveSchool(school.id, direction);
-			await load();
+			schools = await personalApi.reorderSchools(reordered.map((item) => item.id));
+			orderMessage = `${source.name} 순서를 저장했습니다.`;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : '학교 순서를 변경하지 못했습니다.';
+			await load();
+		} finally {
+			dragSaving = false;
 		}
+	}
+
+	function moveSchool(school: School, direction: -1 | 1) {
+		const index = schools.findIndex((item) => item.id === school.id);
+		const neighbor = schools[index + direction];
+		if (neighbor) void reorderSchool(school.id, neighbor.id);
+	}
+
+	function canMoveSchool(school: School, direction: -1 | 1) {
+		const index = schools.findIndex((item) => item.id === school.id);
+		return !dragSaving && index >= 0 && schools[index + direction]?.termStatus === school.termStatus;
+	}
+
+	function dropSchool(event: DragEvent, target: School) {
+		event.preventDefault();
+		const sourceId = draggedSchoolId || Number(event.dataTransfer?.getData('text/plain'));
+		draggedSchoolId = null;
+		dragTargetId = null;
+		void reorderSchool(sourceId, target.id);
 	}
 
 	async function removeSchool(school: School) {
@@ -98,7 +146,6 @@
 	<div>
 		<p class="eyebrow">Schools</p>
 		<h1>학교별 리포트</h1>
-		<p>학생을 별도로 관리하지 않고 학교와 회차 아래에 이름만 정리합니다.</p>
 	</div>
 	<div class="page-actions">
 		<button class="ghost-button" onclick={advanceStages} disabled={advancing}
@@ -107,20 +154,45 @@
 		<button class="primary-button" onclick={() => (showModal = true)}>＋ 학교 등록</button>
 	</div>
 </div>
-{#if error}<div class="error-banner">{error}</div>{/if}
+{#if error}<div class="error-banner" role="alert">{error}</div>{/if}
+<p class="sr-only" role="status" aria-live="polite">{orderMessage}</p>
 
 <section class="school-grid">
 	{#each schools as school (school.id)}
-		<article class:ended={school.termStatus === 'ended'} class="school-card card">
+		<article
+			class:ended={school.termStatus === 'ended'}
+			class:drop-target={dragTargetId === school.id}
+			class:dragging={draggedSchoolId === school.id}
+			class="school-card card"
+			draggable="true"
+			title="끌어서 순서 변경"
+			ondragstart={(event) => startSchoolDrag(event, school)}
+			ondragend={() => {
+				draggedSchoolId = null;
+				dragTargetId = null;
+			}}
+			ondragover={(event) => {
+				const source = schools.find((item) => item.id === draggedSchoolId);
+				if (source && source.termStatus === school.termStatus) {
+					event.preventDefault();
+					dragTargetId = school.id;
+				}
+			}}
+			ondragleave={() => dragTargetId === school.id && (dragTargetId = null)}
+			ondrop={(event) => void dropSchool(event, school)}
+		>
 			<a href={`/personal-project/aura/schools/${school.id}`} class="school-main">
 				<span class="school-mark">{school.name.slice(0, 1)}</span>
 				<span
 					><strong>{school.name}</strong><small
-					><b class="term-pill">{progressStageLabels[school.currentStage]}</b> · {school.termStatus === 'ended'
-							? '종료된 학교'
-							: `우선순위 ${school.priority}`} · 회차
+						><b class="term-pill">{progressStageLabels[school.currentStage]}</b> · {school.termStatus ===
+						'ended'
+							? '종료'
+							: '진행 중'} · 회차
 						{school.roundCount}개</small
-					>{#if school.freeForThreePlus}<small class="free-rule">3:1 이상 학부모 무료 · 조교 정산 유지</small>{/if}
+					>{#if school.freeForThreePlus}<small class="free-rule"
+							>3:1 이상 학부모 무료 · 조교 정산 유지</small
+						>{/if}
 					>{#if school.memo}<p>{school.memo}</p>{/if}</span
 				>
 				<i>›</i>
@@ -136,7 +208,9 @@
 					{/each}
 				</select>
 				{#if school.currentStage !== school.recommendedStage}
-					<span class="stage-hint">현재 날짜 기준: {progressStageLabels[school.recommendedStage]}</span>
+					<span class="stage-hint"
+						>현재 날짜 기준: {progressStageLabels[school.recommendedStage]}</span
+					>
 				{/if}
 				<label class="free-toggle">
 					<input
@@ -147,22 +221,28 @@
 					/>
 					3:1 이상 학부모 무료
 				</label>
-				<button onclick={() => moveSchool(school, 'up')}>위로</button>
-				<button onclick={() => moveSchool(school, 'down')}>아래로</button>
-				<button
-					onclick={() =>
-						updateSchool(school, {
-							term_status: school.termStatus === 'ended' ? 'active' : 'ended'
-						})}>{school.termStatus === 'ended' ? '다시 진행' : '학기 종료'}</button
-				>
-				<a href={personalApi.schoolExportUrl(school.id)}>전체 기록 내보내기</a>
-				<button class="delete-school" onclick={() => removeSchool(school)}>완전 삭제</button>
+				<div class="order-actions" aria-label={`${school.name} 순서 변경`}>
+					<button type="button" aria-label={`${school.name} 위로 이동`} title="위로 이동" disabled={!canMoveSchool(school, -1)} onclick={() => moveSchool(school, -1)}>↑</button>
+					<button type="button" aria-label={`${school.name} 아래로 이동`} title="아래로 이동" disabled={!canMoveSchool(school, 1)} onclick={() => moveSchool(school, 1)}>↓</button>
+				</div>
+				<details class="school-more">
+					<summary>설정</summary>
+					<div>
+						<button
+							onclick={() =>
+								updateSchool(school, {
+									term_status: school.termStatus === 'ended' ? 'active' : 'ended'
+								})}>{school.termStatus === 'ended' ? '다시 진행' : '학기 종료'}</button
+						>
+						<a href={personalApi.schoolExportUrl(school.id)}>기록 내보내기</a>
+						<button class="delete-school" onclick={() => removeSchool(school)}>삭제</button>
+					</div>
+				</details>
 			</div>
 		</article>
 	{:else}
 		<div class="empty card">
 			<strong>학교를 먼저 등록해주세요.</strong>
-			<p>학교 안에 회차와 학생 이름이 정리됩니다.</p>
 			<button class="primary-button" onclick={() => (showModal = true)}>첫 학교 등록</button>
 		</div>
 	{/each}
@@ -195,12 +275,19 @@
 						placeholder="예: 서울"
 						required
 					/>
-					<small>목록에는 {String(admissionYear).slice(-2).padStart(2, '0')}{schoolName || '서울'}처럼 표시됩니다.</small>
+					<small
+						>목록에는 {String(admissionYear).slice(-2).padStart(2, '0')}{schoolName || '서울'}처럼
+						표시됩니다.</small
+					>
 				</div>
 				<div class="field full free-option">
 					<label>
 						<input type="checkbox" bind:checked={freeForThreePlus} />
-						<span><strong>3:1 이상이면 학부모 무료</strong><small>학부모 청구만 0원이며 조교 정산은 그대로 기록됩니다.</small></span>
+						<span
+							><strong>3:1 이상이면 학부모 무료</strong><small
+								>학부모 청구만 0원이며 조교 정산은 그대로 기록됩니다.</small
+							></span
+						>
 					</label>
 				</div>
 				<div class="field full">
@@ -223,7 +310,7 @@
 	}
 	.stage-hint {
 		color: var(--pp-muted);
-		font-size: 8px;
+		font-size: 11px;
 	}
 	.school-grid {
 		display: grid;
@@ -233,6 +320,16 @@
 	.school-card {
 		overflow: hidden;
 		color: inherit;
+		cursor: grab;
+		transition:
+			border-color 120ms ease,
+			transform 120ms ease;
+	}
+	.school-card:active { cursor: grabbing; }
+	.school-card.dragging { opacity: .48; }
+	.school-card.drop-target {
+		border-color: var(--pp-sage-dark);
+		box-shadow: 0 0 0 2px #8d6f6330;
 	}
 	.school-main {
 		padding: 22px;
@@ -267,14 +364,16 @@
 		color: var(--pp-sage-dark);
 		font-weight: 700;
 	}
-	.school-card .free-rule { color: #a56545; }
+	.school-card .free-rule {
+		color: #a56545;
+	}
 	.school-card strong {
 		font-size: 14px;
 	}
 	.school-card small {
 		margin-top: 5px;
 		color: var(--pp-muted);
-		font-size: 9px;
+		font-size: 11px;
 	}
 	.school-card p {
 		margin: 10px 0 0;
@@ -305,7 +404,7 @@
 		border-radius: 6px;
 		background: white;
 		color: var(--pp-sage-dark);
-		font-size: 8px;
+		font-size: 11px;
 		font-weight: 700;
 		text-decoration: none;
 		cursor: pointer;
@@ -315,7 +414,47 @@
 		align-items: center;
 		gap: 4px;
 	}
-	.free-toggle input { margin: 0; }
+	.free-toggle input {
+		margin: 0;
+	}
+	.order-actions { display: flex; gap: 4px; }
+	.order-actions button { min-width: 44px; min-height: 44px; font-size: 17px; }
+	.order-actions button:disabled { opacity: .4; cursor: not-allowed; }
+	.school-more {
+		position: relative;
+		margin-left: auto;
+	}
+	.school-more summary {
+		padding: 7px 10px;
+		border: 1px solid var(--pp-line);
+		border-radius: 6px;
+		background: white;
+		color: var(--pp-sage-dark);
+		font-size: 11px;
+		font-weight: 700;
+		list-style: none;
+		cursor: pointer;
+	}
+	.school-more summary::-webkit-details-marker {
+		display: none;
+	}
+	.school-more > div {
+		position: absolute;
+		right: 0;
+		bottom: calc(100% + 6px);
+		z-index: 4;
+		display: grid;
+		min-width: 120px;
+		padding: 5px;
+		gap: 4px;
+		border: 1px solid var(--pp-line);
+		border-radius: 8px;
+		background: #fff;
+		box-shadow: 0 8px 24px #0002;
+	}
+	.school-more > div > * {
+		text-align: left;
+	}
 	.free-option {
 		padding: 11px;
 		border: 1px solid var(--pp-line);
@@ -330,25 +469,21 @@
 	}
 	.free-option span,
 	.free-option strong,
-	.free-option small { display: block; }
+	.free-option small {
+		display: block;
+	}
 	.free-option small {
 		margin-top: 3px;
 		color: var(--pp-muted);
 		font-size: 9px;
 	}
-	.school-actions .delete-school {
-		margin-left: auto;
+	.school-more .delete-school {
 		color: #a74b36;
 	}
 	.empty {
 		grid-column: 1 / -1;
 		padding: 70px;
 		text-align: center;
-	}
-	.empty p {
-		margin: 7px 0 18px;
-		color: var(--pp-muted);
-		font-size: 11px;
 	}
 	@media (max-width: 700px) {
 		.school-grid {

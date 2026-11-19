@@ -1,5 +1,7 @@
 <!-- src/lib/odi/components/login/OdiJoinCompleteStep.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import Button from "$lib/odi/components/common/Button.svelte";
 	import { Seedling } from "$lib/odi/icons";
 
@@ -21,8 +23,8 @@
 
 	<section class="complete-content">
 		<div class="title-group">
-			<h1>계정 설정이 완료되었어요<br />Re:hear에 오신 걸 환영해요</h1>
-			<p>첫 세션을 시작하고 나만의 리포트와 훈련 기록을 쌓아보세요</p>
+			<h1>{tr($siteLocale, "계정 설정이 완료되었어요")}<br />{tr($siteLocale, "Re:hear에 오신 걸 환영해요")}</h1>
+			<p>{tr($siteLocale, "첫 세션을 시작하고 나만의 리포트와 훈련 기록을 쌓아보세요")}</p>
 		</div>
 
 		<div class="profile-card">
@@ -35,17 +37,17 @@
 
 				<strong>{nickname}</strong>
 
-				<p>첫 칭호를 획득했어요!<br />앞으로의 성장을 응원해요</p>
+				<p>{tr($siteLocale, "첫 칭호를 획득했어요!")}<br />{tr($siteLocale, "앞으로의 성장을 응원해요")}</p>
 			</div>
 		</div>
 
 		<div class="complete-actions">
 			<Button variant="primary" size="lg" width="464px" onclick={onStartSession}>
-				첫 세션 만들기
+				{tr($siteLocale, "첫 세션 만들기")}
 			</Button>
 
 			<Button variant="outline" size="lg" width="464px" onclick={onGoHome}>
-				홈으로 이동하기
+				{copy($locale, "홈으로 이동하기")}
 			</Button>
 		</div>
 	</section>

@@ -1,0 +1,13 @@
+{
+  "name": "netaq-desktop",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:win-cross": "tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

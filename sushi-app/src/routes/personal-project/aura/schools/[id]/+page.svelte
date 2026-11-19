@@ -1,14 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { personalApi } from '$lib/personal-project/shared/api';
-	import { progressStageLabels, progressStages } from '$lib/personal-project/aura/stages';
+	import { personalApi, targetRepricingPreview } from '$lib/personal-project/shared/api';
+	import type { TargetRepricingChange } from '$lib/personal-project/shared/api';
+	import { normalizeProgressStage, progressStageLabels, progressStages } from '$lib/personal-project/aura/stages';
 	import type { ClinicRound, School } from '$lib/personal-project/shared/types';
 
 	let school = $state<School | null>(null);
 	let error = $state('');
 	let addingRoundId = $state<number | null>(null);
 	let newStudentName = $state('');
+	type PendingTargetChange = { kind: 'add'; roundId: number; name: string } | { kind: 'remove'; roundId: number; targetId: number; name: string };
+	let pendingChange = $state<PendingTargetChange | null>(null);
+	let repricing = $state<TargetRepricingChange | null>(null);
+	let proposalChanged = $state(false);
+	let saving = $state(false);
+	function cancelApproval() {
+		pendingChange = null;
+		repricing = null;
+		proposalChanged = false;
+	}
 	function groupByRoundNumber(rounds: ClinicRound[]) {
 		const groups = new Map<string, ClinicRound[]>();
 		for (const round of rounds) {
@@ -28,7 +39,7 @@
 			}))
 			.sort(
 				(a, b) =>
-					progressStages.indexOf(a.stage) - progressStages.indexOf(b.stage) ||
+					progressStages.indexOf(normalizeProgressStage(a.stage)) - progressStages.indexOf(normalizeProgressStage(b.stage)) ||
 					Number(a.label.replace('회차', '')) - Number(b.label.replace('회차', ''))
 			);
 	}
@@ -43,26 +54,48 @@
 		}
 	}
 
-	async function addTarget(round: ClinicRound) {
-		if (!newStudentName.trim()) return;
+	async function applyTargetChange(change: PendingTargetChange, approval?: [number, number]) {
+		if (saving) return;
+		saving = true;
+		error = '';
 		try {
-			await personalApi.addRoundTarget(round.id, newStudentName.trim());
-			newStudentName = '';
-			addingRoundId = null;
+			if (change.kind === 'add') await personalApi.addRoundTarget(change.roundId, change.name, approval);
+			else await personalApi.deleteRoundTarget(change.targetId, approval);
+			cancelApproval();
+			if (change.kind === 'add') {
+				newStudentName = '';
+				addingRoundId = null;
+			}
 			await load();
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '학생 이름을 추가하지 못했습니다.';
+			const next = targetRepricingPreview(cause, change.roundId);
+			if (next) {
+				pendingChange = change;
+				repricing = next;
+				proposalChanged = !!approval;
+			} else {
+				cancelApproval();
+				error = cause instanceof Error ? cause.message : '학생 항목을 변경하지 못했습니다.';
+			}
+		} finally {
+			saving = false;
 		}
 	}
 
-	async function removeTarget(id: number, name: string) {
-		if (!confirm(`${name} 항목과 작성된 리포트를 삭제할까요?`)) return;
-		try {
-			await personalApi.deleteRoundTarget(id);
-			await load();
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : '학생 항목을 삭제하지 못했습니다.';
-		}
+	async function addTarget(round: ClinicRound) {
+		const name = newStudentName.trim();
+		if (!name || saving || repricing) return;
+		await applyTargetChange({ kind: 'add', roundId: round.id, name });
+	}
+
+	async function removeTarget(roundId: number, id: number, name: string) {
+		if (saving || repricing || !confirm(`${name} 학생 항목을 삭제할까요? 작성된 리포트나 마지막 학생은 삭제할 수 없습니다.`)) return;
+		await applyTargetChange({ kind: 'remove', roundId, targetId: id, name });
+	}
+
+	async function approveTargetChange() {
+		if (!pendingChange || !repricing || saving) return;
+		await applyTargetChange(pendingChange, [repricing.oldAmount, repricing.newAmount]);
 	}
 
 	async function removeRound(round: ClinicRound) {
@@ -89,7 +122,29 @@
 	</div>
 	<a class="ghost-button back" href="/personal-project/aura/schools">← 학교 목록</a>
 </div>
-{#if error}<div class="error-banner">{error}</div>{/if}
+{#if error}<div class="error-banner" role="alert">{error}</div>{/if}
+
+{#if repricing && pendingChange}
+	<div class="approval-backdrop">
+		<div class="approval-panel card" role="dialog" aria-modal="true" aria-labelledby="target-approval-title">
+			<h2 id="target-approval-title">대상학생 요금 변경 승인</h2>
+			<p>{pendingChange.name} 학생 {pendingChange.kind === 'add' ? '추가' : '삭제'} · {repricing.roundId}번 회차</p>
+			{#if proposalChanged}<p role="alert">제안이 변경되었습니다. 변경된 금액을 확인하고 다시 승인해주세요.</p>{/if}
+			<dl>
+				<div><dt>기존 요금</dt><dd>{repricing.oldAmount.toLocaleString()}원</dd></div>
+				<div><dt>변경 요금</dt><dd>{repricing.newAmount.toLocaleString()}원</dd></div>
+				<div><dt>차액</dt><dd>{repricing.delta > 0 ? '+' : ''}{repricing.delta.toLocaleString()}원</dd></div>
+				<div><dt>지급 상태</dt><dd>{repricing.paid ? '지급 완료' : '미지급'}</dd></div>
+				<div><dt>월 정산</dt><dd>{repricing.hasSnapshot ? '월 스냅샷 있음' : '월 스냅샷 없음'}</dd></div>
+			</dl>
+			<p>이 변경은 기존 월 정산 스냅샷을 자동으로 재생성하지 않습니다.</p>
+			<div class="approval-actions">
+				<button type="button" class="ghost-button" disabled={saving} onclick={cancelApproval}>취소</button>
+				<button type="button" class="primary-button" disabled={saving} onclick={approveTargetChange}>요금 변경 승인 후 {pendingChange.kind === 'add' ? '추가' : '삭제'}</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if school}
 	<section class="round-stack">
@@ -142,7 +197,7 @@
 								<i>리포트 열기 →</i>
 							</a>
 							<button
-								onclick={() => removeTarget(target.id, target.studentName)}
+								onclick={() => removeTarget(target.clinicRound.id, target.id, target.studentName)}
 								aria-label={`${target.studentName} 삭제`}>×</button
 							>
 						</div>
@@ -179,6 +234,28 @@
 {/if}
 
 <style>
+	.approval-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: grid;
+		place-items: center;
+		padding: 16px;
+		background: rgb(20 30 26 / 50%);
+	}
+	.approval-panel {
+		width: min(100%, 440px);
+		max-height: 90vh;
+		overflow: auto;
+		padding: 22px;
+		background: white;
+	}
+	.approval-panel p { color: var(--pp-muted); line-height: 1.5; }
+	.approval-panel dl { margin: 16px 0; border-block: 1px solid var(--pp-line); }
+	.approval-panel dl div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; }
+	.approval-panel dt { color: var(--pp-muted); }
+	.approval-panel dd { margin: 0; font-weight: 700; text-align: right; }
+	.approval-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 	.back {
 		display: inline-flex;
 		align-items: center;

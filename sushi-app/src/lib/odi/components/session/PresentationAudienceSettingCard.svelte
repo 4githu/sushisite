@@ -1,5 +1,7 @@
 <!-- src/lib/odi/components/session/PresentationAudienceSettingCard.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import SurfaceCard from '$lib/odi/components/common/SurfaceCard.svelte';
 	import SessionSlider from '$lib/odi/components/session/SessionSlider.svelte';
 	import SegmentedControl from '$lib/odi/components/session/SegmentedControl.svelte';
@@ -78,8 +80,8 @@
 					<span>▣</span>
 				</div>
 
-				<h2 class="text-title-middle">청중 유형</h2>
-				<p class="section-help text-body">청중 유형을 선택하면 추천 설정이 자동 적용됩니다.</p>
+				<h2 class="text-title-middle">{copy($locale, "청중 유형")}</h2>
+				<p class="section-help text-body">{tr($siteLocale, "청중 유형을 선택하면 추천 설정이 자동 적용됩니다.")}</p>
 			</div>
 
 			<div class="audience-type-grid">
@@ -117,11 +119,11 @@
 					<span>◉</span>
 				</div>
 
-				<h2 class="text-title-middle">청중 페르소나</h2>
+				<h2 class="text-title-middle">{tr($siteLocale, "청중 페르소나")}</h2>
 			</div>
 
 			<div class="persona-control">
-				<p class="control-label text-title-small">청중 규모</p>
+				<p class="control-label text-title-small">{copy($locale, "청중 규모")}</p>
 
 				<SessionSlider
 					mode="node"
@@ -136,13 +138,13 @@
 
 			<div class="level-grid">
 				<div class="persona-control">
-					<p class="control-label text-title-small">전문성 수준</p>
+					<p class="control-label text-title-small">{copy($locale, "전문성 수준")}</p>
 
 					<SegmentedControl items={levelItems} itemWidth="158px" bind:selected={expertiseLevel} />
 				</div>
 
 				<div class="persona-control">
-					<p class="control-label text-title-small">관심도 수준</p>
+					<p class="control-label text-title-small">{copy($locale, "관심도 수준")}</p>
 
 					<SegmentedControl items={levelItems} itemWidth="158px" bind:selected={interestLevel} />
 				</div>

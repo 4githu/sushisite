@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import ReportCard from './ReportCard.svelte';
 	import { resolveReportMedia } from './reportMedia';
 	import { formatSeconds } from './reportUtils';
@@ -20,14 +22,34 @@
 		variant?: 'default' | 'figma';
 	} = $props();
 
-	let expanded = $state(false);
-	let selectedIndex = $state<number | null>(null);
+	let expanded = $derived.by(() => {
+		feedback;
+		sessionId;
+		return false;
+	});
+	let selectedIndex = $derived.by((): number | null => {
+		feedback;
+		sessionId;
+		return variant === 'figma' && selectableItems.length > 0 ? 0 : null;
+	});
 	let videoElement = $state<HTMLVideoElement>();
 	let fileInput = $state<HTMLInputElement>();
-	let isPlaying = $state(false);
+	let isPlaying = $derived.by(() => {
+		feedback;
+		sessionId;
+		return false;
+	});
 	let uploading = $state(false);
-	let uploadError = $state('');
-	let uploadedMedia = $state<ReportMedia>();
+	let uploadError = $derived.by(() => {
+		feedback;
+		sessionId;
+		return '';
+	});
+	let uploadedMedia = $derived.by((): ReportMedia | undefined => {
+		feedback;
+		sessionId;
+		return undefined;
+	});
 
 	const allItems = $derived(feedback.timeline ?? []);
 	const problemItems = $derived.by(() => {
@@ -60,16 +82,6 @@
 	const playbackLabel = $derived(
 		!videoUrl ? '영상 미연결' : isPlaying ? '재생 중' : selectedItem ? '일시정지' : '선택 전'
 	);
-
-	$effect(() => {
-		feedback;
-		sessionId;
-		expanded = false;
-		selectedIndex = variant === 'figma' && selectableItems.length > 0 ? 0 : null;
-		isPlaying = false;
-		uploadedMedia = undefined;
-		uploadError = '';
-	});
 
 	function itemType(type: string) {
 		if (type === 'positive') return 'positive';
@@ -130,113 +142,25 @@
 	<div class:figma={variant === 'figma'} class="timeline-card">
 		<div class="timeline-heading">
 			<div>
-				<h2>{variant === 'figma' ? '주요 장면 재생' : '대표 문제 구간'}</h2>
+				<h2>{variant === 'figma' ? tr($siteLocale, "주요 장면 재생") : tr($siteLocale, "대표 문제 구간")}</h2>
 				<p>
 					{videoUrl
-						? '개선 구간을 선택하면 영상이 해당 시점부터 재생되고, 구간 끝에서 멈춰요.'
+						? tr($siteLocale, "개선 구간을 선택하면 영상이 해당 시점부터 재생되고, 구간 끝에서 멈춰요.")
 						: hasMediaPane
-							? '현재 세션의 동영상을 업로드하면 문제 구간과 연결해 볼 수 있어요.'
-							: '발표 흐름에서 우선 확인할 개선 구간을 시간순으로 정리했어요.'}
+							? tr($siteLocale, "현재 세션의 동영상을 업로드하면 문제 구간과 연결해 볼 수 있어요.")
+							: tr($siteLocale, "발표 흐름에서 우선 확인할 개선 구간을 시간순으로 정리했어요.")}
 				</p>
 			</div>
 			<span class="count-chip">{selectableItems.length}개 구간</span>
 		</div>
 
-		<div class="timeline-layout" class:timeline-only={!hasMediaPane}>
-			{#if hasMediaPane}
-				<section class="video-pane" aria-label="선택 구간 영상">
-					<input
-						bind:this={fileInput}
-						class="video-file-input"
-						type="file"
-						accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
-						onchange={(event) => void uploadVideo(event.currentTarget.files?.[0])}
-					/>
-					{#if videoUrl}
-						<video
-							bind:this={videoElement}
-							src={videoUrl}
-							controls
-							preload="metadata"
-							onplay={() => (isPlaying = true)}
-							onpause={() => (isPlaying = false)}
-							onended={() => (isPlaying = false)}
-							ontimeupdate={handleTimeUpdate}
-							crossorigin="use-credentials"
-						>
-							<track kind="captions" />
-						</video>
-					{:else if resolvedMedia.hasSessionMismatch}
-						<div class="video-empty media-mismatch" role="alert">
-							<strong>이 세션의 영상이 아닙니다</strong>
-							<p>
-								다른 세션에 연결된 주소라 재생하지 않았어요. 현재 세션에 영상을 다시 연결해 주세요.
-							</p>
-							<button
-								type="button"
-								class="upload-button clickable"
-								onclick={() => fileInput?.click()}
-							>
-								현재 세션 영상 업로드
-							</button>
-						</div>
-					{:else}
-						<div class="video-empty">
-							<strong>동영상이 없습니다</strong>
-							<p>이 세션에 연결된 영상을 업로드하면 문제 구간과 함께 재생할 수 있어요.</p>
-							<button
-								type="button"
-								class="upload-button clickable"
-								disabled={uploading}
-								onclick={() => fileInput?.click()}
-							>
-								{uploading ? '업로드 중…' : '동영상 업로드'}
-							</button>
-						</div>
-					{/if}
-
-					{#if videoUrl}
-						<div class="media-action-row">
-							<span>{videoTitle}</span>
-							<button
-								type="button"
-								class="replace-button clickable"
-								disabled={uploading}
-								onclick={() => fileInput?.click()}
-							>
-								{uploading ? '업로드 중…' : '영상 교체'}
-							</button>
-						</div>
-
-						<div class="current-segment" class:active={Boolean(selectedItem)} aria-live="polite">
-							<div>
-								<span>현재 선택</span>
-								{#if selectedItem}
-									<strong>{selectedItem.title}</strong>
-									<small
-										>{formatSeconds(selectedItem.time_sec)}–{formatSeconds(
-											segmentEnd(selectedItem)
-										)}</small
-									>
-								{:else}
-									<strong>구간을 선택해 주세요</strong>
-									<small>{videoTitle}</small>
-								{/if}
-							</div>
-							<span class="playback-state" class:playing={isPlaying}>{playbackLabel}</span>
-						</div>
-					{/if}
-
-					{#if uploadError}<p class="upload-error" role="alert">{uploadError}</p>{/if}
-				</section>
-			{/if}
-
-			<section class="feedback-pane" aria-label="개선 구간 목록">
+		<div class="timeline-layout" class:timeline-only={!hasMediaPane} class:media-empty={!videoUrl}>
+			<section class="feedback-pane" aria-label={tr($siteLocale, "개선 구간 목록")}>
 				{#if visibleItems.length === 0}
-					<div class="timeline-empty">분석된 개선 구간이 아직 없습니다.</div>
+					<div class="timeline-empty">{tr($siteLocale, "분석된 개선 구간이 아직 없습니다.")}</div>
 				{:else}
 					<div class="timeline-list">
-						{#each visibleItems as item, index}
+						{#each visibleItems as item, index (index)}
 							<button
 								type="button"
 								class="timeline-item clickable"
@@ -249,7 +173,7 @@
 								<span class="timeline-text">
 									<span class="timeline-meta">
 										<time>{formatSeconds(item.time_sec)}–{formatSeconds(segmentEnd(item))}</time>
-										<span>{item.type === 'positive' ? '강점 구간' : '개선 구간'}</span>
+										<span>{item.type === 'positive' ? tr($siteLocale, "강점 구간") : tr($siteLocale, "개선 구간")}</span>
 									</span>
 									<strong>{item.title}</strong>
 									<span class="description">{item.description}</span>
@@ -266,7 +190,7 @@
 						aria-expanded={expanded}
 						onclick={() => (expanded = !expanded)}
 					>
-						<span>{expanded ? '피드백 접기' : `전체 피드백 보기 (${selectableItems.length})`}</span>
+						<span>{expanded ? tr($siteLocale, "피드백 접기") : `전체 피드백 보기 (${selectableItems.length})`}</span>
 						<span class="toggle-icon" class:expanded aria-hidden="true"
 							><img src={figmaChevronDown} alt="" /></span
 						>
@@ -276,7 +200,7 @@
 				{#if selectedItem}
 					<article class="evidence-panel" aria-live="polite">
 						<header>
-							<div><img src={reportPlay} alt="" /><strong>선택 구간의 평가 근거</strong></div>
+							<div><img src={reportPlay} alt="" /><strong>{tr($siteLocale, "선택 구간의 평가 근거")}</strong></div>
 							<time
 								>{formatSeconds(selectedItem.time_sec)}–{formatSeconds(
 									segmentEnd(selectedItem)
@@ -284,13 +208,13 @@
 							>
 						</header>
 						<div class="impact-grid">
-							<span>몰입도 <b>{impact(selectedItem.metric_impacts?.engagement)}</b></span>
-							<span>명확도 <b>{impact(selectedItem.metric_impacts?.clarity)}</b></span>
-							<span>신뢰도 <b>{impact(selectedItem.metric_impacts?.credibility)}</b></span>
+							<span>{copy($locale, "몰입도")} <b>{impact(selectedItem.metric_impacts?.engagement)}</b></span>
+							<span>{copy($locale, "명확도")} <b>{impact(selectedItem.metric_impacts?.clarity)}</b></span>
+							<span>{copy($locale, "신뢰도")} <b>{impact(selectedItem.metric_impacts?.credibility)}</b></span>
 						</div>
 						{#if selectedEvidence}
 							<p class="transcript">
-								<strong>발표 내용</strong>“{selectedEvidence.transcript_excerpt}”
+								<strong>{tr($siteLocale, "발표 내용")}</strong>“{selectedEvidence.transcript_excerpt}”
 							</p>
 						{/if}
 						{#if selectedReactions.length > 0}
@@ -306,11 +230,118 @@
 					</article>
 				{/if}
 			</section>
+			{#if hasMediaPane}
+				<section class="video-pane" aria-label={tr($siteLocale, "선택 구간 영상")}>
+					<input
+						{@attach (node) => {
+							fileInput = node;
+							return () => {
+								fileInput = undefined;
+							};
+						}}
+						class="video-file-input"
+						type="file"
+						accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
+						onchange={(event) => void uploadVideo(event.currentTarget.files?.[0])}
+					/>
+					{#if videoUrl}
+						<video
+							{@attach (node) => {
+								videoElement = node;
+								return () => {
+									videoElement = undefined;
+								};
+							}}
+							src={videoUrl}
+							controls
+							preload="metadata"
+							onplay={() => (isPlaying = true)}
+							onpause={() => (isPlaying = false)}
+							onended={() => (isPlaying = false)}
+							ontimeupdate={handleTimeUpdate}
+							crossorigin="use-credentials"
+						>
+							<track kind="captions" />
+						</video>
+					{:else if resolvedMedia.hasSessionMismatch}
+						<div class="video-empty media-mismatch" role="alert">
+							<strong>{tr($siteLocale, "이 세션의 영상이 아닙니다")}</strong>
+							<p>
+								{tr($siteLocale, "다른 세션에 연결된 주소라 재생하지 않았어요. 현재 세션에 영상을 다시 연결해 주세요.")}
+							</p>
+							<button
+								type="button"
+								class="upload-button clickable"
+								onclick={() => fileInput?.click()}
+							>
+								{tr($siteLocale, "현재 세션 영상 업로드")}
+							</button>
+						</div>
+					{:else}
+						<div class="video-empty">
+							<strong>{tr($siteLocale, "동영상이 없습니다")}</strong>
+							<p>{tr($siteLocale, "이 세션에 연결된 영상을 업로드하면 문제 구간과 함께 재생할 수 있어요.")}</p>
+							<button
+								type="button"
+								class="upload-button clickable"
+								disabled={uploading}
+								onclick={() => fileInput?.click()}
+							>
+								{uploading ? tr($siteLocale, "업로드 중…") : tr($siteLocale, "동영상 업로드")}
+							</button>
+						</div>
+					{/if}
+
+					{#if videoUrl}
+						<div class="media-action-row">
+							<span>{videoTitle}</span>
+							<button
+								type="button"
+								class="replace-button clickable"
+								disabled={uploading}
+								onclick={() => fileInput?.click()}
+							>
+								{uploading ? tr($siteLocale, "업로드 중…") : tr($siteLocale, "영상 교체")}
+							</button>
+						</div>
+
+						<div class="current-segment" class:active={Boolean(selectedItem)} aria-live="polite">
+							<div>
+								<span>{tr($siteLocale, "현재 선택")}</span>
+								{#if selectedItem}
+									<strong>{selectedItem.title}</strong>
+									<small
+										>{formatSeconds(selectedItem.time_sec)}–{formatSeconds(
+											segmentEnd(selectedItem)
+										)}</small
+									>
+								{:else}
+									<strong>{tr($siteLocale, "구간을 선택해 주세요")}</strong>
+									<small>{videoTitle}</small>
+								{/if}
+							</div>
+							<span class="playback-state" class:playing={isPlaying}>{playbackLabel}</span>
+						</div>
+					{/if}
+
+					{#if uploadError}<p class="upload-error" role="alert">{uploadError}</p>{/if}
+				</section>
+			{/if}
 		</div>
 	</div>
 </ReportCard>
 
 <style>
+	.timeline-layout.media-empty {
+		display: flex;
+		flex-direction: column;
+	}
+	.timeline-layout.media-empty > section {
+		width: 100%;
+	}
+	.timeline-layout:not(.media-empty) .video-pane {
+		order: -1;
+	}
 	.timeline-card {
 		container-type: inline-size;
 		display: grid;

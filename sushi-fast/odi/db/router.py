@@ -69,6 +69,7 @@ def make_user_token(user: dict[str, Any]) -> str:
         sub=user["user_id"],
         data=user,
         index=["user_id", "auth_id"],
+        lifetime_seconds=JMT.MAIN_SESSION_SECONDS,
     )
 
 
@@ -80,7 +81,7 @@ def set_token_cookie(response: Response, token: str) -> None:
         secure=True,
         samesite="none",
         path="/",
-        max_age=60 * 60
+        max_age=JMT.MAIN_SESSION_SECONDS
     )
 
 

@@ -1,5 +1,6 @@
 <!-- src/lib/odi/components/login/OdiJoinGoalStep.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import OdiJoinOptionCard from "$lib/odi/components/login/OdiJoinOptionCard.svelte";
 
 	import {
@@ -25,52 +26,52 @@
 		practiceFrequency?: PracticeFrequency;
 	} = $props();
 
-	const trainingOptions = [
+	const trainingOptions = $derived([
 		{
 			value: "presentation" as const,
-			title: "발표 연습",
-			description: "학술 발표, 세미나, 수업 발표 등",
+			title: tr($siteLocale, "발표 연습"),
+			description: tr($siteLocale, "학술 발표, 세미나, 수업 발표 등"),
 			icon: Podium
 		},
 		{
 			value: "interview" as const,
-			title: "면접 연습",
-			description: "취업, 입시, 다대다 면접 등",
+			title: tr($siteLocale, "면접 연습"),
+			description: tr($siteLocale, "취업, 입시, 다대다 면접 등"),
 			icon: VoiceSelection
 		},
 		{
 			value: "both" as const,
-			title: "둘 다",
+			title: tr($siteLocale, "둘 다"),
 			description: "",
 			icon: Check
 		}
-	];
+	]);
 
-	const focusOptions = [
+	const focusOptions = $derived([
 		{
 			value: "content" as const,
-			title: "내용 구성",
-			description: "핵심 메시지, 구조와 흐름, 근거 활용 등",
+			title: tr($siteLocale, "내용 구성"),
+			description: tr($siteLocale, "핵심 메시지, 구조와 흐름, 근거 활용 등"),
 			icon: Article
 		},
 		{
 			value: "delivery" as const,
-			title: "전달 방식",
-			description: "시선 처리, 발화 속도, 발음 정확도 등",
+			title: tr($siteLocale, "전달 방식"),
+			description: tr($siteLocale, "시선 처리, 발화 속도, 발음 정확도 등"),
 			icon: Visibility
 		}
-	];
+	]);
 
-	const frequencyOptions = [
-		{ value: 2 as const, title: "주 2회" },
-		{ value: 3 as const, title: "주 3회" },
-		{ value: 5 as const, title: "주 5회" }
-	];
+	const frequencyOptions = $derived([
+		{ value: 2 as const, title: tr($siteLocale, "주 2회") },
+		{ value: 3 as const, title: tr($siteLocale, "주 3회") },
+		{ value: 5 as const, title: tr($siteLocale, "주 5회") }
+	]);
 </script>
 
 <div class="goal-step">
 	<section class="goal-section">
-		<h2>주로 어떤 상황을 연습하시나요?</h2>
+		<h2>{tr($siteLocale, "주로 어떤 상황을 연습하시나요?")}</h2>
 
 		<div class="three-grid">
 			{#each trainingOptions as option (option.value)}
@@ -86,7 +87,7 @@
 	</section>
 
 	<section class="goal-section">
-		<h2>가장 먼저 개선하고 싶은 부분은 무엇인가요?</h2>
+		<h2>{tr($siteLocale, "가장 먼저 개선하고 싶은 부분은 무엇인가요?")}</h2>
 
 		<div class="two-grid">
 			{#each focusOptions as option (option.value)}
@@ -103,7 +104,7 @@
 	</section>
 
 	<section class="goal-section">
-		<h2>얼마나 자주 연습할까요?</h2>
+		<h2>{tr($siteLocale, "얼마나 자주 연습할까요?")}</h2>
 
 		<div class="three-grid">
 			{#each frequencyOptions as option (option.value)}

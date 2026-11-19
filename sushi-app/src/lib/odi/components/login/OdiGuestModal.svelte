@@ -1,5 +1,7 @@
 <!-- src/lib/odi/components/login/OdiGuestModal.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+	import { locale, copy, setLocale } from "$lib/odi/i18n";
 	import Modal from "$lib/odi/components/login/Modal.svelte";
 
     import Lock from "$lib/odi/icons/lock.png";
@@ -31,10 +33,14 @@
 	panelClass="guest-modal-panel"
 >
 	<div class="guest-modal">
+        <div class="guest-language" role="group" aria-label={$locale === 'en' ? 'Language' : tr($siteLocale, "언어")}>
+          <button type="button" aria-pressed={$locale === 'ko'} onclick={() => setLocale('ko')}>{copy($locale, "한국어")}</button>
+          <button type="button" aria-pressed={$locale === 'en'} onclick={() => setLocale('en')}>English</button>
+        </div>
 		<button
 			type="button"
 			class="close-button clickable"
-			aria-label="닫기"
+			aria-label={copy($locale, "닫기")}
 			onclick={onClose}
 		>
 			<img src={Close} alt="" />
@@ -45,11 +51,11 @@
 				<img src={Lock} alt="" />
 			</div>
 
-			<p class="welcome text-body-active">만나서 반가워요!</p>
+			<p class="welcome text-body-active">{copy($locale, "만나서 반가워요!")}</p>
 
 			<h2 id={titleId} class="modal-title">
-				계정을 만들고 맞춤 리포트와<br />
-				훈련 기능을 이용해보세요
+				{copy($locale, "계정을 만들고 맞춤 리포트와")}<br />
+				{copy($locale, "훈련 기능을 이용해보세요")}
 			</h2>
 		</div>
 
@@ -60,8 +66,8 @@
 				</div>
 
 				<div class="benefit-text">
-					<strong>개인 맞춤 분석 리포트</strong>
-					<p>나의 스타일을 분석하고 개선 지점을 코칭받아요</p>
+					<strong>{copy($locale, "개인 맞춤 분석 리포트")}</strong>
+					<p>{copy($locale, "나의 스타일을 분석하고 개선 지점을 코칭받아요")}</p>
 				</div>
 			</div>
 
@@ -71,8 +77,8 @@
 				</div>
 
 				<div class="benefit-text">
-					<strong>기록 및 성과 관리</strong>
-					<p>성장 추이를 확인하고 꾸준히 실력을 향상시켜요</p>
+					<strong>{copy($locale, "기록 및 성과 관리")}</strong>
+					<p>{copy($locale, "성장 추이를 확인하고 꾸준히 실력을 향상시켜요")}</p>
 				</div>
 			</div>
 
@@ -82,8 +88,8 @@
 				</div>
 
 				<div class="benefit-text">
-					<strong>체계적인 훈련 미션</strong>
-					<p>목표 설정부터 피드백까지 한 번에 관리해요</p>
+					<strong>{copy($locale, "체계적인 훈련 미션")}</strong>
+					<p>{copy($locale, "목표 설정부터 피드백까지 한 번에 관리해요")}</p>
 				</div>
 			</div>
 		</div>
@@ -94,7 +100,7 @@
 				class="register-button clickable text-button"
 				onclick={onRegister}
 			>
-				회원가입
+				{copy($locale, "회원가입")}
 			</button>
 
 			<button
@@ -102,13 +108,16 @@
 				class="login-button clickable text-button"
 				onclick={onLogin}
 			>
-				로그인
+				{copy($locale, "로그인")}
 			</button>
 		</div>
 	</div>
 </Modal>
 
 <style>
+    .guest-language { display: flex; gap: 6px; margin-bottom: 12px; }
+    .guest-language button { border: 1px solid #c4c8d7; border-radius: 6px; padding: 6px 10px; background: white; color: #30364c; cursor: pointer; }
+    .guest-language button[aria-pressed="true"] { background: #343660; color: white; border-color: #343660; }
 	.guest-modal {
 		box-sizing: border-box;
 		position: relative;

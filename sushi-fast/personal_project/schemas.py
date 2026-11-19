@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -9,49 +9,64 @@ AttendanceStatus = Literal["scheduled", "completed", "cancelled", "absent"]
 ReportStatus = Literal["draft", "ready", "submitted"]
 ProgressStage = Literal[
     "accepted",
-    "grade1_winter", "grade1_semester1", "grade1_summer", "grade1_semester2",
-    "grade2_winter", "grade2_semester1", "grade2_summer", "grade2_semester2",
-    "grade3_winter", "grade3_semester1", "deep",
+    # Legacy values remain valid for existing school and clinic records.
+    "grade1_semester1", "grade1_semester2", "grade2_semester1",
+    "grade2_semester2", "grade3_semester1",
+    "grade1_winter", "grade1_semester1_midterm", "grade1_semester1_final",
+    "grade1_summer", "grade1_semester2_midterm", "grade1_semester2_final",
+    "grade2_winter", "grade2_semester1_midterm", "grade2_semester1_final",
+    "grade2_summer", "grade2_semester2_midterm", "grade2_semester2_final",
+    "grade3_winter", "grade3_semester1_midterm", "grade3_semester1_final", "deep",
 ]
 
 
 class EventCreate(BaseModel):
+    task_available_from: datetime | None = None
+    task_due_at: datetime | None = None
     title: str = Field(min_length=1, max_length=120)
     description: str = ""
     start_time: datetime
     end_time: datetime | None = None
     is_all_day: bool = False
+    task_unplanned: bool = False
+    time_unspecified: bool = False
     status: EventStatus = "todo"
     type: str = Field(default="personal", max_length=40)
     group_name: str | None = Field(default=None, max_length=80)
     category_name: str | None = Field(default=None, max_length=80)
     location: str = Field(default='', max_length=500)
-    web_url: str = Field(default='', max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    web_url: str = Field(default='', max_length=2000, pattern=r'^(https?://[^\s\\]+|/[^/\\\s][^\s\\]*)?$')
     project_id: int | None = None
 
     @model_validator(mode="after")
     def validate_times(self):
+        if self.task_available_from and self.task_due_at and self.task_due_at < self.task_available_from:
+            raise ValueError('마감은 시작 가능일 이후여야 합니다.')
         if self.end_time and self.end_time < self.start_time:
             raise ValueError("종료 시간은 시작 시간보다 빠를 수 없습니다.")
         return self
 
 
 class EventUpdate(BaseModel):
+    task_available_from: datetime | None = None
+    task_due_at: datetime | None = None
     location: str | None = Field(default=None, max_length=500)
-    web_url: str | None = Field(default=None, max_length=2000, pattern=r'^(https?://[^\s]+)?$')
+    web_url: str | None = Field(default=None, max_length=2000, pattern=r'^(https?://[^\s\\]+|/[^/\\\s][^\s\\]*)?$')
     project_id: int | None = None
     title: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_all_day: bool | None = None
+    task_unplanned: bool | None = None
+    time_unspecified: bool | None = None
     status: EventStatus | None = None
     group_name: str | None = None
     category_name: str | None = None
 
     @model_validator(mode='after')
     def explicit_nonnull(self):
-        for name in ('title','start_time','is_all_day','status','location','web_url','description'):
+        for name in ('title','start_time','is_all_day','task_unplanned','time_unspecified','status','location','web_url','description'):
             if name in self.model_fields_set and getattr(self,name) is None:
                 raise ValueError(f'{name}은 비워둘 수 없습니다.')
         return self
@@ -61,10 +76,13 @@ class EventSeriesCreate(EventCreate):
     repeat_count: int = Field(default=4, ge=2, le=365)
     interval_weeks: int = Field(default=1, ge=1, le=52)
     repeat_until: datetime | None = None
+    repeat_unit: Literal['day','week','month'] = 'week'
+    repeat_interval: int | None = Field(default=None,ge=1,le=365)
+    selected_dates: list[date] | None = Field(default=None,min_length=2,max_length=60)
 
 
 class EventScopeUpdate(EventUpdate):
-    scope: Literal["this", "following"] = "this"
+    scope: Literal["this", "following", "all"] = "this"
 
 
 class StudentCreate(BaseModel):
@@ -157,6 +175,7 @@ class SchoolUpdate(BaseModel):
 
 class ClinicRoundCreate(BaseModel):
     school_id: int
+    modality: Literal["in_person", "remote", "unverified"] = "in_person"
     progress_stage: ProgressStage | None = None
     round_number: int = Field(ge=1)
     student_names: list[str] = Field(min_length=1, max_length=100)
@@ -174,7 +193,7 @@ class ClinicRoundCreate(BaseModel):
         if self.end_time <= self.start_time:
             raise ValueError("종료 시간은 시작 시간보다 늦어야 합니다.")
         if self.end_time - self.start_time > timedelta(hours=12):
-            raise ValueError("클리닉 일정은 12시간을 넘을 수 없습니다.")
+            raise ValueError("입력한 수업 시간이 12시간을 넘습니다. 종료 시각의 오전·오후를 확인해주세요.")
         return self
 
 
@@ -211,19 +230,45 @@ class ClinicRoundSeriesCreate(ClinicRoundCreate):
         return self
 
 
+class RoundTargetEdit(BaseModel):
+    id: int | None = Field(default=None, ge=1)
+    student_name: str = Field(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def clean_name(self):
+        self.student_name = self.student_name.strip()
+        if not self.student_name:
+            raise ValueError("학생 이름을 입력해주세요.")
+        return self
+
+
 class ClinicRoundUpdate(BaseModel):
     school_id: int | None = None
+    modality: Literal["in_person", "remote", "unverified"] | None = None
+    expected_round_ids: list[int] | None = None
+    expected_round_state: str | None = None
     progress_stage: ProgressStage | None = None
     round_number: int | None = Field(default=None, ge=1)
     round_numbers: list[int] | None = Field(default=None, min_length=1, max_length=52)
     student_names: list[str] | None = Field(default=None, min_length=1, max_length=100)
+    targets: list[RoundTargetEdit] | None = Field(default=None, min_length=1, max_length=100)
+    confirm_target_removal: bool = False
+    confirm_identity_rename: bool = False
+    # Per-round [observed old amount, proposed new amount] from a 409 preview.
+    approved_price_changes: dict[int, tuple[int, int]] = Field(default_factory=dict)
     start_time: datetime | None = None
     end_time: datetime | None = None
     description: str | None = None
     attendance_status: Literal["scheduled", "completed", "cancelled"] | None = None
     payment_status: Literal["pending", "paid"] | None = None
     allow_overlap: bool = False
-    scope: Literal["this", "following"] = "this"
+    scope: Literal["this", "following", "all"] = "this"
+
+    @model_validator(mode="after")
+    def reject_null_modality(self):
+        if "modality" in self.model_fields_set and self.modality is None:
+            raise ValueError("modality must be in_person, remote or unverified")
+        return self
 
     @model_validator(mode="after")
     def validate_student_names(self):
@@ -241,6 +286,7 @@ class ClinicRoundUpdate(BaseModel):
 
 class RoundTargetCreate(BaseModel):
     student_name: str = Field(min_length=1, max_length=80)
+    approved_price_change: tuple[int, int] | None = None
 
 
 class TemplateSave(BaseModel):

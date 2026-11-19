@@ -5,6 +5,8 @@ import type {
 	AuraSession,
 	CalendarEvent,
 	ClinicRound,
+	ParentSettlementItem,
+	RoundModality,
 	School,
 	SchoolSettlement,
 	Student,
@@ -21,6 +23,62 @@ export const API_BASE = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
 	: configuredApi;
 
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown };
+export type SettlementRegenerationApproval = {
+	snapshotDigest: string;
+	newTotal: number;
+	proposedDigest: string;
+};
+export type SettlementRequestPlan = {
+	requestId: string;
+	snapshotId: number;
+	snapshotDigest: string;
+	planDigest: string;
+	status: string;
+	messageCount: number;
+	matchedRooms: Array<{ room: string; evidence: string; parentCharge: number }>;
+	messagePreviews: Array<{ room: string; text: string; parentCharge: number }>;
+	exclusionSummary: {
+		acceptedStageStudents: number;
+		unknownStageStudents: number;
+		zeroParentChargeStudents: number;
+	};
+	excludedStudentCount: number;
+};
+
+export type SettlementRequestResult = {
+	requestId: string;
+	status: 'succeeded' | 'manual_check' | 'retryable';
+	sentCount: number;
+	alreadySentCount?: number;
+	retryable?: boolean;
+};
+
+export function settlementRegenerationApproval(
+	cause: unknown
+): SettlementRegenerationApproval | null {
+	if (
+		!(cause instanceof PersonalApiError) ||
+		cause.status !== 409 ||
+		cause.code !== 'snapshot_regeneration_approval_required'
+	)
+		return null;
+	const detail = cause.detail as Partial<SettlementRegenerationApproval> | null;
+	if (
+		!detail ||
+		typeof detail.snapshotDigest !== 'string' ||
+		!detail.snapshotDigest ||
+		typeof detail.proposedDigest !== 'string' ||
+		!detail.proposedDigest ||
+		!Number.isSafeInteger(detail.newTotal) ||
+		(detail.newTotal ?? -1) < 0
+	)
+		return null;
+	return {
+		snapshotDigest: detail.snapshotDigest,
+		newTotal: detail.newTotal!,
+		proposedDigest: detail.proposedDigest
+	};
+}
 export type ReportAttachment = {
 	id: number;
 	kind: 'blank_test' | 'problem_solving';
@@ -44,7 +102,41 @@ export class PersonalApiError extends Error {
 	}
 }
 
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export type TargetRepricingChange = {
+	roundId: number;
+	oldAmount: number;
+	newAmount: number;
+	delta: number;
+	paid: boolean;
+	hasSnapshot: boolean;
+};
+
+export function targetRepricingPreview(
+	cause: unknown,
+	roundId: number
+): TargetRepricingChange | null {
+	if (
+		!(cause instanceof PersonalApiError) ||
+		cause.status !== 409 ||
+		cause.code !== 'repricing_approval_required'
+	)
+		return null;
+	const detail = cause.detail as { changes?: TargetRepricingChange[] } | null;
+	if (!Array.isArray(detail?.changes) || detail.changes.length !== 1) return null;
+	const change = detail.changes[0];
+	if (
+		!change ||
+		change.roundId !== roundId ||
+		![change.oldAmount, change.newAmount, change.delta].every(Number.isSafeInteger) ||
+		change.delta !== change.newAmount - change.oldAmount ||
+		typeof change.paid !== 'boolean' ||
+		typeof change.hasSnapshot !== 'boolean'
+	)
+		return null;
+	return change;
+}
+
+async function requestResponse(path: string, options: RequestOptions = {}): Promise<Response> {
 	let response: Response;
 	try {
 		response = await fetch(`${API_BASE}/api/personal${path}`, {
@@ -53,7 +145,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 			headers: options.body
 				? { 'Content-Type': 'application/json', ...options.headers }
 				: options.headers,
-			body: options.body ? JSON.stringify(options.body) : undefined
+			body:
+				options.body instanceof Blob
+					? options.body
+					: options.body
+						? JSON.stringify(options.body)
+						: undefined
 		});
 	} catch (cause) {
 		throw new PersonalApiError(
@@ -64,6 +161,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 		);
 	}
 	if (response.status === 401) {
+		if (typeof window !== 'undefined') window.dispatchEvent(new Event('personal-auth-invalid'));
 		throw new PersonalApiError(
 			401,
 			'로그인이 만료되었습니다. 다시 로그인해주세요. / Your session expired. Please sign in again.',
@@ -81,6 +179,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 					: `요청을 처리하지 못했습니다. / Request failed. (${response.status})`;
 		throw new PersonalApiError(response.status, message, detail?.code, detail);
 	}
+	return response;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+	const response = await requestResponse(path, options);
 	return response.status === 204 ? (undefined as T) : response.json();
 }
 
@@ -116,7 +219,7 @@ export const personalApi = {
 	updateEventScope(id: number, body: Record<string, unknown>) {
 		return request<CalendarEvent>(`/calendar/events/${id}/scope`, { method: 'PATCH', body });
 	},
-	deleteEventScope(id: number, scope: 'this' | 'following') {
+	deleteEventScope(id: number, scope: 'this' | 'following' | 'all') {
 		return request<void>(`/calendar/events/${id}/scope?scope=${scope}`, { method: 'DELETE' });
 	},
 	students(active?: boolean) {
@@ -167,9 +270,30 @@ export const personalApi = {
 			cache: 'no-store'
 		});
 	},
-	generateSettlements(year: number, month: number) {
+	parentSettlements(year: number, month: number) {
+		return request<{ items: ParentSettlementItem[] }>(
+			`/aura/settlements/parents?year=${year}&month=${month}`,
+			{
+				cache: 'no-store'
+			}
+		);
+	},
+	updateParentSettlement(year: number, month: number, studentKey: string, paid: boolean) {
+		return request<ParentSettlementItem>('/aura/settlements/parents', {
+			method: 'PATCH',
+			body: { year, month, studentKey, paid }
+		});
+	},
+	confirmParentDelivery(year: number, month: number, studentKey: string) {
+		return request<ParentSettlementItem>('/aura/settlements/parents/delivery', {
+			method: 'PATCH',
+			body: { year, month, studentKey }
+		});
+	},
+	generateSettlements(year: number, month: number, approval?: SettlementRegenerationApproval) {
 		return request<SchoolSettlement>(`/aura/settlements/generate?year=${year}&month=${month}`, {
-			method: 'POST'
+			method: 'POST',
+			...(approval ? { body: approval } : {})
 		});
 	},
 	settlementExportUrl(year: number, month: number, assistantName: string, generatedAt: string) {
@@ -181,6 +305,29 @@ export const personalApi = {
 			v: generatedAt
 		});
 		return `${API_BASE}/api/personal/aura/settlements/export.xlsx?${query}`;
+	},
+	previewSettlementRequest(
+		year: number,
+		month: number,
+		idempotencyKey: string,
+		senderName: string,
+		studentKey?: string
+	) {
+		return request<SettlementRequestPlan>('/aura/settlement-requests/preview', {
+			method: 'POST',
+			cache: 'no-store',
+			body: { year, month, idempotencyKey, senderName, ...(studentKey ? { studentKey } : {}) }
+		});
+	},
+	confirmSettlementRequest(requestId: string, planDigest: string, senderName: string) {
+		return request<SettlementRequestResult>(
+			`/aura/settlement-requests/${encodeURIComponent(requestId)}/confirm`,
+			{
+				method: 'POST',
+				cache: 'no-store',
+				body: { planDigest, senderName }
+			}
+		);
 	},
 	schools() {
 		return request<School[]>('/aura/schools');
@@ -201,6 +348,9 @@ export const personalApi = {
 		return request<School>(`/aura/schools/${id}/move?direction=${direction}`, {
 			method: 'POST'
 		});
+	},
+	reorderSchools(ids: number[]) {
+		return request<School[]>('/aura/schools/reorder', { method: 'PUT', body: { school_ids: ids } });
 	},
 	deleteSchool(id: number) {
 		return request<void>(`/aura/schools/${id}`, { method: 'DELETE' });
@@ -225,19 +375,49 @@ export const personalApi = {
 		return request<ClinicRound[]>('/aura/rounds/series', { method: 'POST', body });
 	},
 	updateRound(id: number, body: Record<string, unknown>) {
-		return request<ClinicRound>(`/aura/rounds/${id}`, { method: 'PATCH', body });
-	},
-	deleteRound(id: number) {
-		return request<void>(`/aura/rounds/${id}`, { method: 'DELETE' });
-	},
-	addRoundTarget(roundId: number, studentName: string) {
-		return request(`/aura/rounds/${roundId}/targets`, {
-			method: 'POST',
-			body: { student_name: studentName }
+		return request<ClinicRound & { affectedRoundIds?: number[] }>(`/aura/rounds/${id}`, {
+			method: 'PATCH',
+			body
 		});
 	},
-	deleteRoundTarget(targetId: number) {
-		return request<void>(`/aura/targets/${targetId}`, { method: 'DELETE' });
+	roundModalityPreview(id: number, scope: 'following' | 'all' = 'following') {
+		return request<{ scope: 'following' | 'all'; rounds: ClinicRound[]; roundState: string }>(
+			`/aura/rounds/${id}/modality-preview?scope=${scope}`
+		);
+	},
+	updateRoundModalityFollowing(
+		id: number,
+		modality: RoundModality,
+		preview: { rounds: ClinicRound[]; roundState: string }
+	) {
+		return request<{ affectedRoundIds: number[] }>(`/aura/rounds/${id}`, {
+			method: 'PATCH',
+			body: {
+				scope: 'following',
+				modality,
+				expected_round_ids: preview.rounds.map((round) => round.id),
+				expected_round_state: preview.roundState
+			}
+		});
+	},
+	deleteRound(id: number, scope: 'this' | 'following' | 'all' = 'this') {
+		return request<void>(`/aura/rounds/${id}${scope === 'this' ? '' : `?scope=${scope}`}`, {
+			method: 'DELETE'
+		});
+	},
+	addRoundTarget(roundId: number, studentName: string, approval?: [number, number]) {
+		return request(`/aura/rounds/${roundId}/targets`, {
+			method: 'POST',
+			body: { student_name: studentName, ...(approval ? { approved_price_change: approval } : {}) }
+		});
+	},
+	deleteRoundTarget(targetId: number, approval?: [number, number]) {
+		const query = new URLSearchParams({ confirm: 'true' });
+		if (approval) {
+			query.set('approved_old_amount', String(approval[0]));
+			query.set('approved_new_amount', String(approval[1]));
+		}
+		return request<void>(`/aura/targets/${targetId}?${query}`, { method: 'DELETE' });
 	},
 	targetReport(targetId: number) {
 		return request<TargetReport>(`/aura/targets/${targetId}/report`);
@@ -251,22 +431,11 @@ export const personalApi = {
 		file: File
 	) {
 		const query = new URLSearchParams({ kind, filename: file.name || 'image.jpg' });
-		const response = await fetch(
-			`${API_BASE}/api/personal/aura/targets/${targetId}/attachments?${query}`,
-			{
-				method: 'POST',
-				credentials: 'include',
-				headers: { 'Content-Type': file.type || 'image/jpeg' },
-				body: file
-			}
-		);
-		if (!response.ok) {
-			const body = await response.json().catch(() => null);
-			throw new PersonalApiError(
-				response.status,
-				typeof body?.detail === 'string' ? body.detail : '이미지 저장에 실패했습니다.'
-			);
-		}
+		const response = await requestResponse(`/aura/targets/${targetId}/attachments?${query}`, {
+			method: 'POST',
+			headers: { 'Content-Type': file.type || 'image/jpeg' },
+			body: file
+		});
 		return response.json() as Promise<{ id: number; kind: string; name: string; mimeType: string }>;
 	},
 	deleteTargetReportAttachment(id: number) {
@@ -280,9 +449,26 @@ export const personalApi = {
 			'/aura/kakao-self/status'
 		);
 	},
+	sendServerGeneratedClinicReport(targetId: number, requestId: string) {
+		return request<import('../aura/delivery-result').DeliveryResult>(
+			`/aura/targets/${targetId}/kakao-clinic/send-report`,
+			{ method: 'POST', headers: { 'X-Delivery-Request-Id': requestId } }
+		);
+	},
+	clinicDeliveryResult(targetId: number, requestId: string) {
+		return request<import('../aura/delivery-result').DeliveryResult>(
+			`/aura/targets/${targetId}/kakao-clinic/delivery-requests/${encodeURIComponent(requestId)}`
+		);
+	},
+	async targetReportPdf(targetId: number) {
+		const response = await requestResponse(`/aura/targets/${targetId}/report.pdf`, {
+			cache: 'no-store'
+		});
+		return response.blob();
+	},
 	createNativeKakaoJob(targetId: number) {
-		return request<{ jobId: string; maxPages: number; maxPageBytes: number }>(
-			`/aura/targets/${targetId}/kakao-self/jobs`,
+		return request<{ jobId: string; maxPages: number; maxPageBytes: number; destination: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs`,
 			{ method: 'POST' }
 		);
 	},
@@ -313,8 +499,8 @@ export const personalApi = {
 		return response.json() as Promise<{ stored: true; page: number; byteSize: number }>;
 	},
 	sendNativeKakaoJob(targetId: number, jobId: string) {
-		return request<{ sent: true; sentCount: number; destination: '나와의 채팅'; evidence: string }>(
-			`/aura/targets/${targetId}/kakao-self/jobs/${jobId}/send`,
+		return request<{ sent: true; sentCount: number; destination: string; evidence?: string }>(
+			`/aura/targets/${targetId}/kakao-clinic/jobs/${jobId}/send`,
 			{ method: 'POST' }
 		);
 	},

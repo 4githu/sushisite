@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { PracticeExercise } from '$lib/odi/domain/practice';
 	import { practiceIcon } from '$lib/odi/icons/practice';
 	import arrowLeft from '$lib/odi/icons/figma-ui/practice-arrow-left.svg';
@@ -30,7 +31,7 @@
 				value={progress}
 				aria-label={`${exercise.title} 다음 레벨 진도`}
 			></progress><small>{progress}/3</small>
-		</footer>{:else}<p class="soon">준비 중</p>{/if}</button
+		</footer>{:else}<p class="soon">{tr($siteLocale, "준비 중")}</p>{/if}</button
 >
 
 <style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import MetricBadge from './MetricBadge.svelte';
 	import {
 		contentMetricLabel,
@@ -106,10 +107,10 @@
 
 <div class="detail-analysis">
 	{#if contentMetrics.length === 0 && deliveryMetrics.length === 0}
-		<div class="analysis-empty">세부 분석 데이터가 아직 생성되지 않았습니다.</div>
+		<div class="analysis-empty">{tr($siteLocale, "세부 분석 데이터가 아직 생성되지 않았습니다.")}</div>
 	{:else}
 		<div class="analysis-columns">
-			{#each [{ title: '내용 구성', metrics: contentMetrics }, { title: '전달 방식', metrics: deliveryMetrics }] as group}
+			{#each [{ title: tr($siteLocale, "내용 구성"), metrics: contentMetrics }, { title: tr($siteLocale, "전달 방식"), metrics: deliveryMetrics }] as group}
 				<section>
 					<h3>{group.title}</h3>
 					<div class="metric-list">
@@ -139,7 +140,7 @@
 											type={scoreGradeType(metric.score)}
 										/>
 									{:else}
-										<span class="unavailable-badge">평가 불가</span>
+										<span class="unavailable-badge">{tr($siteLocale, "평가 불가")}</span>
 									{/if}
 									<span class="chevron" aria-hidden="true"
 										><img src={figmaChevronDown} alt="" /></span
@@ -149,22 +150,22 @@
 								{#if expanded[metric.id]}
 									<div class="metric-detail">
 										<div>
-											<img src={reportDetailInterpretation} alt="" /><strong>종합 해석</strong>
+											<img src={reportDetailInterpretation} alt="" /><strong>{tr($siteLocale, "종합 해석")}</strong>
 											<p>
 												{metric.reason ?? metric.summary ??
 													(metric.score === null || metric.score === undefined
-														? '현재 입력으로 평가할 수 없습니다.'
+														? tr($siteLocale, "현재 입력으로 평가할 수 없습니다.")
 														: `${scoreGrade(metric.score)} 수준으로 평가된 항목입니다.`)}
 											</p>
 										</div>
 										<div>
-											<img src={reportDetailEvidence} alt="" /><strong>평가 근거</strong>
+											<img src={reportDetailEvidence} alt="" /><strong>{tr($siteLocale, "평가 근거")}</strong>
 											<p>{evidenceText(metric)}</p>
 										</div>
 										<div>
-											<img src={reportDetailCoaching} alt="" /><strong>코칭 제안</strong>
+											<img src={reportDetailCoaching} alt="" /><strong>{tr($siteLocale, "코칭 제안")}</strong>
 											<p class="coaching">
-												{metric.coaching ?? '평가 가능한 근거가 수집된 뒤 코칭 제안을 제공합니다.'}
+												{metric.coaching ?? tr($siteLocale, "평가 가능한 근거가 수집된 뒤 코칭 제안을 제공합니다.")}
 											</p>
 										</div>
 									</div>

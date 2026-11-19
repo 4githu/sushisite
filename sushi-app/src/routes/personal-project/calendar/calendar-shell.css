@@ -1,0 +1,394 @@
+/* Calendar owns its visual system; Aura keeps its independent service shell. */
+.ondo-shell {
+	--ondo-ink: #242529;
+	--ondo-muted: #696b73;
+	--ondo-line: #e2e3e7;
+	--ondo-accent: #c4412c;
+	--pp-ink: var(--ondo-ink);
+	--pp-muted: var(--ondo-muted);
+	--pp-line: var(--ondo-line);
+	--pp-sage-dark: var(--ondo-accent);
+	display: grid;
+	grid-template-columns: 216px minmax(0, 1fr);
+	min-height: 100dvh;
+	background: #f4f5f7;
+	color: var(--ondo-ink);
+	font-family:
+		'Noto Sans KR',
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	transition: grid-template-columns 180ms ease;
+}
+.ondo-shell.rail {
+	grid-template-columns: 72px minmax(0, 1fr);
+}
+.ondo-sidebar {
+	grid-column: 1;
+	grid-row: 1;
+	box-sizing: border-box;
+	position: sticky;
+	top: 0;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	background: #232428;
+	color: #eaebed;
+	padding: 30px 16px 18px;
+	z-index: 15;
+}
+.ondo-brand-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 48px;
+	padding: 0 4px;
+}
+.ondo-brand {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	text-decoration: none;
+	color: inherit;
+	min-width: 0;
+}
+.ondo-symbol {
+	position: relative;
+	display: block;
+	width: 29px;
+	height: 29px;
+	border: 6px solid #f07560;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.ondo-symbol i {
+	position: absolute;
+	width: 6px;
+	height: 6px;
+	background: #f07560;
+	border-radius: 50%;
+	right: -11px;
+	top: -8px;
+}
+.ondo-wordmark {
+	font-size: 23px;
+	font-weight: 700;
+	letter-spacing: -1px;
+	line-height: 1;
+	white-space: nowrap;
+}
+.ondo-wordmark > span {
+	display: block;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 2px;
+	color: #b6b7be;
+	margin-top: 8px;
+}
+.ondo-toggle {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	padding: 0;
+	border: 1px solid #47484e;
+	border-radius: 6px;
+	background: transparent;
+	color: #c7c8cd;
+	cursor: pointer;
+}
+.ondo-toggle:hover {
+	background: #393a40;
+	color: white;
+}
+.ondo-nav-label {
+	color: #9b9da6;
+	font-size: 11px;
+	font-weight: 500;
+	margin: 0 12px 12px;
+}
+.ondo-navigation nav {
+	display: grid;
+	gap: 6px;
+}
+.ondo-navigation nav a {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	padding: 10px 12px;
+	border-radius: 6px;
+	color: #bfc1c9;
+	font-size: 13px;
+	font-weight: 500;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.ondo-navigation nav a:hover {
+	background: #303137;
+	color: #fff;
+}
+.ondo-navigation nav a.active {
+	background: #38383e;
+	color: #fff;
+}
+.ondo-navigation nav a.active::before {
+	content: '';
+	position: absolute;
+	left: -16px;
+	top: 13px;
+	bottom: 13px;
+	width: 3px;
+	background: #f07560;
+	border-radius: 0 2px 2px 0;
+}
+.ondo-navigation nav a.active svg {
+	color: #f28a77;
+}
+.ondo-sidebar-footer {
+	margin-top: auto;
+	padding-top: 32px;
+}
+.ondo-sidebar .account-button {
+	background: transparent;
+	border: 0;
+	border-top: 1px solid #424349;
+	border-radius: 0;
+	padding: 18px 4px 10px;
+	color: #ededf0;
+}
+.ondo-sidebar .account-button > span:first-child {
+	background: #494a52;
+	color: #f4f4f6;
+	font-family: inherit;
+	font-size: 12px;
+}
+.ondo-sidebar .account-button strong {
+	font-size: 12px;
+	font-weight: 550;
+}
+.ondo-sidebar .account-button small {
+	color: #a9abb5;
+	font-size: 10px;
+}
+.ondo-sidebar .account-button i {
+	color: #9c9eaa;
+}
+.ondo-sidebar .account-menu {
+	width: 220px;
+	z-index: 30;
+	color: #242529;
+	border-radius: 8px;
+	box-shadow: 0 8px 30px #0003;
+}
+.ondo-sidebar .account-menu p strong,
+.ondo-sidebar .account-menu p span,
+.ondo-sidebar .account-menu a,
+.ondo-sidebar .account-menu button {
+	font-size: 12px;
+}
+.ondo-sidebar .account-menu a,
+.ondo-sidebar .account-menu button {
+	background: #f1f2f4;
+}
+.ondo-install .install-app {
+	margin: 12px 0 0;
+	padding: 8px 4px;
+	border: 0;
+	background: none;
+	color: #b5b7c1;
+	font-size: 11px;
+	text-align: left;
+}
+.ondo-install .install-app:hover {
+	color: #fff;
+}
+.ondo-install .install-hint {
+	color: #b5b7c1;
+}
+.ondo-main {
+	grid-column: 2;
+	grid-row: 1;
+	padding: 38px clamp(20px, 3vw, 48px) 40px;
+	min-width: 0;
+	outline: none;
+}
+.ondo-shell :focus-visible {
+	outline: 2px solid #ed765f;
+	outline-offset: 4px;
+}
+.ondo-skip {
+	position: fixed;
+	top: 12px;
+	clip-path: inset(100%);
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	left: 80px;
+	z-index: 100;
+	padding: 12px;
+	background: white;
+	color: #242529;
+}
+.ondo-skip:focus {
+	clip-path: none;
+	width: auto;
+	height: auto;
+	overflow: visible;
+	top: 12px;
+}
+@media (min-width: 761px) {
+	.rail .ondo-sidebar {
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+	.rail .ondo-brand-row {
+		flex-direction: column;
+		gap: 24px;
+		padding: 0;
+		margin-bottom: 30px;
+	}
+	.rail .ondo-wordmark,
+	.rail .ondo-nav-text,
+	.rail .ondo-nav-label,
+	.rail .ondo-install {
+		display: none;
+	}
+	.rail .ondo-navigation nav a {
+		justify-content: center;
+		padding: 10px;
+	}
+	.rail .service-switcher a {
+		justify-content: center;
+		padding: 9px 4px;
+		margin-inline: 4px;
+	}
+	.rail .service-name { display: none; }
+	.rail .ondo-navigation nav a.active::before {
+		left: -12px;
+	}
+	.rail .account-button {
+		display: flex;
+		justify-content: center;
+		padding: 18px 0 0;
+	}
+	.rail .account-button > span:nth-child(2),
+	.rail .account-button > i {
+		display: none;
+	}
+	.rail .account-menu {
+		left: 52px;
+		bottom: 0;
+	}
+}
+@media (max-width: 760px) {
+	.ondo-shell,
+	.ondo-shell.rail {
+		display: block;
+	}
+	.ondo-sidebar {
+		height: auto;
+		position: relative;
+		padding: 16px 20px;
+	}
+	.ondo-brand-row {
+		padding: 0;
+		margin: 0;
+	}
+	.ondo-brand {
+		gap: 10px;
+	}
+	.ondo-symbol {
+		width: 24px;
+		height: 24px;
+		border-width: 5px;
+	}
+	.ondo-symbol i {
+		width: 5px;
+		height: 5px;
+		right: -9px;
+		top: -6px;
+	}
+	.ondo-wordmark {
+		font-size: 19px;
+	}
+	.ondo-wordmark > span {
+		display: none;
+	}
+	.ondo-toggle {
+		width: 36px;
+		height: 36px;
+	}
+	.ondo-navigation,
+	.ondo-sidebar-footer {
+		display: none;
+	}
+	.mobile-open .ondo-navigation {
+		display: block;
+		padding-top: 24px;
+	}
+	.mobile-open .ondo-sidebar-footer {
+		display: block;
+		padding-top: 12px;
+	}
+	.ondo-sidebar .account-menu {
+		bottom: calc(100% + 8px);
+		left: 0;
+	}
+	.ondo-main {
+		padding: 24px 14px 32px;
+	}
+	.ondo-nav-label {
+		margin-left: 12px;
+	}
+	.ondo-install .install-app {
+		margin-top: 6px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ondo-shell {
+		transition: none;
+	}
+}
+
+.ondo-navigation {
+	min-height: 0;
+	overflow-y: auto;
+}
+.ondo-navigation > .ondo-nav-label:not(:first-child) {
+	margin-top: 24px;
+}
+
+/* A direct route to the daily note on every calendar screen. */
+.ondo-quick-note { display:flex; align-items:center; gap:5px; padding:8px; color:#f4b0a4; font-size:12px; text-decoration:none; white-space:nowrap; }
+.ondo-quick-note:hover { color:white; }
+@media (min-width:761px) { .ondo-quick-note { display:none; } }
+@media (max-width:760px) { .ondo-quick-note { margin-left:auto; margin-right:8px; min-height:44px; } }
+
+/* NETAQ product shell: the shared notebook keeps its own embedded surface. */
+.ondo-shell{background:#fff}.ondo-sidebar{background:#f4f5f7;color:var(--ondo-ink);border-right:1px solid var(--ondo-line);padding-top:20px}.ondo-brand-row{margin-bottom:28px}.ondo-wordmark>span{display:none}.ondo-symbol{width:18px;height:18px;border-width:4px;border-color:var(--ondo-accent)}.ondo-symbol i{display:none}.ondo-navigation nav a{color:var(--ondo-muted);font-size:14px}.ondo-navigation nav a:hover{background:#e9eaee;color:var(--ondo-ink)}.ondo-navigation nav a.active{background:white;color:var(--ondo-accent)}.ondo-navigation nav a.active::before{display:none}.ondo-nav-label{color:var(--ondo-muted)}.ondo-toggle{color:var(--ondo-muted);border-color:var(--ondo-line)}.ondo-toggle:hover{background:#e9eaee;color:var(--ondo-ink)}.ondo-navigation>p:not(:first-child){padding-top:16px;border-top:1px solid var(--ondo-line)}.ondo-page-actions{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-bottom:20px}.ondo-page-actions>a{font-size:14px;color:var(--ondo-muted);min-height:44px;display:flex;align-items:center}.ondo-bottom-nav{display:none}.ondo-sidebar .account-button{background:transparent;border:0;color:var(--ondo-ink)}.ondo-sidebar .account-button strong{font-size:14px}.ondo-sidebar .account-button small{font-size:11px;color:var(--ondo-muted)}.ondo-sidebar .account-menu{background:white;border-color:var(--ondo-line);color:var(--ondo-ink);box-sizing:border-box}.ondo-sidebar .account-menu a,.ondo-sidebar .account-menu button{font-size:14px;min-height:44px;background:white}.ondo-sidebar .account-menu p strong{font-size:14px}.ondo-sidebar .account-menu p span{font-size:12px}.ondo-sidebar .account-menu>small{font-size:12px}.ondo-sidebar-footer{padding-top:12px;border-top:1px solid var(--ondo-line)}.ondo-quick-note{color:var(--ondo-accent)}.ondo-quick-note:hover{color:var(--ondo-ink)}.notes-only .note-heading strong{font-size:20px}.notes-only .plan-notes{border:0;padding:0}.notes-only .plan-notes textarea{min-height:280px;background:white;color:var(--ondo-ink);font:inherit;font-size:17px;line-height:1.8;border:1px solid var(--ondo-line);border-radius:8px;padding:16px;width:100%;box-sizing:border-box}.notes-only .note-save{min-height:44px}.notes-only .note-carry{font-size:13px;color:var(--ondo-muted);background:#f4f5f7;padding:10px 12px}.notes-only .plan-notes>button{min-height:44px;font:inherit;font-size:14px;background:white;border:1px solid var(--ondo-line);border-radius:6px;padding:8px 12px;margin:0 8px 12px 0}a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ondo-accent);outline-offset:3px}
+@media(max-width:760px){.ondo-sidebar{padding:12px 16px}.ondo-page-actions{margin-bottom:20px}.ondo-page-actions>a{display:none}.ondo-main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}.ondo-bottom-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;bottom:0;left:0;right:0;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:white;border-top:1px solid var(--ondo-line);z-index:20}.ondo-bottom-nav a,.ondo-bottom-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:48px;border:0;background:none;color:var(--ondo-muted);font:inherit;font-size:11px;text-decoration:none}.ondo-bottom-nav [aria-current=page]{color:var(--ondo-accent);font-weight:600}.mobile-open .ondo-navigation{max-height:calc(100dvh - 260px);overflow:auto}.mobile-open .ondo-sidebar-footer{padding-bottom:12px}.notes-only .plan-notes textarea{font-size:16px;min-height:260px}}
+.notes-only .personal-editor .tiptap p,.notes-only .personal-editor .tiptap li{font-size:16px;line-height:1.8;color:var(--ondo-ink)}.notes-only .personal-editor .tiptap{min-height:240px}.notes-only .note-save{font-size:13px}.notes-only .note-save button{font-size:13px;min-height:44px}.notes-only .note-heading button{font-size:14px;min-height:44px}.notes-only .note-carry a{margin-left:12px;color:var(--ondo-accent)}
+.notes-only .personal-editor input[type='checkbox']{accent-color:var(--ondo-accent);width:20px;height:20px;margin-top:5px;cursor:pointer}.notes-only .personal-editor li[data-checked='true']>div{text-decoration:line-through;color:var(--ondo-muted)}
+.ondo-shell input[type='checkbox']:checked{background-color:var(--ondo-accent);border-color:var(--ondo-accent)}
+.ondo-shell .ondo-main .student-page{padding:0}.ondo-shell .ondo-main .student-page h1{font-size:26px}.ondo-shell .ondo-main .student-page button,.ondo-shell .ondo-main .student-page .button{min-height:44px}.ondo-shell .ondo-main .student-page .muted{font-size:13px}
+@media(max-width:760px){.ondo-shell .ondo-main .student-page h1{font-size:23px}}
+
+/* v5: one daily planning surface and one global memo entry. Figma 97:1731. */
+.ondo-shell .ondo-page-actions{min-height:44px;margin-bottom:20px}.ondo-shell .ondo-main{padding:32px}.ondo-shell .ondo-brand-row{margin-bottom:24px}.ondo-shell .ondo-navigation nav a{min-height:44px}.ondo-shell .ondo-navigation>p:not(:first-child){margin-top:20px}.ondo-shell .ondo-sidebar{padding:24px 16px 16px}.ondo-shell .ondo-wordmark{font-size:22px}
+@media(max-width:760px){.ondo-shell .ondo-main{padding:12px 20px calc(96px + env(safe-area-inset-bottom))}.ondo-shell .ondo-page-actions{margin-bottom:16px;min-height:44px}.ondo-shell .ondo-sidebar{padding:16px 20px}.ondo-shell .ondo-brand-row{margin-bottom:0}.ondo-shell:not(.mobile-open) .ondo-sidebar-footer{display:none}}
+
+@media(max-width:760px){.ondo-shell{position:relative}.ondo-shell .ondo-sidebar{background:white;border-bottom:0;padding-right:20px;min-height:76px}.ondo-shell .ondo-brand-row{min-height:44px}.ondo-shell .ondo-main{padding-top:12px}.ondo-shell .ondo-page-actions{position:absolute;top:16px;right:64px;min-height:44px;margin:0;z-index:16}.ondo-shell .ondo-symbol{display:none}.ondo-shell .ondo-wordmark{font-size:20px}.ondo-shell .ondo-toggle{margin-left:auto}}
+
+.ondo-shell .ondo-logo{flex-shrink:0;display:block}.ondo-shell .ondo-nav-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}.ondo-shell .ondo-nav-icon img{width:20px;height:20px;display:block}
+@media(max-width:760px){.ondo-shell .ondo-logo{display:none}}
+
+/* v6: navigation follows selection; utility options live with the profile. */
+.ondo-shell .ondo-nav-icon{background-color:currentColor;mask-image:var(--nav-icon);mask-size:20px 20px;mask-repeat:no-repeat;mask-position:center}.ondo-shell .ondo-navigation nav a{font-weight:400}.ondo-shell .ondo-navigation nav a.active{color:var(--ondo-accent);font-weight:600}.ondo-main:has(.cw.planning){position:relative}.ondo-main:has(.cw.planning)>.ondo-page-actions{position:absolute;right:32px;top:32px;margin:0}.ondo-shell .cw.planning .cw-toolbar{padding-right:160px;min-height:52px;margin-bottom:20px}.ondo-shell .cw.planning .cw-tools{display:none}.ondo-shell .cw.planning.has-plan-filters .cw-tools{display:flex}.ondo-shell .cw.planning .cw-date h1{font-size:26px}.ondo-shell .ondo-sidebar .account-menu{font-size:14px;width:280px;max-width:calc(100vw - 32px);padding:12px;gap:4px}.ondo-shell .ondo-sidebar .account-menu p strong{font-size:16px}.ondo-shell .ondo-sidebar .account-menu p span{font-size:13px}.ondo-shell .ondo-sidebar .account-menu a,.ondo-shell .ondo-sidebar .account-menu button{font-size:14px;min-height:40px;padding:8px}
+@media(max-width:760px){.ondo-main:has(.cw.planning){position:static}.ondo-main:has(.cw.planning)>.ondo-page-actions{top:16px;right:64px}.ondo-shell .cw.planning .cw-toolbar{padding-right:0}.ondo-shell .cw.planning .cw-date h1{font-size:22px}}
+
+.ondo-shell .cw.planning{max-width:1280px}.ondo-main:has(.cw.planning)>.ondo-page-actions{left:min(calc(100% - 176px),1168px);right:auto}@media(max-width:760px){.ondo-main:has(.cw.planning)>.ondo-page-actions{left:auto;right:64px}}

@@ -1,0 +1,5 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingEnd="1dp">
+ <TextView android:id="@+id/day_name" android:layout_width="match_parent" android:layout_height="30dp" android:gravity="center" android:textSize="10sp" android:textStyle="bold" android:textColor="#253244"/>
+ <TextView android:id="@+id/all_day" android:layout_width="match_parent" android:layout_height="26dp" android:gravity="center" android:textSize="9sp" android:maxLines="2" android:ellipsize="end" android:textColor="#526078" android:background="#EDF0F5"/>
+ <LinearLayout android:id="@+id/day_lanes" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal"/>
+</LinearLayout>

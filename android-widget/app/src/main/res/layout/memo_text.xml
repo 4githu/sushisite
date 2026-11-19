@@ -1,0 +1,1 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/memo_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="12dp" android:paddingBottom="12dp" android:textSize="15sp" android:lineSpacingExtra="5dp" android:textColor="#242529" android:maxLines="10" android:ellipsize="end" />

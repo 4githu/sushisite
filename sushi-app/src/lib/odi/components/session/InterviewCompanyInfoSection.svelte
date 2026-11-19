@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import TextInput from "$lib/odi/components/common/TextInput.svelte";
 
 	let {
@@ -16,38 +17,38 @@
 
 <section class="company-section">
 	<h2 class="text-title-middle">
-		지원 회사 정보
+		{tr($siteLocale, "지원 회사 정보")}
 	</h2>
 
 	<div class="input-row">
 		<TextInput
-			label="기업명"
+			label={tr($siteLocale, "기업명")}
 			required
 			width="342.5px"
-			placeholder="입력해주세요"
+			placeholder={tr($siteLocale, "입력해주세요")}
 			bind:value={company}
 		/>
 
 		<TextInput
-			label="지원 부서"
+			label={tr($siteLocale, "지원 부서")}
 			required
 			width="342.5px"
-			placeholder="입력해주세요"
+			placeholder={tr($siteLocale, "입력해주세요")}
 			bind:value={department}
 		/>
 
 		<TextInput
-			label="지원 포지션"
+			label={tr($siteLocale, "지원 포지션")}
 			required
 			width="342.5px"
-			placeholder="입력해주세요"
+			placeholder={tr($siteLocale, "입력해주세요")}
 			bind:value={position}
 		/>
 
 		<TextInput
-			label="상세 직무"
+			label={tr($siteLocale, "상세 직무")}
 			width="342.5px"
-			placeholder="입력해주세요"
+			placeholder={tr($siteLocale, "입력해주세요")}
 			bind:value={jobDetail}
 		/>
 	</div>

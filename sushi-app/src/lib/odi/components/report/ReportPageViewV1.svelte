@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import ReportHeader from './ReportHeader.svelte';
 	import ScoreOverviewCard from './ScoreOverviewCard.svelte';
 	import DetailAnalysisCard from './DetailAnalysisCard.svelte';
@@ -29,14 +30,7 @@
 <div class="report-page-view-v1" data-report-version="v1">
 	<ReportHeader {session} {feedback} {onOpenPrevious} {onDownload} />
 
-	{#if generationWarnings.length > 0}
-		<section class="generation-notice" aria-label="분석 데이터 안내">
-			<strong>일부 입력이 제한된 상태로 분석되었습니다.</strong>
-			<span>{generationWarnings.join(', ')}</span>
-		</section>
-	{/if}
-
-	<section class="top-grid" aria-label="기본 결과 리포트">
+	<section class="top-grid" aria-label={tr($siteLocale, "기본 결과 리포트")}>
 		<ScoreOverviewCard {feedback} comparison={session.comparison} />
 		<DetailAnalysisCard {feedback} />
 		<TimelineFeedbackCard {feedback} sessionId={session.session_id} showMedia={showTimelineVideo} />
@@ -48,6 +42,13 @@
 			<AIInsightCard {feedback} {onStartTraining} />
 		</div>
 	</section>
+
+	{#if generationWarnings.length > 0}
+		<section class="generation-notice" aria-label={tr($siteLocale, "분석 데이터 안내")}>
+			<strong>{tr($siteLocale, "일부 입력이 제한된 상태로 분석되었습니다.")}</strong>
+			<span>{generationWarnings.join(', ')}</span>
+		</section>
+	{/if}
 </div>
 
 <style>

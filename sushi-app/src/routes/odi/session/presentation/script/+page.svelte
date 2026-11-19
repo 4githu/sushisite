@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import { onMount } from 'svelte';
 	import { template } from '$lib/odi/stores';
 	import { API_BASE } from '$lib/config/api';
@@ -121,17 +122,17 @@
 	}
 </script>
 
-<svelte:head><title>스크립트 검사 | Re:hear</title></svelte:head>
+<svelte:head><title>{tr($siteLocale, "스크립트 검사 | Re:hear")}</title></svelte:head>
 <main class="odi-workspace">
 	<header>
-		<a href="/odi/session/presentation/upload">‹ 자료 업로드로 돌아가기</a>
-		<h1>스크립트 검사하기</h1>
+		<a href="/odi/session/presentation/upload">{tr($siteLocale, "‹ 자료 업로드로 돌아가기")}</a>
+		<h1>{tr($siteLocale, "스크립트 검사하기")}</h1>
 	</header>
 	{#if ready}<div class="script-grid">
 			<section class="surface editor">
 				<div class="section-head">
-					<h2>내 스크립트</h2>
-					<Button variant="ghost" size="sm" onclick={copy}>복사</Button>
+					<h2>{tr($siteLocale, "내 스크립트")}</h2>
+					<Button variant="ghost" size="sm" onclick={copy}>{tr($siteLocale, "복사")}</Button>
 				</div>
 				<div class="tabs">
 					<button
@@ -139,13 +140,13 @@
 						onclick={() => {
 							manual = false;
 							persist();
-						}}>전체 입력</button
-					><button class:active={manual} onclick={useManual}>슬라이드별 입력</button>
+						}}>{tr($siteLocale, "전체 입력")}</button
+					><button class:active={manual} onclick={useManual}>{tr($siteLocale, "슬라이드별 입력")}</button>
 				</div>
 				{#if manual}{#each sections as section, i (i)}<div class="section-editor">
 							<div class="actions">
 								<label
-									>슬라이드 <input
+									>{tr($siteLocale, "슬라이드")} <input
 										type="number"
 										min="1"
 										max={pageCount || 999}
@@ -165,9 +166,9 @@
 											persist();
 										}}
 									/></label
-								><button disabled={i === 0} onclick={() => move(i, -1)}>위로</button><button
+								><button disabled={i === 0} onclick={() => move(i, -1)}>{tr($siteLocale, "위로")}</button><button
 									disabled={i === sections.length - 1}
-									onclick={() => move(i, 1)}>아래로</button
+									onclick={() => move(i, 1)}>{tr($siteLocale, "아래로")}</button
 								>
 							</div>
 							<textarea
@@ -185,14 +186,14 @@
 								{ slide: Math.min(pageCount || 999, sections.length + 1), text: '' }
 							];
 							persist();
-						}}>슬라이드 구간 추가</Button
+						}}>{tr($siteLocale, "슬라이드 구간 추가")}</Button
 					>{:else}<textarea
 						class="whole"
 						value={text}
 						oninput={(e) => wholeChanged(e.currentTarget.value)}
 						maxlength="10000"
-						aria-label="전체 스크립트"
-						placeholder="발표 스크립트를 입력하세요. PDF에 맞춰 슬라이드별로 자동 분배해 드려요."
+						aria-label={tr($siteLocale, "전체 스크립트")}
+						placeholder={tr($siteLocale, "발표 스크립트를 입력하세요. PDF에 맞춰 슬라이드별로 자동 분배해 드려요.")}
 					></textarea>{/if}
 				<footer>
 					<p>
@@ -202,7 +203,7 @@
 						)}분
 					</p>
 					<Button disabled={busy || !text.trim()} onclick={check}
-						>{busy ? '검사 중…' : '다시 검사하기'}</Button
+						>{busy ? tr($siteLocale, "검사 중…") : tr($siteLocale, "다시 검사하기")}</Button
 					>
 				</footer>
 			</section>
@@ -211,10 +212,9 @@
 					stale={analysis.source_text !== text || analysis.version !== version}
 					onapply={apply}
 				/>{:else}<section class="surface">
-					<h2>{busy ? '스크립트를 분석하고 있어요' : '더 자연스러운 발표를 준비하세요'}</h2>
+					<h2>{busy ? tr($siteLocale, "스크립트를 분석하고 있어요") : tr($siteLocale, "더 자연스러운 발표를 준비하세요")}</h2>
 					<p class="muted">
-						문장 길이, 두괄식 구조, 용어와 구어체 리듬을 살펴봅니다. 제안을 적용하기 전 원문과
-						비교해 보세요.
+						{tr($siteLocale, "문장 길이, 두괄식 구조, 용어와 구어체 리듬을 살펴봅니다. 제안을 적용하기 전 원문과 비교해 보세요.")}
 					</p>
 					{#if notice}<p role="status">{notice}</p>{/if}
 				</section>{/if}

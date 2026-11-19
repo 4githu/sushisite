@@ -1,5 +1,7 @@
 <!-- src/lib/odi/components/login/RegisterBasicStep.svelte -->
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import {
 		authPerson as Person,
 		authMail as Mail,
@@ -41,8 +43,8 @@
 <div class="basic-step">
 	<div class="field-grid">
 		<AuthField
-			label="이름"
-			placeholder="이름을 입력해주세요"
+			label={tr($siteLocale, "이름")}
+			placeholder={tr($siteLocale, "이름을 입력해주세요")}
 			icon={Person}
 			autocomplete="name"
 			bind:value={name}
@@ -51,9 +53,9 @@
 		/>
 
 		<AuthField
-			label="이메일"
+			label={copy($locale, "이메일")}
 			type="email"
-			placeholder="이메일 주소를 입력해주세요"
+			placeholder={copy($locale, "이메일 주소를 입력해주세요")}
 			icon={Mail}
 			autocomplete="email"
 			bind:value={email}
@@ -61,9 +63,9 @@
 		/>
 
 		<AuthField
-			label="비밀번호"
+			label={copy($locale, "비밀번호")}
 			type="password"
-			placeholder="영문, 숫자, 특수문자 포함 8자리 이상"
+			placeholder={tr($siteLocale, "영문, 숫자, 특수문자 포함 8자리 이상")}
 			icon={Lock}
 			autocomplete="new-password"
 			bind:value={password}
@@ -72,9 +74,9 @@
 		/>
 
 		<AuthField
-			label="비밀번호 확인"
+			label={tr($siteLocale, "비밀번호 확인")}
 			type="password"
-			placeholder="비밀번호를 다시 입력해주세요"
+			placeholder={tr($siteLocale, "비밀번호를 다시 입력해주세요")}
 			icon={Lock}
 			autocomplete="new-password"
 			bind:value={passwordConfirm}

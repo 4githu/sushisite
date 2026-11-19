@@ -153,6 +153,12 @@ export function normalizeDocument(value: unknown): EditorDocument {
 	}
 	return {
 		version: 1,
+		...(input.schemaVersion === 2 && input.richContent
+			? {
+					schemaVersion: 2 as const,
+					richContent: input.richContent as EditorDocument['richContent']
+				}
+			: {}),
 		documentId: typeof input.documentId === 'string' ? input.documentId : createId('document'),
 		createdAt: typeof input.createdAt === 'string' ? input.createdAt : now,
 		updatedAt: now,

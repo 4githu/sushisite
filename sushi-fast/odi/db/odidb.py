@@ -71,6 +71,7 @@ def init_db(schema_path: str | Path = "odi/db/schema.sql", db_path: Path = DB_PA
         conn.executescript(schema)
         for table, fields in {
             "templates": {"create_request_hash": "TEXT", "version": "INTEGER NOT NULL DEFAULT 1", "last_used_at": "TEXT", "use_count": "INTEGER NOT NULL DEFAULT 0"},
+            "presentation_segments": {"analysis_origin": "TEXT CHECK (analysis_origin IS NULL OR analysis_origin = 'evc_live')"},
             "practice_attempts": {"request_hash": "TEXT"},
             "pre_sessions": {"template_snapshot": "TEXT", "request_key": "TEXT", "request_hash": "TEXT"},
         }.items():
@@ -602,21 +603,25 @@ def upsert_presentation_segment(
     segment: dict[str, Any],
     owner_user_id: str | None = None,
     pre_session_pin: str | None = None,
+    analysis_origin: str | None = None,
     expires_at: str | None = None,
     db_path: Path = DB_PATH,
 ) -> None:
     ensure_report_schema(db_path)
+    if analysis_origin not in (None, "evc_live"):
+        raise ValueError("unsupported analysis origin")
     with get_conn(db_path) as conn:
         conn.execute(
             """
             INSERT INTO presentation_segments (
-                evc_session_id, step, owner_user_id, pre_session_pin, segment_json, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                evc_session_id, step, owner_user_id, pre_session_pin, analysis_origin, segment_json, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(evc_session_id, step) DO UPDATE SET
                 segment_json = excluded.segment_json,
+                analysis_origin = excluded.analysis_origin,
                 expires_at = excluded.expires_at
             """,
-            (evc_session_id, step, owner_user_id, pre_session_pin, json_dumps(segment), expires_at),
+            (evc_session_id, step, owner_user_id, pre_session_pin, analysis_origin, json_dumps(segment), expires_at),
         )
 
 

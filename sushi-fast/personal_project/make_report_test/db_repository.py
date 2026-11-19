@@ -316,12 +316,16 @@ def set_score_mode(report_input: dict[str, Any], score_mode: str) -> None:
 def get_active_score_format(report_input: dict[str, Any]) -> dict[str, Any] | None:
     supplied = report_input.get("scoreFormat")
     if isinstance(supplied, dict) and isinstance(supplied.get("items"), list):
-        return {
+        result = {
             "id": supplied.get("id"),
             "name": str(supplied.get("name") or "입력 평가 양식"),
             "items": [str(item) for item in supplied["items"]],
             "source": "input",
         }
+        for key in ("version", "revision"):
+            if key in supplied:
+                result[key] = supplied[key]
+        return result
     school_id = (report_input.get("target") or {}).get("schoolId")
     if not isinstance(school_id, int):
         return None
@@ -329,7 +333,7 @@ def get_active_score_format(report_input: dict[str, Any]) -> dict[str, Any] | No
     progress_stage = (report_input.get("target") or {}).get("progressStage", "accepted")
     with connect() as conn:
         row = conn.execute(
-            """SELECT id, name, items_json, source
+            """SELECT *
                FROM clinic_report_score_formats
                WHERE school_id = ? AND progress_stage = ?
                  AND round_key = ? AND is_active = 1
@@ -338,12 +342,16 @@ def get_active_score_format(report_input: dict[str, Any]) -> dict[str, Any] | No
         ).fetchone()
     if not row:
         return None
-    return {
+    result = {
         "id": row["id"],
         "name": row["name"],
         "items": json.loads(row["items_json"]),
         "source": row["source"],
     }
+    for key in ("version", "revision"):
+        if key in row.keys():
+            result[key] = row[key]
+    return result
 
 
 def save_generated_score_format(
@@ -478,12 +486,8 @@ def list_completed_runs(target_id: int) -> list[dict[str, Any]]:
                ORDER BY completed_at DESC, id DESC""",
             (target_id,),
         ).fetchall()
-    seen: set[str] = set()
     result = []
     for row in rows:
-        if row["model"] in seen:
-            continue
-        seen.add(row["model"])
         result.append({
             "runId": row["id"],
             "provider": row["provider"],

@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy, duration } from "$lib/odi/i18n";
 	import { grade, shortDate, type SessionSummary } from '$lib/odi/domain/sessionSummary';
 	import { formatKoreanDuration } from './reportUtils';
 	import Button from '../common/Button.svelte';
@@ -25,21 +27,21 @@
 	<table>
 		<thead
 			><tr
-				><th>{rounds ? '회차' : '세션 정보'}</th><th>소요 시간</th><th>점수</th><th>피드백 요약</th
-				><th>날짜</th><th><span class="sr-only">동작</span></th></tr
+				><th>{rounds ? tr($siteLocale, "회차") : tr($siteLocale, "세션 정보")}</th><th>{tr($siteLocale, "소요 시간")}</th><th>{tr($siteLocale, "점수")}</th><th>{tr($siteLocale, "피드백 요약")}</th
+				><th>{tr($siteLocale, "날짜")}</th><th><span class="sr-only">{tr($siteLocale, "동작")}</span></th></tr
 			></thead
 		><tbody
 			>{#each rows as row, i (row.id)}<tr
 					><td
-						>{#if rounds}<span class="chip">{roundNumbers[row.id] ?? total - offset - i}회차</span
-							>{:else}<span class="chip">{row.type}</span><strong>{row.title}</strong><small
-								>{row.details} · 청중 {row.audience}인</small
+						>{#if rounds}<span class="chip">{$locale === 'en' ? `Session ${roundNumbers[row.id] ?? total - offset - i}` : `${roundNumbers[row.id] ?? total - offset - i}회차`}</span
+							>{:else}<span class="chip">{copy($locale, row.type)}</span><strong>{row.title}</strong><small
+								>{$locale === 'en' ? `${row.session.template?.environment?.duration_minutes ?? 0} min · ${row.audience} people` : `${row.details} · 청중 ${row.audience}인`}</small
 							>{/if}</td
-					><td>{formatKoreanDuration(row.seconds)}</td><td
-						><b>{row.score ?? '—'}</b><small>{grade(row.score)}</small></td
+					><td>{duration($locale, row.seconds)}</td><td
+						><b>{row.score ?? '—'}</b><small>{copy($locale, grade(row.score))}</small></td
 					><td class="feedback">{row.summary}</td><td>{shortDate(row.date)}</td><td
 						><div class="actions">
-							<Button size="sm" href={`/odi/report/${row.id}`}>자세히 보기</Button><button
+							<Button size="sm" href={`/odi/report/${row.id}`}>{copy($locale, "자세히 보기")}</Button><button
 								class="delete"
 								disabled={deletingId === row.id}
 								onclick={() => ondelete(row)}

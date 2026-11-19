@@ -48,6 +48,8 @@ export interface TableBlock {
 export type EditorBlock = TextBlock | TableBlock;
 
 export interface EditorDocument {
+	schemaVersion?: 2;
+	richContent?: import('@tiptap/core').JSONContent;
 	version: 1;
 	documentId: string;
 	createdAt: string;

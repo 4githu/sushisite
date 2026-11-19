@@ -1,0 +1,1518 @@
+.netaq-notebook {
+	font-family: Inter, 'Noto Sans KR', system-ui, sans-serif;
+	color: #242529;
+	background: #f4f5f7;
+	font-synthesis: none;
+	--line: #e2e3e7;
+	--muted: #696b73;
+	--accent: #c4412c;
+	--surface: #fff;
+	--text: #242529;
+}
+.netaq-notebook * {
+	box-sizing: border-box;
+}
+.netaq-notebook {
+	margin: 0;
+}
+.netaq-notebook button,
+.netaq-notebook input,
+.netaq-notebook summary {
+	font: inherit;
+}
+.netaq-notebook button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	padding: 7px 10px;
+	min-height: 34px;
+	border-radius: 5px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.netaq-notebook button:hover {
+	background: #eff0f2;
+}
+.netaq-notebook button:focus-visible,
+.netaq-notebook summary:focus-visible {
+	outline: 2px solid #c4412c;
+	outline-offset: 2px;
+}
+.netaq-notebook button:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+.netaq-notebook button svg {
+	flex: none;
+}
+.netaq-notebook button.active {
+	background: #eceef0;
+	color: #242529;
+}
+.netaq-notebook input {
+	color: inherit;
+}
+.netaq-notebook .hidden {
+	display: none;
+}
+.netaq-notebook .app {
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.netaq-notebook .app-header {
+	height: 62px;
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 0 24px;
+	border-bottom: 1px solid var(--line);
+	background: white;
+}
+.netaq-notebook .brand {
+	font-size: 17px;
+	font-weight: 750;
+	letter-spacing: -0.06em;
+	color: inherit;
+	text-decoration: none;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.netaq-notebook .brand:before {
+	content: '';
+	width: 7px;
+	height: 20px;
+	background: var(--accent);
+	border-radius: 2px;
+}
+.netaq-notebook .brand span {
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: -0.02em;
+	color: var(--muted);
+}
+.netaq-notebook .header-divider {
+	height: 20px;
+	width: 1px;
+	background: var(--line);
+	margin: 0 4px;
+}
+.netaq-notebook .doc-title {
+	min-width: 80px;
+	width: 280px;
+	border: 0;
+	background: transparent;
+	font-weight: 500;
+	font-size: 13px;
+	outline: none;
+}
+.netaq-notebook .doc-title:focus {
+	border-bottom: 1px solid #999;
+}
+.netaq-notebook .save-state {
+	margin-left: auto;
+	color: #8a8c94;
+	font-size: 11px;
+	white-space: nowrap;
+}
+.netaq-notebook .app-header > button {
+	font-size: 12px;
+}
+.netaq-notebook .app-header > button svg {
+	width: 17px;
+	height: 17px;
+}
+.netaq-notebook .backup {
+	border: 1px solid var(--line);
+}
+.netaq-notebook .file-menu {
+	position: relative;
+}
+.netaq-notebook .file-menu summary {
+	list-style: none;
+	cursor: pointer;
+	font-size: 23px;
+	width: 28px;
+	text-align: center;
+}
+.netaq-notebook .file-options {
+	position: absolute;
+	right: 0;
+	top: 35px;
+	width: 210px;
+	z-index: 100;
+	background: white;
+	padding: 8px;
+	border: 1px solid var(--line);
+	box-shadow: 0 8px 24px #24252912;
+	border-radius: 7px;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+}
+.netaq-notebook .file-options button {
+	justify-content: flex-start;
+	font-size: 12px;
+}
+.netaq-notebook .main-tools {
+	height: 58px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	background: white;
+	border-bottom: 1px solid var(--line);
+	flex: none;
+	z-index: 60;
+}
+.netaq-notebook .main-tools > button,
+.netaq-notebook .image-anchor > button {
+	min-height: 40px;
+	font-size: 12px;
+	padding: 7px 11px;
+	color: #5b5d66;
+}
+.netaq-notebook .main-tools button.active {
+	color: #242529;
+}
+.netaq-notebook .main-tools i {
+	height: 24px;
+	width: 1px;
+	background: var(--line);
+	margin: 0 8px;
+}
+.netaq-notebook .image-anchor {
+	position: relative;
+}
+.netaq-notebook .image-menu {
+	position: absolute;
+	top: 47px;
+	left: 0;
+	width: 232px;
+	background: white;
+	border: 1px solid var(--line);
+	box-shadow: 0 8px 24px #24252912;
+	border-radius: 7px;
+	padding: 7px;
+	z-index: 100;
+}
+.netaq-notebook .image-menu button {
+	width: 100%;
+	justify-content: flex-start;
+	font-size: 13px;
+	padding: 10px;
+}
+.netaq-notebook .image-menu button svg {
+	width: 19px;
+	height: 19px;
+}
+.netaq-notebook .image-menu > div {
+	display: flex;
+	justify-content: space-between;
+	font-size: 11px;
+	color: var(--muted);
+	border-top: 1px solid #eee;
+	margin: 6px 4px 0;
+	padding: 12px 3px 5px;
+}
+.netaq-notebook kbd {
+	font: 11px inherit;
+}
+.netaq-notebook .tool-settings {
+	min-height: 46px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	background: #fcfcfd;
+	border-bottom: 1px solid var(--line);
+	padding: 4px 22px;
+	flex: none;
+	z-index: 50;
+	font-size: 12px;
+	position: relative;
+}
+.netaq-notebook .tool-settings .shared-editor {
+	flex: 1;
+	min-width: 0;
+}
+.netaq-notebook .delete-text {
+	margin-left: auto;
+	color: var(--muted);
+}
+.netaq-notebook .delete-text svg {
+	width: 17px;
+	height: 17px;
+}
+.netaq-notebook .segmented {
+	display: flex;
+	gap: 3px;
+}
+.netaq-notebook .segmented button {
+	font-size: 11px;
+	min-height: 30px;
+	padding: 6px 14px;
+	color: var(--muted);
+}
+.netaq-notebook .segmented .chosen {
+	background: #e9ebee;
+	color: #242529;
+}
+.netaq-notebook .setting-divider {
+	width: 1px;
+	height: 19px;
+	background: var(--line);
+}
+.netaq-notebook .setting-hint {
+	color: var(--muted);
+	font-size: 11px;
+}
+.netaq-notebook .swatches {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.netaq-notebook .swatches button {
+	width: 19px;
+	height: 19px;
+	min-height: 0;
+	border-radius: 50%;
+	padding: 0;
+	background: var(--swatch);
+	position: relative;
+}
+.netaq-notebook .swatches button.current:after {
+	content: '';
+	position: absolute;
+	inset: -4px;
+	border: 1px solid #777982;
+	border-radius: 50%;
+}
+.netaq-notebook .custom-color {
+	position: relative;
+	color: var(--muted);
+	font-size: 17px;
+	cursor: pointer;
+}
+.netaq-notebook .custom-color input {
+	position: absolute;
+	opacity: 0;
+	width: 25px;
+	height: 25px;
+	inset: 0;
+	cursor: pointer;
+}
+.netaq-notebook .width-control {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--muted);
+	font-size: 11px;
+}
+.netaq-notebook .width-control input {
+	width: 90px;
+	height: 3px;
+	accent-color: #696b73;
+}
+.netaq-notebook .width-control span {
+	width: 20px;
+}
+.netaq-notebook .workspace {
+	position: relative;
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+.netaq-notebook .page-rail {
+	width: 142px;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	background: #fafafb;
+	border-right: 1px solid var(--line);
+}
+.netaq-notebook .rail-title {
+	display: flex;
+	justify-content: space-between;
+	padding: 19px 18px 15px;
+	font-size: 11px;
+	color: var(--muted);
+}
+.netaq-notebook .rail-title span {
+	color: #a0a1a8;
+}
+.netaq-notebook .thumb-list {
+	overflow: auto;
+	flex: 1;
+	padding: 0 22px;
+}
+.netaq-notebook .page-thumb {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	gap: 9px;
+	padding: 0 0 23px;
+	font-size: 10px;
+	color: #777982;
+	border-radius: 0;
+}
+.netaq-notebook .page-thumb:hover {
+	background: none;
+}
+.netaq-notebook .thumb-paper {
+	position: relative;
+	width: 100%;
+	background: white;
+	border: 1px solid #dbdce0;
+	border-radius: 2px;
+	overflow: hidden;
+}
+.netaq-notebook .page-thumb.current .thumb-paper {
+	outline: 1.5px solid #4a4c52;
+	outline-offset: 1px;
+}
+.netaq-notebook .page-thumb.current > span {
+	color: #242529;
+}
+.netaq-notebook .thumb-paper svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.netaq-notebook .thumb-rules {
+	position: absolute;
+	inset: 15% 12%;
+	background: repeating-linear-gradient(transparent, transparent 6px, #e5e7eb 6px, #e5e7eb 7px);
+}
+.netaq-notebook .thumb-pdf {
+	position: absolute;
+	inset: 45% 0 auto;
+	font-size: 9px;
+	letter-spacing: 0.1em;
+	color: #b4b6bf;
+}
+.netaq-notebook .thumb-mark {
+	position: absolute;
+	font-size: 8px;
+}
+.netaq-notebook .add-page {
+	font-size: 10px;
+	margin: 5px 9px 10px;
+	min-height: 35px;
+	color: #696b73;
+}
+.netaq-notebook .add-page svg {
+	width: 14px;
+}
+.netaq-notebook .viewport {
+	flex: 1;
+	min-width: 0;
+	overflow: auto;
+	overscroll-behavior: none;
+	touch-action: none;
+	padding: 34px 50px 100px;
+	scrollbar-gutter: stable;
+	background: #f1f2f5;
+}
+.netaq-notebook .paper-stage {
+	position: relative;
+	margin: 0 auto;
+	flex: none;
+}
+.netaq-notebook .paper {
+	position: absolute;
+	left: 0;
+	top: 0;
+	background: white;
+	transform-origin: top left;
+	box-shadow: 0 1px 5px #2425290a;
+	touch-action: none;
+	user-select: none;
+	overflow: hidden;
+	cursor: default;
+}
+.netaq-notebook .paper.hand {
+	cursor: grab;
+}
+.netaq-notebook .ruled-paper {
+	position: absolute;
+	inset: 75px 42px 42px;
+	background: repeating-linear-gradient(transparent, transparent 31px, #e9ebef 31px, #e9ebef 32px);
+	pointer-events: none;
+}
+.netaq-notebook .pdf-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+.netaq-notebook .pdf-layer canvas {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+.netaq-notebook .ink-layer {
+	z-index: 3;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.netaq-notebook .note-object {
+	position: absolute;
+	border: 0;
+	padding: 0;
+	background: transparent !important;
+	touch-action: none;
+}
+.netaq-notebook .image-object {
+	z-index: 2;
+	display: block;
+	border-radius: 0;
+}
+.netaq-notebook .image-object img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	pointer-events: none;
+}
+.netaq-notebook .text-object {
+	border-radius: 0;
+	cursor: text;
+	text-align: left;
+	user-select: text;
+	color: #242529;
+	font-size: 16px;
+	line-height: 1.6;
+}
+.netaq-notebook .text-object.editing {
+	outline: 1px solid #a3a6ae;
+	outline-offset: 3px;
+}
+.netaq-notebook .tiptap {
+	outline: none;
+	min-height: 40px;
+	padding: 4px 6px;
+	overflow-wrap: anywhere;
+	background: transparent;
+}
+.netaq-notebook .tiptap p {
+	margin: 0 0 7px;
+}
+.netaq-notebook .tiptap p:last-child {
+	margin-bottom: 0;
+}
+.netaq-notebook .tiptap h2 {
+	font-size: 24px;
+	margin: 7px 0;
+}
+.netaq-notebook .tiptap ul,
+.netaq-notebook .tiptap ol {
+	padding-left: 25px;
+	margin: 5px 0;
+}
+.netaq-notebook .tiptap img {
+	max-width: 100%;
+	height: auto;
+}
+.netaq-notebook .tiptap table {
+	border-collapse: collapse;
+	width: 100%;
+}
+.netaq-notebook .tiptap td,
+.netaq-notebook .tiptap th {
+	border: 1px solid #aaa;
+	min-width: 50px;
+	padding: 5px;
+}
+.netaq-notebook .tiptap blockquote {
+	border-left: 2px solid #c4412c;
+	padding-left: 10px;
+	margin: 7px 0;
+	color: #696b73;
+}
+.netaq-notebook .tiptap a {
+	color: #a84737;
+	text-decoration: underline;
+}
+.netaq-notebook .tiptap code {
+	background: #eee;
+	padding: 1px 3px;
+	border-radius: 3px;
+}
+.netaq-notebook .tiptap ul[data-type='taskList'] {
+	list-style: none;
+	padding: 0;
+}
+.netaq-notebook .tiptap ul[data-type='taskList'] li {
+	display: flex;
+	gap: 6px;
+}
+.netaq-notebook .tiptap ul[data-type='taskList'] label {
+	padding-top: 3px;
+}
+.netaq-notebook .memo-pin {
+	width: 30px;
+	height: 30px;
+	color: #a84333;
+	background: #fff4e6 !important;
+	border: 1px solid #e8d7c8;
+	border-radius: 5px;
+}
+.netaq-notebook .memo-popup {
+	position: absolute;
+	width: 290px;
+	min-height: 170px;
+	background: #fffefb;
+	border: 1px solid #e0ded8;
+	box-shadow: 0 6px 20px #24252912;
+	border-radius: 5px;
+	padding: 12px;
+	z-index: 15;
+	user-select: text;
+}
+.netaq-notebook .memo-heading {
+	font-size: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+}
+.netaq-notebook .memo-heading button svg {
+	width: 15px;
+	height: 15px;
+}
+.netaq-notebook .memo-popup .tiptap {
+	min-height: 80px;
+	font-size: 14px;
+}
+.netaq-notebook .memo-delete {
+	font-size: 11px;
+	color: #a84737;
+	margin-top: 12px;
+}
+.netaq-notebook .memo-delete svg {
+	width: 14px;
+	height: 14px;
+}
+.netaq-notebook .selection-box {
+	position: absolute;
+	border: 1px solid #42464e;
+	cursor: move;
+	touch-action: none;
+	z-index: 20;
+	background: #24252902;
+}
+.netaq-notebook .selection-actions {
+	position: absolute;
+	bottom: calc(100% + 10px);
+	left: 0;
+	display: flex;
+	background: #fff;
+	border: 1px solid #dfe0e4;
+	border-radius: 5px;
+	box-shadow: 0 2px 5px #24252908;
+	overflow: hidden;
+}
+.netaq-notebook .selection-actions button {
+	font-size: 11px;
+	min-height: 30px;
+	padding: 5px 14px;
+}
+.netaq-notebook .resize-handle {
+	position: absolute;
+	width: 9px;
+	height: 9px;
+	min-height: 0;
+	transform: translate(-50%, -50%);
+	border: 1px solid #42464e;
+	border-radius: 50%;
+	background: white !important;
+	padding: 0;
+	cursor: nwse-resize;
+	touch-action: none;
+}
+.netaq-notebook .view-controls {
+	position: absolute;
+	bottom: 20px;
+	left: calc(50% + 55px);
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	background: #fff;
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	padding: 3px 7px;
+	box-shadow: 0 2px 8px #24252905;
+	z-index: 30;
+	font-size: 11px;
+	white-space: nowrap;
+}
+.netaq-notebook .view-controls button {
+	min-height: 28px;
+	padding: 3px 7px;
+}
+.netaq-notebook .view-controls .zoom-value {
+	min-width: 48px;
+}
+.netaq-notebook .view-controls > span {
+	width: 1px;
+	height: 15px;
+	background: var(--line);
+	margin: 0 7px;
+}
+.netaq-notebook .view-controls input {
+	width: 32px;
+	font-size: 11px;
+	text-align: center;
+	appearance: textfield;
+	border: 0;
+	background: none;
+	outline: none;
+}
+.netaq-notebook .view-controls input::-webkit-inner-spin-button {
+	appearance: none;
+}
+.netaq-notebook .view-controls small {
+	font-size: 11px;
+	color: #8a8c94;
+}
+.netaq-notebook .view-controls button[aria-label='이전 페이지'],
+.netaq-notebook .view-controls button[aria-label='다음 페이지'] {
+	font-size: 20px;
+}
+.netaq-notebook footer {
+	height: 27px;
+	flex: none;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0 16px;
+	background: #fafafb;
+	border-top: 1px solid var(--line);
+	font-size: 10px;
+	color: #8b8d96;
+}
+.netaq-notebook .footer-status {
+	color: #9c4435;
+}
+@media (max-width: 850px) {
+	.netaq-notebook .app-header {
+		height: 52px;
+		padding: 0 14px;
+		gap: 9px;
+	}
+	.netaq-notebook .brand span,
+	.netaq-notebook .save-state {
+		display: none;
+	}
+	.netaq-notebook .doc-title {
+		flex: 1;
+		width: 100px;
+	}
+	.netaq-notebook .app-header > button {
+		font-size: 11px;
+	}
+	.netaq-notebook .main-tools {
+		justify-content: flex-start;
+		overflow-x: auto;
+		gap: 0;
+		padding: 0 10px;
+		height: 55px;
+	}
+	.netaq-notebook .main-tools > button,
+	.netaq-notebook .image-anchor > button {
+		padding: 7px 10px;
+	}
+	.netaq-notebook .main-tools > button span,
+	.netaq-notebook .image-anchor > button span {
+		display: none;
+	}
+	.netaq-notebook .main-tools i {
+		margin: 0 5px;
+	}
+	.netaq-notebook .image-anchor {
+		position: static;
+	}
+	.netaq-notebook .image-menu {
+		top: 108px;
+		left: auto;
+		right: 10px;
+	}
+	.netaq-notebook .tool-settings {
+		padding: 5px 12px;
+		min-height: 45px;
+		gap: 7px;
+	}
+	.netaq-notebook .page-rail {
+		width: 100px;
+	}
+	.netaq-notebook .thumb-list {
+		padding: 0 15px;
+	}
+	.netaq-notebook .rail-title {
+		padding: 15px 13px;
+	}
+	.netaq-notebook .add-page {
+		font-size: 0;
+	}
+	.netaq-notebook .viewport {
+		padding: 24px 20px 90px;
+	}
+	.netaq-notebook .view-controls {
+		left: 55%;
+		bottom: 16px;
+	}
+	.netaq-notebook .segmented button {
+		padding: 5px 8px;
+		font-size: 10px;
+	}
+	.netaq-notebook .tool-settings > button {
+		font-size: 10px;
+	}
+	.netaq-notebook .width-control input {
+		width: 65px;
+	}
+	.netaq-notebook .brand {
+		font-size: 15px;
+	}
+	.netaq-notebook .backup span {
+		display: none;
+	}
+	.netaq-notebook footer > span:last-child {
+		display: none;
+	}
+}
+@media (max-width: 500px) {
+	.netaq-notebook .page-rail {
+		width: 76px;
+	}
+	.netaq-notebook .thumb-list {
+		padding: 0 10px;
+	}
+	.netaq-notebook .rail-title {
+		font-size: 10px;
+		padding: 14px 10px;
+	}
+	.netaq-notebook .main-tools > button,
+	.netaq-notebook .image-anchor > button {
+		padding: 7px 8px;
+	}
+	.netaq-notebook .main-tools i {
+		margin: 0 3px;
+	}
+	.netaq-notebook .main-tools svg {
+		width: 20px;
+	}
+	.netaq-notebook .app-header {
+		gap: 7px;
+	}
+	.netaq-notebook .app-header > button span {
+		display: none;
+	}
+	.netaq-notebook .header-divider {
+		display: none;
+	}
+	.netaq-notebook .view-controls {
+		left: calc(50% + 25px);
+		gap: 0;
+		padding: 3px;
+	}
+	.netaq-notebook .view-controls > span {
+		margin: 0 3px;
+	}
+	.netaq-notebook .swatches {
+		gap: 10px;
+	}
+	.netaq-notebook .swatches button {
+		width: 17px;
+		height: 17px;
+	}
+	.netaq-notebook .width-control {
+		gap: 5px;
+	}
+}
+.netaq-notebook .editor-more {
+	position: relative;
+}
+.netaq-notebook .editor-more summary {
+	cursor: pointer;
+	list-style: none;
+	border: 1px solid #e2e3e7;
+	border-radius: 4px;
+	padding: 5px 9px;
+	font-size: 12px;
+	min-height: 30px;
+}
+.netaq-notebook .editor-more > div {
+	position: absolute;
+	right: 0;
+	top: 34px;
+	z-index: 100;
+	background: white;
+	border: 1px solid #e2e3e7;
+	border-radius: 5px;
+	padding: 5px;
+	box-shadow: 0 5px 18px #24252912;
+	display: flex;
+	flex-direction: column;
+	width: 170px;
+}
+.netaq-notebook .editor-more > div button {
+	border: 0 !important;
+	justify-content: flex-start;
+}
+
+.netaq-notebook.app {
+	height: 100dvh;
+	font-family: Inter, 'Noto Sans KR', system-ui, sans-serif;
+}
+.netaq-notebook.embedded {
+	height: calc(100dvh - 190px);
+	min-height: 620px;
+	border: 1px solid #e2e3e7;
+	border-radius: 8px;
+}
+.netaq-notebook .live-ink {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 4;
+}
+.netaq-notebook .editor-parking {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+.netaq-notebook .text-object {
+	z-index: 5;
+}
+.netaq-notebook .memo-popup {
+	z-index: 25;
+}
+
+.netaq-notebook.app {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.netaq-notebook .shared-editor {
+	flex: 1;
+	min-width: 0;
+}
+.netaq-notebook .shared-editor .editor-toolbar {
+	position: relative;
+	top: 0;
+}
+.netaq-notebook .preset-strip {
+	display: flex;
+	gap: 8px;
+}
+.netaq-notebook .preset-strip button {
+	font-size: 10px;
+}
+.netaq-notebook .preset-anchor {
+	position: relative;
+}
+.netaq-notebook .preset-popover {
+	position: absolute;
+	top: 42px;
+	left: 0;
+	width: 270px;
+	background: white;
+	border: 1px solid #e2e3e7;
+	box-shadow: 0 6px 18px #24252912;
+	border-radius: 6px;
+	padding: 12px;
+	z-index: 100;
+}
+.netaq-notebook .preset-heading {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.netaq-notebook .preset-popover label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.netaq-notebook .page-rail {
+	position: relative;
+}
+.netaq-notebook .thumb-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(var(--thumb-min, 72px), 1fr));
+	gap: 14px;
+	padding: 10px 14px;
+	align-content: start;
+}
+.netaq-notebook .page-thumb {
+	padding: 0 0 8px;
+}
+.netaq-notebook .thumb-size {
+	font-size: 10px;
+	padding: 0 14px;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	color: #777982;
+}
+.netaq-notebook .thumb-size input {
+	width: 100%;
+	height: 3px;
+	accent-color: #777982;
+}
+.netaq-notebook .rail-resizer {
+	position: absolute;
+	right: -3px;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+	min-height: 0;
+	padding: 0;
+	border-radius: 0;
+	z-index: 10;
+	cursor: col-resize;
+	touch-action: none;
+	background: #e2e3e7;
+}
+.netaq-notebook .rail-resizer:hover {
+	background: #aaa;
+}
+@media (max-width: 650px) {
+	.netaq-notebook .page-rail {
+		position: absolute;
+		inset: 0 auto 0 0;
+		z-index: 40;
+		box-shadow: 6px 0 20px #24252910;
+	}
+	.netaq-notebook .preset-strip {
+		gap: 3px;
+	}
+	.netaq-notebook .preset-strip button {
+		padding: 5px 6px;
+	}
+}
+
+.netaq-notebook .page-slot {
+	margin: 0 auto 26px;
+	width: max-content;
+	max-width: none;
+}
+.netaq-notebook .passive-page {
+	position: relative;
+	background: white;
+	touch-action: none;
+	cursor: default;
+	overflow: hidden;
+}
+.netaq-notebook .passive-page canvas,
+.netaq-notebook .passive-page svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.netaq-notebook .passive-ink { z-index: 3; }
+.netaq-notebook .passive-object { z-index: 5; }
+.netaq-notebook .passive-image { z-index: 2; }
+.netaq-notebook .passive-object {
+	position: absolute;
+	pointer-events: none;
+	overflow: hidden;
+}
+.netaq-notebook .passive-object img {
+	max-width: 100%;
+}
+.netaq-notebook .navigation-anchor {
+	position: relative;
+	margin-left: auto;
+}
+.netaq-notebook .navigation-anchor > button {
+	font-size: 11px;
+}
+.netaq-notebook .navigation-menu {
+	position: absolute;
+	right: 0;
+	top: 44px;
+	z-index: 100;
+	width: 220px;
+	padding: 7px;
+	border: 1px solid #e2e3e7;
+	border-radius: 5px;
+	background: white;
+	box-shadow: 0 6px 20px #24252912;
+	display: flex;
+	flex-direction: column;
+}
+.netaq-notebook .navigation-menu button {
+	font-size: 12px;
+	justify-content: flex-start;
+}
+
+.netaq-notebook .thumb-size {
+	white-space: nowrap;
+}
+.netaq-notebook .thumb-size input {
+	min-width: 0;
+}
+/* The host library chrome is replaced by the notebook title and Close action while editing. */
+.drive-page:has(.netaq-notebook.embedded) {
+	padding: 12px;
+	gap: 0;
+	max-width: none;
+	min-height: 100dvh;
+}
+.drive-page:has(.netaq-notebook.embedded) > .drive-header,
+.drive-page:has(.netaq-notebook.embedded) > .drive-storage,
+.drive-page:has(.netaq-notebook.embedded) > .drive-toolbar {
+	display: none;
+}
+.netaq-notebook.embedded {
+	height: calc(100dvh - 26px);
+	min-height: 550px;
+}
+/* Host button/input rules must not collapse thumbnail rows or wrap the shared toolbar. */
+.netaq-notebook .page-thumb {
+	height: auto;
+	min-height: 0;
+	flex-shrink: 0;
+	align-self: start;
+}
+.netaq-notebook .thumb-paper {
+	flex-shrink: 0;
+}
+.netaq-notebook .main-tools {
+	justify-content: flex-start;
+	overflow-x: auto;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+.netaq-notebook .app-header {
+	flex-wrap: nowrap;
+	align-items: center;
+}
+.netaq-notebook .doc-title {
+	margin: 0;
+	align-self: center;
+	min-width: 0;
+	height: 32px;
+	max-width: 45%;
+}
+.netaq-notebook .thumb-list {
+	grid-auto-rows: max-content;
+	grid-template-rows: none;
+	align-items: start;
+}
+.netaq-notebook .page-thumb {
+	display: block !important;
+	height: auto !important;
+	max-height: none !important;
+	min-height: 0 !important;
+	overflow: visible;
+	padding-bottom: 14px;
+}
+.netaq-notebook .page-thumb > .thumb-paper {
+	display: block;
+	height: auto !important;
+	min-height: 0;
+	max-height: none;
+	flex: none;
+}
+.netaq-notebook .page-thumb > span {
+	display: block;
+	margin-top: 8px;
+	line-height: 15px;
+}
+/* Fixed top-layer menus do not participate in the horizontally scrolling tool row. */
+.netaq-notebook {
+	position: relative;
+	isolation: isolate;
+}
+.netaq-notebook .notebook-popover .navigation-menu,
+.netaq-notebook .notebook-popover .image-menu {
+	position: static;
+	inset: auto;
+	width: 100%;
+	box-shadow: none;
+	margin: 0;
+}
+.netaq-notebook .main-tools {
+	height: 48px;
+	min-height: 48px;
+	flex-shrink: 0;
+	flex-wrap: nowrap;
+	overflow-y: hidden;
+	align-items: center;
+}
+.netaq-notebook .main-tools > button,
+.netaq-notebook .main-tools > i,
+.netaq-notebook .main-tools > div {
+	flex-shrink: 0;
+}
+.netaq-notebook .main-tools > button,
+.netaq-notebook .image-anchor > button {
+	width: 38px;
+	height: 36px;
+	min-height: 36px;
+	padding: 7px;
+	font-size: 0;
+}
+.netaq-notebook .tool-name-toast {
+	position: fixed;
+	top: 112px;
+	transform: translateX(-50%);
+	z-index: 200;
+	padding: 5px 9px;
+	border-radius: 4px;
+	background: #242529;
+	color: white;
+	font-size: 11px;
+	pointer-events: none;
+}
+.netaq-notebook .home-button {
+	width: 32px;
+	flex-shrink: 0;
+	font-size: 22px;
+	padding: 3px;
+}
+.netaq-notebook .back-list {
+	font-size: 12px;
+	flex-shrink: 0;
+}
+.netaq-notebook .viewer-actions {
+	position: absolute;
+	top: 14px;
+	right: 80px;
+	z-index: 2;
+	display: flex;
+	gap: 5px;
+}
+.netaq-notebook .viewer-actions button {
+	font-size: 11px;
+	min-height: 30px;
+}
+.netaq-notebook.embedded .doc-title {
+	flex: 1;
+	width: auto;
+	max-width: 40%;
+	font-size: 12px;
+}
+.netaq-notebook.embedded .save-state {
+	margin-right: 150px;
+	font-size: 10px;
+}
+.netaq-notebook .text-width-handle {
+	position: absolute;
+	right: -7px;
+	top: 50%;
+	width: 12px;
+	height: 28px;
+	min-height: 0;
+	padding: 0;
+	transform: translateY(-50%);
+	border: 1px solid #777982;
+	border-radius: 4px;
+	background: white;
+	cursor: ew-resize;
+	touch-action: none;
+	z-index: 20;
+}
+/* Desktop keeps a real library pane beside the reader; focus is an explicit option. */
+.drive-page:has(.netaq-notebook.embedded) {
+	padding: 18px 22px;
+	gap: 12px;
+	min-height: 100dvh;
+}
+.drive-page:has(.netaq-notebook.embedded) > .drive-header {
+	display: flex;
+}
+.drive-workspace.has-selection:has(.netaq-notebook.embedded) {
+	grid-template-columns: minmax(230px, 0.65fr) minmax(0, 1fr);
+	gap: 14px;
+}
+.drive-workspace:has(.netaq-notebook.embedded) .drive-list {
+	display: block;
+	max-height: calc(100dvh - 110px);
+	overflow: auto;
+}
+.netaq-notebook.embedded {
+	height: calc(100dvh - 102px);
+	min-height: 520px;
+}
+.drive-workspace.has-selection:has(.netaq-notebook.focus-mode) {
+	grid-template-columns: minmax(0, 1fr);
+}
+.drive-workspace:has(.netaq-notebook.focus-mode) .drive-list {
+	display: none;
+}
+.netaq-notebook.reading .page-rail {
+	width: 120px !important;
+}
+@media (max-width: 850px) {
+	.drive-workspace.has-selection:has(.netaq-notebook.embedded) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.drive-workspace:has(.netaq-notebook.embedded) .drive-list {
+		display: none;
+	}
+	.netaq-notebook .viewer-actions {
+		position: static;
+		background: white;
+		justify-content: flex-end;
+		padding: 0 10px;
+		min-height: 34px;
+	}
+	.netaq-notebook.embedded .save-state {
+		display: none;
+	}
+	.netaq-notebook .app-header {
+		padding: 0 10px;
+		gap: 5px;
+	}
+	.netaq-notebook .home-button {
+		width: 24px;
+	}
+	.netaq-notebook.embedded .doc-title {
+		max-width: none;
+	}
+	.drive-page:has(.netaq-notebook.embedded) {
+		padding: 0;
+		gap: 0;
+	}
+	.drive-page:has(.netaq-notebook.embedded) > .drive-header {
+		display: none;
+	}
+	.netaq-notebook.embedded {
+		height: 100dvh;
+		min-height: 0;
+		border-radius: 0;
+	}
+	.netaq-notebook .tool-name-toast {
+		top: 130px;
+	}
+	.netaq-notebook .main-tools {
+		scrollbar-width: none;
+	}
+	.netaq-notebook .main-tools::-webkit-scrollbar {
+		display: none;
+	}
+}
+.netaq-notebook .viewer-actions {
+	position: static;
+	min-height: 32px;
+	flex-shrink: 0;
+	justify-content: flex-end;
+	padding: 0 10px;
+	background: white;
+	border-bottom: 1px solid #e2e3e7;
+}
+.netaq-notebook.embedded .doc-title {
+	width: 0;
+	max-width: none;
+	flex: 1;
+}
+.netaq-notebook.embedded:not(.focus-mode) .save-state {
+	display: none;
+}
+.netaq-notebook .tool-settings {
+	max-height: 35dvh;
+	overflow: visible;
+}
+.drive-workspace.has-selection:has(.netaq-notebook.embedded) > .drive-list {
+	grid-column: 1;
+	grid-row: 1;
+	order: 0;
+}
+.drive-workspace.has-selection:has(.netaq-notebook.embedded) > .drive-preview {
+	grid-column: 2;
+	grid-row: 1;
+	order: 0;
+	min-width: 0;
+}
+.drive-workspace.has-selection:has(.netaq-notebook.focus-mode) > .drive-preview {
+	grid-column: 1;
+}
+.netaq-notebook .view-controls {
+	left: 50%;
+	max-width: calc(100% - 16px);
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+.netaq-notebook.embedded:not(.focus-mode) .view-controls > button:last-child {
+	display: none;
+}
+.netaq-notebook.embedded:not(.focus-mode) .viewport {
+	padding-left: 16px;
+	padding-right: 16px;
+}
+.netaq-notebook .doc-title {
+	text-overflow: ellipsis;
+}
+@media (max-width: 850px) {
+	.drive-workspace.has-selection:has(.netaq-notebook.embedded) > .drive-preview {
+		grid-column: 1;
+	}
+	.netaq-notebook .view-controls > button:last-child {
+		display: none;
+	}
+	.netaq-notebook .viewport {
+		padding-left: 16px;
+		padding-right: 16px;
+	}
+}
+.netaq-notebook.embedded {
+	height: var(--reader-height, calc(100dvh - 110px));
+	min-height: 0;
+}
+@media (max-width: 850px) {
+	.drive-page:has(.netaq-notebook.embedded) {
+		min-height: 0;
+	}
+	.ondo-main:has(.netaq-notebook.embedded) {
+		padding-bottom: 8px;
+	}
+}
+
+/* Keep the document surface stable while a mobile keyboard changes the visual viewport. */
+.netaq-notebook.app {
+	height: var(--reader-height, 100dvh);
+	min-height: 0;
+}
+.netaq-notebook .paper,
+.netaq-notebook .passive-page {
+	color-scheme: only light;
+	background-color: var(--paper-background, #fff);
+	background-image: linear-gradient(var(--paper-background, #fff), var(--paper-background, #fff));
+	color: var(--paper-foreground, #242529);
+}
+.netaq-notebook .live-ink {
+	background: transparent;
+}
+/* Each row is one single page or one spread, regardless of navigation direction. */
+.netaq-notebook .page-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	width: max-content;
+	margin: 0 auto 26px;
+}
+.netaq-notebook .page-row .page-slot {
+	flex: none;
+	margin: 0;
+}
+.netaq-notebook .two-page-toggle {
+	flex: none;
+}
+
+.netaq-notebook .resize-handle {
+	width: 18px;
+	height: 18px;
+	min-height: 18px;
+}
+.netaq-notebook .text-move-handle {
+	position: absolute;
+	top: -29px;
+	left: 0;
+	min-height: 26px;
+	padding: 3px 10px;
+	font-size: 11px;
+	background: #fff;
+	border: 1px solid #d9dbe0;
+	border-radius: 4px;
+	touch-action: none;
+	cursor: move;
+}
+.netaq-notebook .text-object {
+	overflow: visible;
+}
+.netaq-notebook .text-content {
+	transform-origin: top left;
+}
+.netaq-notebook .barrel-setting {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	white-space: nowrap;
+}
+.netaq-notebook .barrel-setting select {
+	font: inherit;
+	border: 1px solid #dedfe4;
+	border-radius: 4px;
+	padding: 4px;
+	background: white;
+	color: #45464e;
+}
+.netaq-notebook .pen-diagnostic-button {
+	font-size: 10px;
+	white-space: nowrap;
+}
+.netaq-notebook .add-page-actions {
+	display: flex;
+	align-items: center;
+	padding-right: 8px;
+}
+.netaq-notebook .add-page-actions .add-page {
+	flex: 1;
+	margin-right: 0;
+}
+.netaq-notebook.library-workspace .brand,
+.netaq-notebook.library-workspace .header-divider {
+	display: none;
+}
+.netaq-notebook .selection-box {
+	border: 1.5px solid #637994;
+	background: #6379940a;
+}
+
+.netaq-notebook .paper .tiptap {
+	color: var(--paper-foreground, #242529);
+}
+.notebook-popover .preset-popover {
+	position: static;
+	box-shadow: none;
+	border: 0;
+	width: 100%;
+	margin: 0;
+	max-height: 65dvh;
+	overflow: auto;
+}
+
+/* Daily host uses the same notebook engine and toolbar as Drive. */
+.netaq-notebook.daily-notebook{width:100%;max-width:420px;height:auto;min-height:0;background:white;border:0;display:flex;flex-direction:column;position:relative}
+.daily-notebook .workspace{height:780px;min-height:0;display:block}
+.daily-notebook .viewport{height:100%;padding:0!important;background:white}
+.daily-notebook .paper{box-shadow:none;border:0}
+.daily-notebook .main-tools{gap:2px;padding:6px 0;flex-wrap:wrap;min-height:40px;border:0;background:white}
+.daily-notebook .main-tools>button:first-child,.daily-notebook .navigation-anchor,.daily-notebook .two-page-toggle,.daily-notebook .main-tools>.image-anchor,.daily-notebook .main-tools>i,.daily-notebook .status-bar{display:none}
+.daily-notebook .main-tools button{width:34px;min-width:34px;height:36px;padding:6px}
+.daily-notebook .daily-save-state{font-size:12px;color:#696b73;padding:6px 0}
+.daily-notebook .daily-settings-toggle{align-self:flex-end;font-size:12px;padding:4px 8px;position:absolute;right:0;top:0;min-height:28px}
+.daily-notebook .tool-settings{flex-wrap:wrap;height:auto;min-height:40px;padding:8px 0}
+.daily-background{position:absolute;inset:0;z-index:0}
+.daily-background svg{display:block;width:100%;height:100%}
+.daily-background button{position:absolute;text-align:left;overflow:hidden;padding:4px;font-size:13px;line-height:1.3;border:0;border-left:3px solid #27634b;background:#eaf3ee;color:#27634b;border-radius:3px}
+.daily-background button small{display:block;font-size:11px}
+.daily-notebook .pdf-layer{pointer-events:none}
+
+.daily-notebook>footer{display:none}
+.netaq-notebook.daily-notebook .daily-background button{display:block;text-align:left;align-content:start;justify-content:start;min-height:0}
+.daily-background button strong,.daily-background button small{display:block}
+.daily-notebook .paper:not(.hand) .daily-background button{pointer-events:none}
+
+.netaq-notebook .storage-link{font-size:10px;color:#b44e39;text-decoration:none;white-space:nowrap;}

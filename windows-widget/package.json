@@ -1,0 +1,50 @@
+{
+  "name": "netaq-desktop-widget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NETAQ desktop calendar and task widget",
+  "author": "NETAQ",
+  "main": "main.cjs",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "dist:win": "electron-builder --win nsis zip --x64 --config.directories.output=build-release && node scripts/publish.cjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "app.chobab.netaq.widget",
+    "productName": "NETAQ Widget",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "client.cjs",
+      "ui/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "artifactName": "NETAQ-Widget-${version}-${arch}.${ext}",
+      "signExecutable": false,
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NETAQ Widget",
+      "artifactName": "NETAQ-Widget-Setup-${version}.${ext}"
+    }
+  }
+}

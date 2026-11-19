@@ -1,6 +1,8 @@
 <!-- src/routes/odi/session/presentation/confirm/+page.svelte -->
 
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+	import { locale, copy } from "$lib/odi/i18n";
 	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -117,9 +119,9 @@
 	const paperName = $derived(draft?.files.paper?.original_name ?? '논문 없음');
 
 	const summaryItems = $derived([
-		{ label: '발표 시간', value: duration, icon: sessiontime },
-		{ label: '발표 환경', value: place, icon: sessionenviron },
-		{ label: '청중 규모', value: audienceSize, icon: audiencenum },
+		{ label: copy($locale, "발표 시간"), value: duration, icon: sessiontime },
+		{ label: copy($locale, "발표 환경"), value: place, icon: sessionenviron },
+		{ label: copy($locale, "청중 규모"), value: audienceSize, icon: audiencenum },
 		{ label: '청중 페르소나', value: persona, icon: audiencepersona }
 	]);
 </script>
@@ -131,14 +133,13 @@
 		<div class="title-group">
 			<h1 class="text-title-main">Ready for Re:hear 🌟</h1>
 			<p class="subtitle text-caption-main">
-				모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!
+				{copy($locale, "모든 설정이 완료되었어요. 대기 중인 AI 청중과 함께 실전 같은 발표 연습을 시작해보세요!")}
 			</p>
 		</div>
 	</header>
-	<TemplateSaveBar />
 
 	<section class="info-card">
-		<p class="text-body-medium">발표 정보</p>
+		<p class="text-body-medium">{copy($locale, "발표 정보")}</p>
 
 		<div class="info-line">
 			<strong class="text-body-bold">{title}</strong>
@@ -155,6 +156,7 @@
 	<SessionConfirmCard previewImage={presenimage} items={summaryItems} />
 
 	<section class="start-area">
+		<a class="edit-environment" href="/odi/session/presentation">{copy($locale, "환경 수정하기")}</a>
 		<button
 			type="button"
 			class="start-link clickable text-button-start"
@@ -164,15 +166,15 @@
 			<img src={goggle} alt="" />
 			<span
 				>{!clientReady
-					? '페이지 준비 중...'
+					? tr($siteLocale, "페이지 준비 중...")
 					: isCheckingAccount
-						? '계정 확인 중...'
-						: '이 환경으로 세션 시작'}</span
+						? tr($siteLocale, "계정 확인 중...")
+						: tr($siteLocale, "이 환경으로 세션 시작")}</span
 			>
 		</button>
 
 		<p class="start-help text-caption-medium">
-			이번 설정으로 연습을 시작합니다. 저장된 기본 환경은 그대로 유지돼요.
+			{copy($locale, "이번 설정으로 연습을 시작합니다. 저장된 기본 환경은 그대로 유지돼요.")}
 		</p>
 		{#if startError}
 			<p class="start-error" role="alert">{startError}</p>
@@ -182,9 +184,18 @@
 	{#if showSessionModeModal}
 		<SessionModeModal onselect={selectSessionMode} />
 	{/if}
+	<TemplateSaveBar />
 </main>
 
 <style>
+	.edit-environment {
+		padding: 12px 24px;
+		border: 1px solid var(--primary);
+		border-radius: var(--radius-sm);
+		color: var(--primary);
+		text-decoration: none;
+		text-align: center;
+	}
 	.confirm-page {
 		width: 100%;
 		min-height: 100vh;

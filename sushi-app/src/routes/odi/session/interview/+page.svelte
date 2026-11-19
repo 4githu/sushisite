@@ -1,4 +1,6 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import TemplateSaveBar from '$lib/odi/components/session/TemplateSaveBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -6,12 +8,12 @@
 	import Button from '$lib/odi/components/common/Button.svelte';
 	import { template, type InterviewTemplate } from '$lib/odi/stores';
 	import ProgressStepper from '$lib/odi/components/session/ProgressStepper.svelte';
-	const steps = [
-		{ label: '면접 기본 정보' },
-		{ label: '자료 업로드' },
-		{ label: 'AI 면접관 설정' },
-		{ label: '세션 확인' }
-	];
+	const steps = $derived([
+		{ label: tr($siteLocale, "면접 기본 정보") },
+		{ label: tr($siteLocale, "자료 업로드") },
+		{ label: tr($siteLocale, "AI 면접관 설정") },
+		{ label: tr($siteLocale, "세션 확인") }
+	]);
 	import SessionBasicInfoCard from '$lib/odi/components/session/InterviewSessionBasicInfoCard.svelte';
 
 	let basicInfo = $state({
@@ -96,14 +98,13 @@
 		<p class="text-caption-main eyebrow">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">면접 기본 정보</h1>
+			<h1 class="text-title-main">{tr($siteLocale, "면접 기본 정보")}</h1>
 
 			<p class="text-caption-main description">
-				실전과 같은 환경을 설정하고, AI 면접관과 함께 연습을 시작해요.
+				{tr($siteLocale, "실전과 같은 환경을 설정하고, AI 면접관과 함께 연습을 시작해요.")}
 			</p>
 		</div>
 	</header>
-	<TemplateSaveBar />
 
 	<ProgressStepper {steps} currentStep={0} />
 
@@ -174,10 +175,11 @@
 	/>
 
 	<div class="actions">
-		<Button variant="secondary" width="212px" disabled>이전 단계</Button>
+		<Button variant="secondary" width="212px" disabled>{copy($locale, "이전 단계")}</Button>
 
-		<Button width="212px" disabled={!canNext} onclick={goNext}>다음 단계</Button>
+		<Button width="212px" disabled={!canNext} onclick={goNext}>{copy($locale, "다음 단계")}</Button>
 	</div>
+	<TemplateSaveBar />
 </section>
 
 <style>

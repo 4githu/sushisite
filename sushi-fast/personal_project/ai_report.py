@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -19,7 +20,7 @@ from .make_report_test.db_repository import (
     set_run_score_format,
     start_run,
 )
-from .make_report_test.gemini_report_service import GeminiReportService
+from .make_report_test.gemini_report_service import GeminiReportError, GeminiReportService
 from .make_report_test.model_registry import default_model_id, get_report_model, model_options
 from .make_report_test.provider_report_service import ProviderReportService
 
@@ -37,6 +38,32 @@ def saved_generations(user_id: int, target_id: int) -> dict[str, Any]:
 def _input_hash(value: dict[str, Any]) -> str:
     canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+_DIAGNOSTIC_CODES = frozenset({
+    "provider_error", "network_error", "cache_name_missing", "empty_response",
+    "invalid_json", "invalid_json_root", "invalid_output_learning_content",
+    "invalid_output_assessment", "invalid_output_score_count",
+    "provider_blocked_safety", "provider_blocked_other", "provider_blocked_blocklist",
+    "provider_blocked_prohibited_content", "provider_blocked_image_safety",
+    "provider_blocked_recitation", "provider_blocked_spii",
+})
+
+
+def _diagnostic_code(exc: Exception) -> str:
+    if not isinstance(exc, GeminiReportError):
+        return "unclassified"
+    code = getattr(exc, "diagnostic_code", None)
+    if isinstance(code, str) and (code in _DIAGNOSTIC_CODES or re.fullmatch(r"api_http_[1-5][0-9]{2}", code)):
+        return code
+    return "unclassified"
+
+
+def _safe_generation_error(stage: str, exc: Exception) -> str:
+    name = type(exc).__name__
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name):
+        name = "Exception"
+    return f"{stage}:{name}:{_diagnostic_code(exc)}"
 
 
 def generate(
@@ -109,7 +136,22 @@ def generate(
             "source": "user",
         }
 
+    # Snapshot the effective selection, not just its DB id: edits to the same row
+    # must invalidate completed runs without introducing time-dependent hashes.
+    score_format_snapshot = None
+    if score_format is not None:
+        score_format_snapshot = {
+            "id": score_format.get("id"),
+            "name": score_format.get("name"),
+            "items": list(score_format["items"]),
+            "source": score_format.get("source"),
+        }
+        for key in ("version", "revision"):
+            if key in score_format:
+                score_format_snapshot[key] = score_format[key]
+
     report_input["options"] = {
+        "scoreFormatSnapshot": score_format_snapshot,
         "scoreMode": effective_score_mode,
         "requestedScoreMode": score_mode,
         "assessmentItems": clean_assessment,
@@ -141,12 +183,14 @@ def generate(
         input_hash=input_hash,
     )
     service = None
+    stage = "provider_initialize"
     try:
         service = (
             GeminiReportService(model=model_id, explicit_cache=option.explicit_cache)
             if option.provider == "gemini"
             else ProviderReportService(option.provider, model_id)
         )
+        stage = "provider_generate"
         output, _ = service.generate(
             report_input=report_input,
             score_mode=effective_score_mode,
@@ -157,7 +201,8 @@ def generate(
             for item in output["assessment"].get("items", []):
                 if item.get("name") in fixed_scores:
                     item["score"] = fixed_scores[item["name"]]
-        if output.get("assessment") and not previous_runs:
+        stage = "persist_generated_report"
+        if output.get("assessment") and not previous_runs and (not score_format or score_format.get("id") is None):
             assessment = output["assessment"]
             format_id = save_generated_score_format(
                 report_input,
@@ -179,10 +224,31 @@ def generate(
             "cacheNotice": service.cache_notice,
         }
     except Exception as exc:
-        finish_run(run_id, error=str(exc))
+        safe_error = _safe_generation_error(stage, exc)
+        finish_run(run_id, error=safe_error)
+        code = _diagnostic_code(exc)
+        blocked = stage == "provider_generate" and code in {
+            "provider_blocked_safety", "provider_blocked_other", "provider_blocked_blocklist",
+            "provider_blocked_prohibited_content", "provider_blocked_image_safety",
+            "provider_blocked_recitation", "provider_blocked_spii",
+        }
+        unavailable = stage == "provider_generate" and code == "api_http_503"
         raise HTTPException(
-            status_code=502,
-            detail={"message": "선택한 모델의 생성이 실패했습니다.", "errors": [{"model": model_id, "message": str(exc)}]},
+            status_code=422 if blocked else 502,
+            detail={
+                "code": ("ai_report_provider_blocked" if blocked else
+                         "ai_report_provider_unavailable" if unavailable else "ai_report_generation_failed"),
+                "message": (
+                    "AI 제공자가 이 자료의 생성을 제한했습니다. 입력 자료를 검토해 주세요. "
+                    "같은 자료로 재시도해도 해결되지 않을 수 있습니다."
+                    if blocked else
+                    "AI 제공자가 일시적으로 요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요."
+                    if unavailable else "선택한 모델의 생성이 실패했습니다."
+                ),
+                "retryable": not blocked,
+                "runId": run_id,
+                "errors": [{"model": model_id, "message": safe_error}],
+            },
         ) from exc
     finally:
         if service:

@@ -1,6 +1,8 @@
 <!-- src/lib/odi/components/report/AudienceReactionCard.svelte -->
 
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
+ import { locale, copy } from "$lib/odi/i18n";
 	import type { AudienceGraphPoint, ReportFeedback } from './reportTypes';
 	import { Exclude, sentiment_satisfied, sms } from '$lib/odi/icons';
 
@@ -54,19 +56,19 @@
 <div class:timeline={variant === 'timeline'} class="audience-shell">
 	{#if graph.length === 0 && summaryCards.length === 0}
 		<div class="audience-empty">
-			<strong>청중 반응 분석</strong>
-			<p>청중 반응 데이터가 아직 생성되지 않았습니다.</p>
+			<strong>{tr($siteLocale, "청중 반응 분석")}</strong>
+			<p>{tr($siteLocale, "청중 반응 데이터가 아직 생성되지 않았습니다.")}</p>
 		</div>
 	{:else}
 		<div class="audience-card">
 			<section class="chart-area">
 				<div class="chart-header">
-					<h2>청중 반응 분석</h2>
+					<h2>{tr($siteLocale, "청중 반응 분석")}</h2>
 
 					<div class="legend">
-						<span><i class="dot e"></i>시선 응시</span>
-						<span><i class="dot v"></i>질문 생성</span>
-						<span><i class="dot c"></i>긍정 반응</span>
+						<span><i class="dot e"></i>{copy($locale, "시선 응시")}</span>
+						<span><i class="dot v"></i>{copy($locale, "질문 생성")}</span>
+						<span><i class="dot c"></i>{copy($locale, "긍정 반응")}</span>
 					</div>
 				</div>
 
@@ -77,7 +79,7 @@
 						<span>0</span>
 					</div>
 
-					<svg viewBox="0 0 430 170" class="line-chart" aria-label="청중 반응 그래프">
+					<svg viewBox="0 0 430 170" class="line-chart" aria-label={tr($siteLocale, "청중 반응 그래프")}>
 						<line class="grid" x1="0" y1="10" x2="430" y2="10" />
 						<line class="grid" x1="0" y1="85" x2="430" y2="85" />
 						<line class="grid" x1="0" y1="160" x2="430" y2="160" />

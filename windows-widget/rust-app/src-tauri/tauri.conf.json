@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NETAQ",
+  "version": "0.13.2",
+  "identifier": "app.chobab.netaq.desktop",
+  "build": {
+    "frontendDist": "../frontend"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "NETAQ",
+        "url": "https://netaq.chobab.app/personal-project/calendar/today",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 360,
+        "minHeight": 480,
+        "resizable": true,
+        "label": "main",
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'"
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/widget-icon.png",
+      "icons/widget-icon.ico"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5REM0MzU0M0Q4ODBDNzYKUldSMkRJZzlWRVBjcVd3ZWNSNEhiSWkvQjRuQVoyaGR3SUgvTDVGZ0VMdEhYWGlSRkdaMk11ckMK",
+      "endpoints": [
+        "https://netaq.chobab.app/downloads/windows-update"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

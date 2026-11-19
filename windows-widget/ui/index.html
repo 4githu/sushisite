@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>NETAQ Widget</title>
+    <link rel="stylesheet" href="widget.css" />
+    <script src="widget.js" defer></script>
+  </head>
+  <body>
+    <header class="window-bar">
+      <span class="brand"><img src="assets/logo.svg" alt="" />NETAQ</span>
+      <div>
+        <button id="settings-toggle" aria-label="위젯 설정">설정</button
+        ><button id="minimize" aria-label="최소화">−</button
+        ><button id="close" aria-label="닫기">×</button>
+      </div>
+    </header>
+    <main>
+      <section id="connection" hidden>
+        <h1>계정 연결</h1>
+        <p>NETAQ의 프로필 → 연결·프로젝트 → 위젯에서 연결 코드를 만들어요.</p>
+        <button id="pair-page">연결 코드 받기</button>
+        <form id="connect-form">
+          <label>서비스<select id="origin"></select></label
+          ><label
+            >연결 코드<input
+              id="code"
+              autocomplete="off"
+              spellcheck="false"
+              required
+              maxlength="200"
+              placeholder="5분 안에 사용할 수 있어요" /></label
+          ><button class="primary" id="connect">연결하기</button>
+        </form>
+      </section>
+      <section id="content" hidden>
+        <div class="date-heading">
+          <div>
+            <h1 id="date-title"></h1>
+            <button id="today">오늘</button>
+          </div>
+          <div>
+            <button id="previous" aria-label="이전 날짜">‹</button
+            ><button id="next" aria-label="다음 날짜">›</button
+            ><button id="refresh" aria-label="새로고침">↻</button>
+          </div>
+        </div>
+        <nav aria-label="위젯 보기">
+          <button data-view="day" aria-pressed="true">오늘</button
+          ><button data-view="week">주간</button
+          ><button data-view="month">월간</button
+          ><button data-view="tasks">할 일</button>
+        </nav>
+        <form id="capture-form">
+          <label for="capture">빠른 기록</label>
+          <div>
+            <input
+              id="capture"
+              maxlength="2000"
+              placeholder="떠오른 일을 적어두세요"
+              autocomplete="off"
+            /><button id="capture-save" class="primary">기록</button>
+          </div>
+        </form>
+        <div id="month" hidden></div>
+        <div id="events" aria-label="일정"></div>
+        <section id="tasks-section">
+          <h2>할 일</h2>
+          <div id="tasks"></div>
+        </section>
+        <section id="memo-section">
+          <h2>메모</h2>
+          <p id="memo"></p>
+          <button id="open-note">메모 이어 쓰기</button>
+        </section>
+
+        <button id="open-calendar" class="wide">캘린더 열기</button>
+      </section>
+      <section id="settings" hidden>
+        <h2>위젯 설정</h2>
+        <label class="check"
+          ><input id="top" type="checkbox" />항상 위에 표시</label
+        ><label class="check"
+          ><input id="startup" type="checkbox" />Windows 로그인할 때 실행</label
+        ><label
+          >화면<select id="theme">
+            <option value="system">시스템 설정</option>
+            <option value="light">밝게</option>
+            <option value="dark">어둡게</option>
+          </select></label
+        ><button id="disconnect">이 기기 연결 해제</button>
+      </section>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p id="error" role="alert"></p>
+      <small id="updated"></small>
+    </main>
+  </body>
+</html>

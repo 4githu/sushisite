@@ -16,7 +16,7 @@
 	const palette = $derived(
 		kind === 'text'
 			? ['#111827', '#dc2626', '#ea580c', '#16a34a', '#2563eb', '#7c3aed']
-			: ['#fef08a', '#fed7aa', '#fecaca', '#bbf7d0', '#bfdbfe', '#ddd6fe']
+			: ['#fef08a', '#fed7aa', '#fdba74', '#fecaca', '#bbf7d0', '#bfdbfe', '#ddd6fe']
 	);
 	const storageKey = $derived(`textediter-recent-${kind}`);
 	let recent = $state<string[]>([]);

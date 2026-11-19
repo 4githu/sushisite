@@ -1,6 +1,7 @@
 <!-- src/lib/odi/components/report/AIInsightCard.svelte -->
 
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import type { ReportFeedback } from './reportTypes';
 	import { figmaArrowForward } from '$lib/odi/icons';
 
@@ -18,7 +19,7 @@
 
 <section class="ai-card">
 	<div class="text-area">
-		<h2>AI 핵심 결과</h2>
+		<h2>{tr($siteLocale, "AI 핵심 결과")}</h2>
 		<strong>{title}</strong>
 
 		{#if description}
@@ -27,7 +28,7 @@
 	</div>
 
 	<button type="button" class="training-button clickable" onclick={onStartTraining}>
-		<span>맞춤 훈련 시작</span>
+		<span>{tr($siteLocale, "맞춤 훈련 시작")}</span>
 		<span class="arrow-icon" aria-hidden="true"><img src={figmaArrowForward} alt="" /></span>
 	</button>
 </section>

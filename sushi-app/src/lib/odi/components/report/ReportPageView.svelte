@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { locale as siteLocale, copy as tr } from "$lib/odi/i18n";
 	import ReportHeader from './ReportHeader.svelte';
 	import ScoreOverviewCard from './ScoreOverviewCard.svelte';
 	import MetricMeaningCard from './MetricMeaningCard.svelte';
@@ -30,19 +31,12 @@
 <div class="report-page-view" data-report-version="v2">
 	<ReportHeader {session} {feedback} {onOpenPrevious} {onDownload} />
 
-	{#if generationWarnings.length > 0}
-		<section class="generation-notice" aria-label="분석 데이터 안내">
-			<strong>일부 입력이 제한된 상태로 분석되었습니다.</strong>
-			<span>{generationWarnings.join(', ')}</span>
-		</section>
-	{/if}
-
 	<section class="report-section" aria-labelledby="summary-title">
 		<div class="section-heading">
 			<span>1</span>
 			<div>
-				<p>한눈에 보는 결과</p>
-				<h2 id="summary-title">총점과 핵심 결과</h2>
+				<p>{tr($siteLocale, "한눈에 보는 결과")}</p>
+				<h2 id="summary-title">{tr($siteLocale, "총점과 핵심 결과")}</h2>
 			</div>
 		</div>
 
@@ -58,8 +52,8 @@
 		<div class="section-heading">
 			<span>2</span>
 			<div>
-				<p>점수 해석</p>
-				<h2 id="meaning-title">지표의 의미와 평가 기준</h2>
+				<p>{tr($siteLocale, "점수 해석")}</p>
+				<h2 id="meaning-title">{tr($siteLocale, "지표의 의미와 평가 기준")}</h2>
 			</div>
 		</div>
 		<MetricMeaningCard {feedback} />
@@ -69,8 +63,8 @@
 		<div class="section-heading">
 			<span>3</span>
 			<div>
-				<p>다음 발표에서 바꿀 점</p>
-				<h2 id="action-title">개선이 필요한 행동</h2>
+				<p>{tr($siteLocale, "다음 발표에서 바꿀 점")}</p>
+				<h2 id="action-title">{tr($siteLocale, "개선이 필요한 행동")}</h2>
 			</div>
 		</div>
 		<TimelineFeedbackCard {feedback} sessionId={session.session_id} showMedia={showTimelineVideo} />
@@ -80,8 +74,8 @@
 		<div class="section-heading">
 			<span>4</span>
 			<div>
-				<p>점수의 근거</p>
-				<h2 id="evidence-title">상세 분석과 청중 반응</h2>
+				<p>{tr($siteLocale, "점수의 근거")}</p>
+				<h2 id="evidence-title">{tr($siteLocale, "상세 분석과 청중 반응")}</h2>
 			</div>
 		</div>
 
@@ -90,6 +84,13 @@
 			<div class="audience-card-shell"><AudienceReactionCard {feedback} /></div>
 		</div>
 	</section>
+
+	{#if generationWarnings.length > 0}
+		<section class="generation-notice" aria-label={tr($siteLocale, "분석 데이터 안내")}>
+			<strong>{tr($siteLocale, "일부 입력이 제한된 상태로 분석되었습니다.")}</strong>
+			<span>{generationWarnings.join(', ')}</span>
+		</section>
+	{/if}
 </div>
 
 <style>

@@ -8,6 +8,19 @@ from email.mime.multipart import MIMEMultipart
 GOOGLE_PASSWORD = os.getenv("GOOGLEPASSWORD")
 EMAIL = os.getenv("MAIN_MAIL")
 
+def send_account_verification_email(email, system_name, code):
+    """Send a server-generated account confirmation code; transport raises on failure."""
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.starttls()
+        smtp.login(EMAIL, GOOGLE_PASSWORD)
+        msg = MIMEMultipart()
+        msg['From'] = f"{system_name} <{EMAIL}>"
+        msg['To'] = email
+        msg['Subject'] = "이메일 주소 확인"
+        msg.attach(MIMEText(f"이메일 확인 코드: {code}", 'plain'))
+        smtp.send_message(msg)
+
+
 def send_verification_email(email, system_name):
     code = random.randint(100000, 999999)
     with smtplib.SMTP("smtp.gmail.com", 587) as smtp:

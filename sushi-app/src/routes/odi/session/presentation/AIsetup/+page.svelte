@@ -1,5 +1,6 @@
 <!-- src/routes/odi/session/presentation/audience/+page.svelte -->
 <script lang="ts">
+	import { locale, copy } from "$lib/odi/i18n";
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -12,12 +13,12 @@
 
 	type PersonaType = '' | 'general' | 'student' | 'judge' | 'mixed';
 
-	const steps = [
-		{ label: '발표 기본 정보' },
-		{ label: '자료 업로드' },
-		{ label: 'AI 청중 설정' },
-		{ label: '세션 확인' }
-	];
+	const steps = $derived([
+		{ label: copy($locale, "발표 기본 정보") },
+		{ label: copy($locale, "자료 업로드") },
+		{ label: copy($locale, "AI 청중 설정") },
+		{ label: copy($locale, "세션 확인") }
+	]);
 
 	let ready = $state(false);
 	let isSaving = $state(false);
@@ -128,9 +129,9 @@
 		<p class="page-label text-caption-main">Session Setup</p>
 
 		<div class="title-group">
-			<h1 class="text-title-main">AI 청중 설정</h1>
+			<h1 class="text-title-main">{copy($locale, "AI 청중 설정")}</h1>
 			<p class="subtitle text-caption-main">
-				청중 페르소나를 설정하여 원하는 발표 분위기를 구성할 수 있어요.
+				{copy($locale, "청중 페르소나를 설정하여 원하는 발표 분위기를 구성할 수 있어요.")}
 			</p>
 		</div>
 	</header>
@@ -146,29 +147,29 @@
 		/>
 
 		<TipCard
-			title="청중 페르소나 선택 TIP"
-			description="AI 청중은 실시간으로 발표에 반응합니다."
+			title={copy($locale, "청중 페르소나 선택 TIP")}
+			description={copy($locale, "AI 청중은 실시간으로 발표에 반응합니다.")}
 			tips={[
 				{
 					icon: Check,
-					description: '청중 유형에 따라 질문 수준과 반응이 달라집니다.'
+					description: copy($locale, "청중 유형에 따라 질문 수준과 반응이 달라집니다.")
 				},
 				{
 					icon: Check,
-					description: '발표 내용에 맞춰 피드백을 제공합니다.'
+					description: copy($locale, "발표 내용에 맞춰 피드백을 제공합니다.")
 				},
 				{
 					icon: Check,
-					description: '실제 청중처럼 다양한 반응을 경험할 수 있습니다.'
+					description: copy($locale, "실제 청중처럼 다양한 반응을 경험할 수 있습니다.")
 				},
 				{
 					icon: Check,
-					description: '전문성을 고려한 현실적인 질의를 제공합니다.'
+					description: copy($locale, "전문성을 고려한 현실적인 질의를 제공합니다.")
 				},
 				{
 					icon: Check,
 					description:
-						'청중 규모와 분위기에 따라 발표 몰입도와 대응력을 효과적으로 훈련할 수 있습니다.'
+						copy($locale, "청중 규모와 분위기에 따라 발표 몰입도와 대응력을 효과적으로 훈련할 수 있습니다.")
 				}
 			]}
 		/>
@@ -183,7 +184,7 @@
 			width="212px"
 			onclick={() => goto('/odi/session/presentation/upload')}
 		>
-			이전 단계
+			{copy($locale, "이전 단계")}
 		</Button>
 
 		<Button
@@ -193,7 +194,7 @@
 			trailingIcon={grayright}
 			onclick={goNext}
 		>
-			{isSaving ? '설정 저장 중...' : '다음 단계'}
+			{isSaving ? copy($locale, "설정 저장 중...") : copy($locale, "다음 단계")}
 		</Button>
 	</footer>
 </main>
