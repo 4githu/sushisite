@@ -7,11 +7,17 @@
 	let {
 		exercise,
 		attempt,
+		runId = '',
+		stage = '',
+		restartFailed = false,
 		oncreated,
 		onclose
 	}: {
 		exercise: PracticeExercise;
 		attempt: PracticeAttempt | null;
+		runId?: string;
+		stage?: string;
+		restartFailed?: boolean;
 		oncreated: (id: string) => void;
 		onclose: () => void;
 	} = $props();
@@ -97,6 +103,12 @@
 			form.append('attempt_id', attemptId);
 			form.append('metric_id', exercise.id);
 			form.append('target_seconds', String(target));
+			if (runId && stage) {
+				form.append('run_id', runId);
+				form.append('stage', stage);
+				if (restartFailed || (attempt?.state === 'failed' && attempt.attempt_id !== attemptId))
+					form.append('restart_failed', 'true');
+			}
 			const res = await fetch(`${API_BASE}/odi/coaching/practice/attempts`, {
 				method: 'POST',
 				credentials: 'include',
