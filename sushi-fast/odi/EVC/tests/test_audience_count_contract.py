@@ -198,7 +198,7 @@ def test_six_audience_golden_unchanged(seed):
     assert asyncio.run(six_golden(seed)) == expected[str(seed)]
 
 
-@pytest.mark.parametrize("count", [1, 6, 12, 50])
+@pytest.mark.parametrize("count", [*range(1, 11), 12, 50])
 @pytest.mark.parametrize("independent", [False, True])
 def test_start_read_update_return_exact_registry(api, count, independent):
     app, store, bound, _, _, _ = api

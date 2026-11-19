@@ -20,6 +20,7 @@ from .command_builder import build_unity_commands, commit_command_times
 from .config import EVC_INCLUDE_DIAGNOSTICS
 from .evaluation import (
     SegmentEvaluationProvider,
+    default_segment_provider,
     empty_evaluation,
     evaluate_presentation_segment,
 )
@@ -190,6 +191,7 @@ async def update_pipeline(
             provider=selected_stt_provider,
         )
         trace.stt_finished_monotonic = monotonic_clock()
+        evaluation_provider = evaluation_provider or default_segment_provider()
         evaluation, speech_metrics, warnings = await evaluate_presentation_segment(
             presentation_title=record.presentation_title,
             slides=record.slides,

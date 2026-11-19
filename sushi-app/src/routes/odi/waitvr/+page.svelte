@@ -14,9 +14,7 @@
 	let preSessionState = $state('waiting');
 	let sessionId = $state(null as string | null);
 	let isRegenerating = $state(false);
-	let presentationTimer: ReturnType<typeof setTimeout> | null = null;
 	let sessionMode = $state<'waiting' | 'experience' | 'regular'>('waiting');
-	let presentationElapsed = $state(false);
 	let isExperienceStarting = $state(false);
 	let isRegularStarting = $state(false);
 	let experienceError = $state('');
@@ -24,8 +22,6 @@
 	let reportStatus = $state('not_started');
 	let isRetryingReport = $state(false);
 	const isExperienceSession = $derived(sessionMode === 'experience');
-	const displayedPinCode = $derived(isExperienceSession ? '1234' : pinCode);
-	const fixedDemoDurationMs = 2 * 60 * 1000;
 	const EXPERIENCE_ACCOUNT_EMAIL = 'xrealrehear@gmail.com';
 
 	function syncFromSessionStore(value: any = sessionStore) {
@@ -37,33 +33,21 @@
 		reportStatus = preSession.report_status ?? 'not_started';
 	}
 
-	function startPresentationTimer() {
-		if (presentationTimer !== null) clearTimeout(presentationTimer);
-		presentationElapsed = false;
-		presentationTimer = setTimeout(() => {
-			presentationElapsed = true;
-			presentationTimer = null;
-		}, fixedDemoDurationMs);
-	}
 
 	onMount(() => {
 		syncFromSessionStore();
 
 		if (pinCode) {
-			sessionMode = 'regular';
+			sessionMode = page.url.searchParams.get('mode') === 'experience' ? 'experience' : 'regular';
 			void startPolling();
 		} else {
 			void startRequestedSession();
-		}
-		if (preSessionState === 'finished') {
-			presentationElapsed = true;
 		}
 		const unsubscribe = sessionStore.subscribe?.((value: any) => {
 			syncFromSessionStore(value);
 		});
 
 		return () => {
-			if (presentationTimer !== null) clearTimeout(presentationTimer);
 			if (typeof unsubscribe === 'function') {
 				unsubscribe();
 			}
@@ -75,10 +59,6 @@
 	});
 
 	const canOpenReport = $derived(preSessionState === 'finished' && !!sessionId);
-	const canClickReport = $derived(isExperienceSession ? !!sessionId : canOpenReport);
-	const reportButtonVariant = $derived(
-		isExperienceSession && !presentationElapsed ? 'secondary' : 'primary'
-	);
 
 	async function startPolling() {
 		pollingError = '';
@@ -120,10 +100,9 @@
 		sessionMode = 'experience';
 
 		try {
-			await sessionStore.startFixedDemoPresentation?.();
+			await sessionStore.startExperiencePresentation?.();
 			syncFromSessionStore(sessionStore.get?.());
-			await sessionStore.finishFixedDemoPresentation?.();
-			startPresentationTimer();
+			void startPolling();
 		} catch (error) {
 			sessionMode = 'waiting';
 			experienceError = error instanceof Error ? error.message : '체험 세션을 시작하지 못했습니다.';
@@ -159,8 +138,6 @@
 
 		try {
 			const modeToRestart = sessionMode;
-			presentationElapsed = false;
-			if (presentationTimer !== null) clearTimeout(presentationTimer);
 			sessionStore.clear?.();
 
 			if (modeToRestart === 'experience') {
@@ -213,7 +190,7 @@
 		{#if isExperienceSession}
 			<p class="experience-chip">체험 세션</p>
 		{/if}
-		<p class="pin-code" class:demo-pin={isExperienceSession}>{displayedPinCode || '----'}</p>
+		<p class="pin-code" class:demo-pin={isExperienceSession}>{pinCode || '----'}</p>
 
 		<div class="ready-actions">
 			{#if sessionMode === 'waiting'}
@@ -236,8 +213,8 @@
 				>
 			{/if}
 
-			{#if canClickReport}
-				<Button variant={reportButtonVariant} size="lg" width="464px" onclick={openReport}>
+			{#if canOpenReport}
+				<Button variant="primary" size="lg" width="464px" onclick={openReport}>
 					결과 리포트 보기
 				</Button>
 			{:else}
@@ -263,20 +240,16 @@
 					? '전체 발표를 분석하고 있어요. 잠시만 기다려 주세요.'
 					: reportStatus === 'failed'
 						? '리포트 생성에 실패했습니다. 발표 데이터는 보존되어 있습니다.'
-						: isExperienceSession && canClickReport && !presentationElapsed
-							? '발표 시간 전에도 리포트는 미리 확인할 수 있습니다.'
-							: canOpenReport
-								? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
-								: isExperienceSession
-									? '체험 세션을 시작하면 결과 리포트를 볼 수 있습니다.'
-									: '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
+						: canOpenReport
+							? '세션이 완료되었습니다. 리포트를 확인할 수 있습니다.'
+							: '발표가 끝나고 분석이 완료되면 리포트를 확인할 수 있습니다.'}
 			</p>
 
 			{#if experienceError}
 				<p class="experience-error" role="alert">{experienceError}</p>
 			{/if}
 
-			{#if pollingError && sessionMode === 'regular'}
+			{#if pollingError}
 				<div class="polling-error" role="alert">
 					<p>{pollingError}</p>
 					<button type="button" class="retry-button clickable" onclick={startPolling}

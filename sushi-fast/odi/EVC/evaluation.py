@@ -85,6 +85,16 @@ class OpenAISegmentEvaluationProvider:
             raise EvaluationProviderError(f"OpenAI segment evaluation failed: {exc}") from exc
 
 
+def default_segment_provider() -> SegmentEvaluationProvider:
+    name = os.getenv("EVC_EVALUATION_PROVIDER", "gpt").strip().lower()
+    if name in {"gpt", "openai"}:
+        return OpenAISegmentEvaluationProvider()
+    if name == "jev":
+        from .jev_evaluation import JevSegmentEvaluationProvider
+        return JevSegmentEvaluationProvider()
+    raise EvaluationProviderError("EVC_EVALUATION_PROVIDER must be gpt (or openai) or jev")
+
+
 def compute_speech_metrics(result: SpeechTextResult) -> SpeechMetrics:
     words = result.words
     if not words:
@@ -203,7 +213,7 @@ async def request_segment_evaluation(
     timeout_s: int = EVC_LLM_TIMEOUT_S,
     retries: int = EVC_PROVIDER_RETRIES,
 ) -> SegmentEvaluation:
-    selected = provider or OpenAISegmentEvaluationProvider()
+    selected = provider or default_segment_provider()
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:

@@ -9,7 +9,7 @@ FastAPI router/schema 및 호출 서비스 기준. 범위는 Unity용 EVC API이
 
 | 기능 | Method | Endpoint | 역할 | 구분 |
 | -- | -- | -- | -- | -- |
-| 세션 시작 | POST | `/smart-start` | PIN 연결, UUID/token, 청중 6명 초기화 | 이번 브랜치에서 변경 |
+| 세션 시작 | POST | `/smart-start` | PIN 연결, UUID/token, PIN에 저장된 인원수로 청중 초기화 | 이번 브랜치에서 변경 |
 | 세션 조회 | GET | `/sessions/{session_id}` | 현재 step·상태·개별 청중 profile 조회 | 이번 브랜치에서 변경 |
 | 세션 삭제 | DELETE | `/sessions/{session_id}` | 메모리 세션 종료·삭제 | 기존 |
 | 발표 분석 | POST | `/update` | 발표 STT·평가·EVC·Unity command 반환 | 이번 브랜치에서 변경 |
@@ -63,7 +63,7 @@ Content-Type: multipart/form-data; boundary=<Unity가 생성>
 ```json
 {"api_version":"2.0","session_id":"11111111-1111-4111-8111-111111111111","session_token":"<서버가 발급한 token>","step":0,"initial_evc_state":{"E":0.0,"V":0.0,"C":0.0},"topic_interest":0.5,"prior_knowledge":0.5,"expires_in_s":7200,"slide_count":0,"slides":[]}
 ```
-추가 반환: `seed`, `presentation_title`, `audiences` 6개. audience는 `{agent_id, profile, state}`이며 ID는 `audience_01`~`audience_06`. profile의 `topic_interest`, `prior_knowledge`가 이번에 추가되었다.
+추가 반환: `seed`, `presentation_title`, `audiences` N개. N은 PIN의 `template_snapshot.audience.audience_count`이며 현재 지원 범위는 1~50명이다. audience는 `{agent_id, profile, state}`이며 ID는 `audience_01`부터 `audience_NN`까지이다. PIN 또는 기존 PIN의 인원수 필드가 없으면 기본 6명을 사용한다. Unity는 6개 고정 배열이 아니라 응답의 ID와 개수에 맞춰 처리해야 한다.
 
 **주요 오류**
 
@@ -73,7 +73,7 @@ Content-Type: multipart/form-data; boundary=<Unity가 생성>
 | 413 / 415 / 422 | 파일 용량 / 형식 / 설정값 오류 |
 | 429 | 세션 수 제한 초과 |
 
-**Unity 주의사항**: UUID/token을 이후 모든 호출에 유지한다. PIN만으로 제목·PDF·청중 설정이 자동 로드되지 않으므로 Unity가 전달한다. 질문 수는 시작 body가 아닌 2.3 API에 보낸다.
+**Unity 주의사항**: UUID/token을 이후 모든 호출에 유지한다. `pre_session_pin`을 보내면 PIN에 저장된 제목·PDF·청중 설정을 서버가 읽는다. Firebase의 `page_3.audience_scale`은 Unity 장면 구성용이며, 이를 읽는 것만으로 서버 세션이 연결되지는 않는다. 반드시 같은 실제 PIN을 multipart 필드 `pre_session_pin`으로 전달한다. 질문 수는 시작 body가 아닌 2.3 API에 보낸다.
 
 ### 2.2 발표 음성 분석·reaction
 
@@ -457,11 +457,11 @@ Azure/OpenAI/Deepgram key는 서버 `.env` 또는 서버 secret 환경에만 둔
 | 변경사항 | Backend 상태 | Unity에서 필요한 작업 |
 | -- | -- | -- |
 | Azure 발표 STT 선택 | 구현 | Azure 선택 시 WAV 형식 준수 |
-| 개별 청중 관심도·지식 | 구현 | 추가 profile 필드 허용; 청중은 6명 유지 |
+| 개별 청중 관심도·지식 | 구현 | 추가 profile 필드 허용; PIN 인원수와 응답 audiences 개수에 맞춰 청중 구성 |
 | 질문 TTS API | 구현 | audience/voice header, WAV 디코딩·재생 |
 | 답변 업로드·Azure STT | 구현 | 마이크 녹음, raw WAV, UUID/token 유지 |
 | 답변 기반 다음 질문 | 구현, 기존 LLM 재사용 | 반환 질문으로 다음 slot 교체, 총수 유지 |
-| SoonBok·YuJin voice 허용 | 구현, allowlist 총 8개 | 실제 6개 prefab의 voice 지정 |
+| SoonBok·YuJin voice 허용 | 구현, allowlist 총 8개 | 실제 활성화된 청중 prefab의 voice 지정 |
 | report Q&A history·insight 입력 | 구현 | 마지막 답변 후 finish; 필요 시 history 표시 |
 
 별도 Q&A 점수·발표/Q&A 종합 점수·웹 Q&A 이력 UI는 현재 없다.
@@ -474,3 +474,19 @@ Azure/OpenAI/Deepgram key는 서버 `.env` 또는 서버 secret 환경에만 둔
 - speech/answer의 지연을 감당하도록 Unity·proxy timeout을 맞춘다. Azure REST timeout은 150초, continuous 인식 완료 대기는 `max(60, 음성길이+60)`초이며 lock 대기·다음 질문 LLM 시간이 추가될 수 있다.
 
 근거: [router](../sushi-fast/odi/EVC/router.py), [schema](../sushi-fast/odi/EVC/schema.py), [answer service](../sushi-fast/odi/EVC/answer_service.py), [Azure adapter](../sushi-fast/odi/EVC/azure_speech.py), [report schema](../sushi-fast/odi/EVC/report_schema.py), [report service](../sushi-fast/odi/EVC/report_service.py), [config](../sushi-fast/odi/EVC/config.py).
+
+
+## 체험 세션과 일반 세션의 Unity 연결
+
+두 모드 모두 현재 웹 템플릿으로 PIN을 생성하고, Firebase의
+`presentation_data/{pin}/page_3/audience_scale`에 선택 인원을 게시한다.
+화면에는 실제 발급 PIN을 표시하며 `1234`를 특별한 체험 PIN으로 취급하지 않는다.
+웹은 시작 직후 종료 요청이나 고정 결과지 생성을 하지 않는다.
+Unity가 실제 발표를 실행하고 기존 finish/report 흐름을 완료하면 웹이 결과를 조회한다.
+체험 모드도 사용자가 업로드한 자료와 현재 설정을 사용한다.
+
+검증 순서: 각 N=1..10마다 새 PIN → Firebase audience_scale=N →
+smart-start에 같은 pre_session_pin → audiences 길이=N → 실제 활성 캐릭터=N →
+update의 audiences 길이=N. independent_reactions=true인 경우 reactions 응답은
+이번에 갱신된 일부 청중만 포함할 수 있으므로 매 poll마다 N개를 요구하지 않는다.
+명령 수(commands)는 레이어/동작에 따라 달라져 청중 수와 같을 필요가 없다.

@@ -87,15 +87,16 @@
 
 	async function selectSessionMode(mode: 'experience' | 'regular') {
 		showSessionModeModal = false;
-		if (mode === 'experience') {
-			await goto('/odi/waitvr?mode=experience');
-			return;
-		}
 
 		isCheckingAccount = true;
 		startError = '';
 		try {
-			await prepareRegularSession();
+			if (mode === 'experience') {
+				await session.startExperiencePresentation();
+				await goto('/odi/waitvr?mode=experience');
+			} else {
+				await prepareRegularSession();
+			}
 		} catch (error) {
 			startError = error instanceof Error ? error.message : '세션을 시작하지 못했습니다.';
 		} finally {

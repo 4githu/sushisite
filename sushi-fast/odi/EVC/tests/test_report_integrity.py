@@ -253,7 +253,9 @@ def test_cli_delete_does_not_break_product(tmp_path):
     products = subprocess.run([sys.executable, "-m", "pytest", "-p", "offline_product", "-q", *paths],
         cwd=tmp_path, env={**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}, capture_output=True, text=True, timeout=60)
     assert products.returncode == 0, products.stdout + products.stderr
-    assert "129 passed" in products.stdout
+    import re
+    passed = re.search(r"(\d+) passed", products.stdout)
+    assert passed and int(passed.group(1)) >= 129, products.stdout
 
 
 @pytest.mark.parametrize("command", ["doctor", "contracts", "replay", "repeat", "compare", "bench"])

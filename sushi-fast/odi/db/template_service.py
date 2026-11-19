@@ -5,6 +5,7 @@ import json
 import threading
 from fastapi import HTTPException
 from odi.db import odidb as db
+from odi.EVC.audience_config import resolve_audience_count
 from odi.files.service import (
     commit_template_files,
     path_from_storage_path,
@@ -87,6 +88,14 @@ def save_baseline(user_id, draft, template_id=None, expected_version=None, new_i
 
 
 def prepare(user_id, draft, template_id, request_id, expires_minutes):
+    # Reject malformed web settings before issuing a PIN or publishing to XR.
+    # Old drafts without this field retain the documented six-person default.
+    audience_count = None
+    if draft.get("type") == "presentation":
+        try:
+            audience_count = resolve_audience_count(draft)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
     db.ensure_report_schema()
     key = f"{user_id}:{request_id}" if request_id else None
     fingerprint = hashlib.sha256(
@@ -112,6 +121,8 @@ def prepare(user_id, draft, template_id, request_id, expires_minutes):
             )
         checked_files(user_id, draft)
         snapshot, _ = commit_template_files(user_id, draft)
+        if audience_count is not None:
+            snapshot["audience"] = {**snapshot.get("audience", {}), "audience_count": audience_count}
         pin = db.generate_unique_pin()
         template_id = template_id or db.make_id("template")
         snapshot.update(
