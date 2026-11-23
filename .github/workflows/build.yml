@@ -24,6 +24,9 @@ jobs:
           if (!$x64 -or !$x86) { throw 'Built plugin DLLs were not found' }
           Copy-Item $x64.FullName out/x64/NETAQWebView2.dll
           Copy-Item $x86.FullName out/x86/NETAQWebView2.dll
+      - name: Smoke test Rainmeter and host-object isolation
+        shell: pwsh
+        run: ./test/smoke.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: netaq-rainmeter-plugin
