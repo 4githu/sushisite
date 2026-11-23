@@ -443,16 +443,23 @@ PLUGIN_EXPORT void Initialize(void** data, void* rm)
 
 	measure->autoStart = RmReadInt(rm, L"AutoStart", 1) >= 1;
 
-	// Create user data folder in TEMP directory to avoid permission issues
-	wchar_t tempPath[MAX_PATH];
-	GetTempPathW(MAX_PATH, tempPath);
-	measure->userDataFolder = std::wstring(tempPath) + L"RainmeterWebView2";
+	// Keep the WebView profile in the current user's persistent app data.
+	// TEMP can be cleared on restart and is shared with the upstream plugin.
+	wchar_t localAppData[MAX_PATH];
+	DWORD len = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, MAX_PATH);
+	if (len == 0 || len >= MAX_PATH) {
+		measure->FailWebView(E_FAIL, L"NETAQ: LOCALAPPDATA is unavailable.");
+		return;
+	}
+	measure->userDataFolder = std::wstring(localAppData) + L"\\NETAQ\\RainmeterWebView";
 	measure->configPath = measure->userDataFolder + L"\\UserSettings.ini";
 	measure->extensionsPath = measure->userDataFolder + L"\\Extensions\\Extensions.ini";
-
-	// Create the directory if it doesn't exist
-	CreateDirectoryW(measure->userDataFolder.c_str(), nullptr);
-	CreateDirectoryW((measure->userDataFolder + L"\\Extensions").c_str(), nullptr);
+	std::error_code directoryError;
+	std::filesystem::create_directories(std::filesystem::path(measure->userDataFolder) / L"Extensions", directoryError);
+	if (directoryError) {
+		measure->FailWebView(E_FAIL, L"NETAQ: Unable to create WebView profile.");
+		return;
+	}
 
 	SkinSubclassData* skinData = nullptr;
 	bool createdNew = false;
