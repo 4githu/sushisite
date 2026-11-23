@@ -10,6 +10,7 @@
 #include <CommCtrl.h>
 #include <mutex>
 #include <fstream>
+#include <filesystem>
 
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "ole32.lib")
