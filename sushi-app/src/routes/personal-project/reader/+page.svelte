@@ -45,8 +45,11 @@
 	let conflict = $state(false);
 	let translationController: AbortController | null = null;
 	beforeNavigate((navigation) => {
-		if (saveStatus.startsWith('저장 안 됨') && !navigation.willUnload &&
-			!confirm('저장되지 않은 메모가 사라집니다. JSON으로 내보낼 수 있습니다. 이동하시겠습니까?')) {
+		if (
+			saveStatus.startsWith('저장 안 됨') &&
+			!navigation.willUnload &&
+			!confirm('저장되지 않은 메모가 사라집니다. JSON으로 내보낼 수 있습니다. 이동하시겠습니까?')
+		) {
 			navigation.cancel();
 			return;
 		}
@@ -57,25 +60,31 @@
 		const key = documentKey;
 		saveStatus = '저장 안 됨 · 저장 중';
 		if (!navigator.locks) {
-			saveStatus = '저장 안 됨 · 이 브라우저는 안전한 동시 저장을 지원하지 않습니다. JSON으로 내보내 주세요';
+			saveStatus =
+				'저장 안 됨 · 이 브라우저는 안전한 동시 저장을 지원하지 않습니다. JSON으로 내보내 주세요';
 			return;
 		}
-		await navigator.locks.request(`paiper-reader:${key}`, () => {
-		if (documentKey !== key) return;
-		try {
-			if (localStorage.getItem(documentKey) !== storedSnapshot) {
-				conflict = true;
-				saveStatus = '저장 안 됨 · 다른 탭에서 변경됨. 현재 메모를 JSON으로 내보내거나 저장본을 복구하세요';
-				return;
-			}
-			const next = JSON.stringify({ notes, richNote });
-			localStorage.setItem(documentKey, next);
-			storedSnapshot = next;
-			saveStatus = '이 기기에 저장됨';
-		} catch {
-			saveStatus = '저장 안 됨 · JSON으로 내보내 주세요';
-		}
-		});
+		await navigator.locks
+			.request(`paiper-reader:${key}`, () => {
+				if (documentKey !== key) return;
+				try {
+					if (localStorage.getItem(documentKey) !== storedSnapshot) {
+						conflict = true;
+						saveStatus =
+							'저장 안 됨 · 다른 탭에서 변경됨. 현재 메모를 JSON으로 내보내거나 저장본을 복구하세요';
+						return;
+					}
+					const next = JSON.stringify({ notes, richNote });
+					localStorage.setItem(documentKey, next);
+					storedSnapshot = next;
+					saveStatus = '이 기기에 저장됨';
+				} catch {
+					saveStatus = '저장 안 됨 · JSON으로 내보내 주세요';
+				}
+			})
+			.catch(() => {
+				if (documentKey === key) saveStatus = '저장 안 됨 · JSON으로 내보내 주세요';
+			});
 	}
 	function updateNote(id: string, value: string) {
 		notes = { ...notes, [id]: value };
@@ -198,7 +207,12 @@
 	}
 
 	function restoreStoredNotes() {
-		if (!confirm('현재 저장되지 않은 메모가 사라집니다. 필요하면 먼저 JSON으로 내보내세요. 저장본을 복구하시겠습니까?')) return;
+		if (
+			!confirm(
+				'현재 저장되지 않은 메모가 사라집니다. 필요하면 먼저 JSON으로 내보내세요. 저장본을 복구하시겠습니까?'
+			)
+		)
+			return;
 		try {
 			const stored = localStorage.getItem(documentKey);
 			const restored = stored ? JSON.parse(stored) : {};
@@ -433,7 +447,9 @@
 							<div class="notes-heading">
 								<h2>메모</h2>
 								<span role="status">{saveStatus}</span>
-								{#if conflict}<button type="button" onclick={restoreStoredNotes}>저장된 메모 복구</button>{/if}
+								{#if conflict}<button type="button" onclick={restoreStoredNotes}
+										>저장된 메모 복구</button
+									>{/if}
 							</div>
 							{#key editorKey}<PersonalTextEditor
 									initialValue={initialEditor}

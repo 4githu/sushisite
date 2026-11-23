@@ -5,8 +5,14 @@ import ReaderPage from './+page.svelte';
 import { extractPdfSegments, translateSegments } from '$lib/personal-project/reader/reader';
 import { PersonalApiError } from '$lib/personal-project/shared/api';
 
-const navigation = vi.hoisted(() => ({ before: null as null | ((nav: { cancel: () => void }) => void) }));
-vi.mock('$app/navigation', () => ({ beforeNavigate: (fn: typeof navigation.before) => { navigation.before = fn; } }));
+const navigation = vi.hoisted(() => ({
+	before: null as null | ((nav: { cancel: () => void }) => void)
+}));
+vi.mock('$app/navigation', () => ({
+	beforeNavigate: (fn: typeof navigation.before) => {
+		navigation.before = fn;
+	}
+}));
 
 vi.mock('$lib/personal-project/shared/auth', () => ({
 	privateCacheUser: () => 'synthetic-race-user'
@@ -35,24 +41,47 @@ describe('Reader application workspace', () => {
 describe('Reader transfer consent', () => {
 	it('does not overwrite a different tab and keeps the local draft exportable', async () => {
 		render(ReaderPage);
-		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['conflict'], 'conflict.pdf', { type: 'application/pdf' }));
+		await page
+			.getByLabelText(/PDF 열기|다른 PDF 열기/)
+			.upload(new File(['conflict'], 'conflict.pdf', { type: 'application/pdf' }));
 		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
 		await page.getByLabelText('p1-s1 메모 내용').fill('first');
-		await expect.poll(() => Object.keys(localStorage).some((k) => k.startsWith('paiper.reader.notes.v2.') && localStorage.getItem(k)?.includes('first'))).toBe(true);
-		const key = Object.keys(localStorage).find((k) => k.startsWith('paiper.reader.notes.v2.') && localStorage.getItem(k)?.includes('first'))!;
+		await expect
+			.poll(() =>
+				Object.keys(localStorage).some(
+					(k) =>
+						k.startsWith('paiper.reader.notes.v2.') && localStorage.getItem(k)?.includes('first')
+				)
+			)
+			.toBe(true);
+		const key = Object.keys(localStorage).find(
+			(k) => k.startsWith('paiper.reader.notes.v2.') && localStorage.getItem(k)?.includes('first')
+		)!;
 		const other = JSON.stringify({ notes: { 'p1-s1': 'other tab' } });
 		localStorage.setItem(key, other);
 		await page.getByLabelText('p1-s1 메모 내용').fill('local draft');
 		expect(localStorage.getItem(key)).toBe(other);
 		await expect.element(page.getByText(/다른 탭에서 변경/)).toBeInTheDocument();
 		await expect.element(page.getByLabelText('p1-s1 메모 내용')).toHaveValue('local draft');
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+		try {
+			await page.getByRole('button', { name: '저장된 메모 복구' }).click();
+			await expect.element(page.getByLabelText('p1-s1 메모 내용')).toHaveValue('other tab');
+			expect(localStorage.getItem(key)).toBe(other);
+		} finally {
+			confirm.mockRestore();
+		}
 	});
 
 	it('blocks internal navigation after a storage write fails and user declines', async () => {
 		render(ReaderPage);
-		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['nav'], 'nav.pdf', { type: 'application/pdf' }));
+		await page
+			.getByLabelText(/PDF 열기|다른 PDF 열기/)
+			.upload(new File(['nav'], 'nav.pdf', { type: 'application/pdf' }));
 		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
-		const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+		const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new Error('quota');
+		});
 		try {
 			await page.getByLabelText('p1-s1 메모 내용').fill('unsaved');
 			const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
@@ -61,17 +90,26 @@ describe('Reader transfer consent', () => {
 			navigation.before?.({ cancel });
 			expect(cancel).toHaveBeenCalled();
 			confirm.mockRestore();
-		} finally { set.mockRestore(); }
+		} finally {
+			set.mockRestore();
+		}
 	});
 
 	it('aborts an active translation when another PDF is selected', async () => {
 		let signal: AbortSignal | undefined;
-		vi.mocked(translateSegments).mockImplementationOnce((_s, _p, _path, value) => { signal = value; return new Promise(() => {}); });
+		vi.mocked(translateSegments).mockImplementationOnce((_s, _p, _path, value) => {
+			signal = value;
+			return new Promise(() => {});
+		});
 		render(ReaderPage);
-		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['a'], 'a.pdf', { type: 'application/pdf' }));
+		await page
+			.getByLabelText(/PDF 열기|다른 PDF 열기/)
+			.upload(new File(['a'], 'a.pdf', { type: 'application/pdf' }));
 		await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
 		await page.getByRole('button', { name: /Translate to Korean/ }).click();
-		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['b'], 'b.pdf', { type: 'application/pdf' }));
+		await page
+			.getByLabelText(/PDF 열기|다른 PDF 열기/)
+			.upload(new File(['b'], 'b.pdf', { type: 'application/pdf' }));
 		expect(signal?.aborted).toBe(true);
 	});
 	beforeEach(() => {
