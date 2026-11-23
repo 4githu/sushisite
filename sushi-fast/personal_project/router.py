@@ -13,6 +13,7 @@ from auth import JMT
 
 from . import ai_report, kakao, native_kakao, repository, report_pdf
 from . import workspace
+from .reader_translation import translate_reader_segments
 from .schemas import (
     ClinicRoundCreate,
     ClinicRoundSeriesCreate,
@@ -89,6 +90,17 @@ def raise_native_kakao(error: native_kakao.NativeKakaoError):
                 "fallbackReason": error.fallback_reason,
                 "deliveryStatus": error.delivery_status},
     ) from error
+
+
+@router.post("/reader/translate")
+async def reader_translate(
+    request: Request,
+    response: Response,
+    user_id: int = Depends(current_user_id),
+):
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return await translate_reader_segments(request, user_id)
 
 
 @router.get("/kakao/status")

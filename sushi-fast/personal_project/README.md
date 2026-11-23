@@ -51,3 +51,16 @@ AI 리포트 생성은 기본 `gemini-3.6-flash`와 비교용 Gemini 모델을 �
 학교 순서는 위/아래 이동으로 인접 학교와 우선순위를 교환합니다. 학교 완전 삭제는 연결된 클리닉 일정, 학생 이름, 리포트, 기본 양식을 함께 삭제합니다. 일반 캘린더 반복 일정은 횟수 대신 종료 날짜를 받을 수 있습니다.
 
 일정 시간은 ISO 8601 UTC 오프셋을 포함해 저장하고 화면에서 브라우저 로컬 시간으로 변환합니다. 반복 일정과 반복 클리닉은 그룹 ID와 순번을 저장하므로 한 일정만 수정하거나 선택한 일정부터 이후 일정을 함께 수정할 수 있습니다.
+
+## Paiper Reader
+
+`/personal-project/reader`는 브라우저에서 PDF 텍스트를 추출하고 원문·번역·계정/PDF별 로컬 메모를 제공한다. 메모에는 기존 PersonalTextEditor를 재사용한다. 번역은 사용자가 동의한 뒤 기존 쿠키 인증의 `POST /api/personal/reader/translate`를 사용한다. 원본 PDF는 이 경로로 업로드하지 않는다.
+
+기본 번역 제공자는 비활성(503)이다. 서버가 다음 설정을 명시해야 활성화한다.
+
+- 개인 소유자 모드: `READER_TRANSLATION_PROVIDER=hermes_personal_owner`, `READER_TRANSLATION_PERSONAL_OWNER_ID=<확인된 Sushi 사용자 ID>`, `READER_TRANSLATION_HERMES_EXECUTABLE=<절대 경로>`, `READER_TRANSLATION_HERMES_HOME=<기존 개인 프로필 절대 경로>`. 기존 mainauth로 확인한 소유자만 해당 프로필을 호출하며 클라이언트는 소유자·프로필을 선택할 수 없다.
+- 별도 작업자 모드: `READER_TRANSLATION_PROVIDER=hermes_plugin`과 위 실행 파일·프로필 설정. 별도 프로필의 `.paiper-reader-worker` 표식과 플러그인 설치가 필요하다. 개인 계정을 다른 사용자에게 공유하는 기본값은 없다.
+
+플러그인은 `reader_translation/hermes_plugin/`에 있다. 인증정보를 코드나 요청에 복사하지 않고 Hermes의 공식 `paiper-reader-translate` 플러그인 명령으로 호출한다. 서버는 입력 크기·응답 ID·시간 제한을 검사하고 요청 본문·공급자 오류 원문을 저장하거나 출력하지 않는다. 공급자 보관·플랜 비용에 대해서는 무보관·무료를 보장하지 않는다. 이전 localhost 9011 보조 서버는 선택적 개발 도구이며 웹 제품의 로그인 경로가 아니다.
+
+검증: 합성 인증의 HTTPS 후보 서버에서 실제 GPT 번역 200, 비인증 401·다른 사용자 503·빈 입력 400을 확인했다. 제품 화면은 합성 로그인/PDF로 텍스트 추출·메모 복구·내려받기와 모바일 표시를 검사했다. 이는 실제 운영 로그인·번역과 동일한 검증이 아니며, 이 구현은 운영 배포하지 않았다.
