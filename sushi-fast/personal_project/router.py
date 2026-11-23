@@ -14,6 +14,7 @@ from auth import JMT
 from . import ai_report, kakao, native_kakao, repository, report_pdf
 from . import workspace
 from .reader_translation import translate_reader_segments
+from .reader_translation.image import explain_reader_image
 from .schemas import (
     ClinicRoundCreate,
     ClinicRoundSeriesCreate,
@@ -101,6 +102,13 @@ async def reader_translate(
     response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     return await translate_reader_segments(request, user_id)
+
+
+@router.post("/reader/explain-image")
+async def reader_explain_image(request: Request, response: Response, user_id: int = Depends(current_user_id)):
+    response.headers["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return await explain_reader_image(request, user_id)
 
 
 @router.get("/kakao/status")

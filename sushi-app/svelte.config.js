@@ -9,6 +9,8 @@ const config = {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
 	kit: {
+		// A separately served Reader build must not replace another app's assets.
+		appDir: process.env.READER_ISOLATED_BUILD === '1' ? '__paiper' : '_app',
 		// The app is hosted at the domain root. Absolute asset paths keep deep
 		// routes and query-driven board navigation from requesting /personal-project/_app.
 		paths: { relative: false },

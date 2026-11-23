@@ -40,7 +40,7 @@ def _configure_fake_cli(monkeypatch, tmp_path, output: str, *, extra_code: str =
         f"observations = {str(observations)!r}\n"
         "request = json.loads(sys.stdin.buffer.read())\n"
         "with open(observations, 'w', encoding='utf-8') as stream:\n"
-        "    json.dump({'argv': sys.argv[1:], 'env_keys': sorted(os.environ)}, stream)\n"
+        "    json.dump({'argv': sys.argv[1:], 'env_keys': sorted(os.environ), 'env_home': os.environ.get('HOME')}, stream)\n"
         f"{extra_code}"
         f"sys.stdout.write({output!r})\n"
     )
@@ -426,7 +426,12 @@ def test_plugin_cli_rejects_malformed_plain_output_without_echoing_input(monkeyp
 def test_plugin_registers_standalone_cli_command():
     registrations = []
     hermes_plugin.register(SimpleNamespace(register_cli_command=lambda **kwargs: registrations.append(kwargs)))
-    assert len(registrations) == 1
-    assert registrations[0]["name"] == "paiper-reader-translate"
-    assert registrations[0]["setup_fn"] is not None
-    assert registrations[0]["handler_fn"] is not None
+    assert {r["name"] for r in registrations} == {"paiper-reader-translate", "paiper-reader-explain-image"}
+    assert all(r["setup_fn"] is not None and r["handler_fn"] is not None for r in registrations)
+
+
+def test_child_preserves_os_home_while_selecting_hermes_profile(app, monkeypatch, tmp_path):
+    _, observations = _configure_fake_cli(monkeypatch, tmp_path, '{"translations":[{"id":"x","text":"synthetic"}]}')
+    response = _authenticated_client(app).post('/api/personal/reader/translate', json={'segments':[{'id':'x','text':'synthetic'}]})
+    assert response.status_code == 200
+    assert json.loads(observations.read_text())['env_home'] == os.environ.get('HOME', str(Path.home()))

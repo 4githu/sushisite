@@ -4,3 +4,4 @@ description: Dedicated stdin/stdout structured translation bridge for Paiper Rea
 requires_hermes: ">=0.22.5"
 provides_cli_commands:
   - paiper-reader-translate
+  - paiper-reader-explain-image

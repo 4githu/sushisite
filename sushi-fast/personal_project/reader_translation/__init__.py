@@ -28,20 +28,20 @@ def _bad_request(code: str, message: str, status_code: int = 400) -> HTTPExcepti
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
-async def _read_request_json(request: Request) -> Any:
+async def _read_request_json(request: Request, *, max_bytes: int = MAX_REQUEST_BYTES) -> Any:
     content_length = request.headers.get("content-length")
     if content_length:
         try:
-            if int(content_length) > MAX_REQUEST_BYTES:
-                raise _bad_request("request_too_large", "요청 본문은 256KB 이하여야 합니다.", 413)
+            if int(content_length) > max_bytes:
+                raise _bad_request("request_too_large", f"요청 본문은 {max_bytes // 1024}KB 이하여야 합니다.", 413)
         except ValueError as exc:
             raise _bad_request("invalid_content_length", "Content-Length가 올바르지 않습니다.") from exc
 
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
-        if len(body) > MAX_REQUEST_BYTES:
-            raise _bad_request("request_too_large", "요청 본문은 256KB 이하여야 합니다.", 413)
+        if len(body) > max_bytes:
+            raise _bad_request("request_too_large", f"요청 본문은 {max_bytes // 1024}KB 이하여야 합니다.", 413)
     try:
         return json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
@@ -183,17 +183,26 @@ async def _invoke_hermes_plugin(
     if len(payload) > MAX_REQUEST_BYTES:
         raise ValueError("request too large")
 
+    stdout = await _run_hermes_command(payload, "paiper-reader-translate", executable, profile_home)
+    try:
+        result = json.loads(stdout)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+        raise RuntimeError("Hermes plugin returned malformed output") from None
+    return _validate_plugin_response(result, segments)
+
+
+async def _run_hermes_command(payload: bytes, command: str, executable: str, profile_home: str) -> bytes:
     # Deliberately construct a minimal environment. In particular, request text,
     # API keys, OAuth tokens, cookies, and the parent's environment are not copied.
     child_env = {
-        "HOME": profile_home,
+        "HOME": os.environ.get("HOME", str(Path.home())),
         "HERMES_HOME": profile_home,
         "PATH": os.defpath,
         "PYTHONNOUSERSITE": "1",
     }
     process = await asyncio.create_subprocess_exec(
         executable,
-        "paiper-reader-translate",
+        command,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
@@ -210,23 +219,24 @@ async def _invoke_hermes_plugin(
             asyncio.gather(stdout_task, stdin_task, wait_task),
             timeout=MAX_HERMES_TIMEOUT_SECONDS,
         )
-    except Exception:
+    except BaseException as exc:
         if process.returncode is None:
-            process.kill()
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
         await _discard_output(process.stdout)
         await process.wait()
         for task in (stdout_task, stdin_task, wait_task):
             if not task.done():
                 task.cancel()
+        if isinstance(exc, asyncio.CancelledError):
+            raise
         raise RuntimeError("Hermes plugin invocation failed") from None
 
     if process.returncode != 0 or not stdout.strip():
         raise RuntimeError("Hermes plugin invocation failed")
-    try:
-        result = json.loads(stdout)
-    except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
-        raise RuntimeError("Hermes plugin returned malformed output") from None
-    return _validate_plugin_response(result, segments)
+    return stdout
 
 
 def _validate_plugin_response(result: Any, segments: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -255,27 +265,27 @@ def _validate_plugin_response(result: Any, segments: list[dict[str, str]]) -> li
     return [{"id": segment["id"], "text": by_id[segment["id"]]} for segment in segments]
 
 
+async def _authorize_reader_request(request: Request, user_id: int) -> tuple[str, str] | None:
+    if os.getenv("READER_TRANSLATION_PROVIDER", "").strip().lower() != "hermes_personal_owner":
+        _hermes_settings()
+        return None
+    owner = os.getenv("READER_TRANSLATION_PERSONAL_OWNER_ID", "").strip()
+    if not owner.isascii() or not owner.isdecimal() or len(owner) > 20 or int(owner or "0") <= 0 or user_id != int(owner):
+        raise _bad_request("translation_provider_unavailable", "번역 제공자를 연결해야 합니다.", 503)
+    if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
+        raise _bad_request("json_required", "JSON 요청이 필요합니다.", 415)
+    origin = request.headers.get("origin")
+    allowed_origins = {"https://chobab.app", "https://netaq.chobab.app", "https://aura.chobab.app", "http://localhost:5173", "http://localhost:9000"}
+    if origin and origin not in allowed_origins:
+        raise _bad_request("translation_origin_forbidden", "허용되지 않은 출처입니다.", 403)
+    return _hermes_settings(personal_owner=True)
+
+
 async def translate_reader_segments(
     request: Request, user_id: int, *, personal_settings: tuple[str, str] | None = None,
 ) -> dict[str, list[dict[str, str]]]:
-    # User identity is obtained exclusively from mainauth by the existing router.
-    # This opt-in never changes the default isolated-worker mode or permits a
-    # client-supplied profile or owner. Invalid/mismatched identity fails closed.
     if personal_settings is None and os.getenv("READER_TRANSLATION_PROVIDER", "").strip().lower() == "hermes_personal_owner":
-        owner = os.getenv("READER_TRANSLATION_PERSONAL_OWNER_ID", "").strip()
-        if not owner.isascii() or not owner.isdecimal() or len(owner) > 20 or int(owner or "0") <= 0 or user_id != int(owner):
-            raise _bad_request("translation_provider_unavailable", "번역 제공자를 연결해야 합니다.", 503)
-        # Requiring JSON prevents cookie-authenticated browser form/simple-request CSRF.
-        if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
-            raise _bad_request("json_required", "JSON 요청이 필요합니다.", 415)
-        origin = request.headers.get("origin")
-        allowed_origins = {
-            "https://chobab.app", "https://netaq.chobab.app", "https://aura.chobab.app",
-            "http://localhost:5173", "http://localhost:9000",
-        }
-        if origin and origin not in allowed_origins:
-            raise _bad_request("translation_origin_forbidden", "허용되지 않은 출처입니다.", 403)
-        personal_settings = _hermes_settings(personal_owner=True)
+        personal_settings = await _authorize_reader_request(request, user_id)
     payload = await _read_request_json(request)
     segments, target_language = _validate_payload(payload)
     try:
