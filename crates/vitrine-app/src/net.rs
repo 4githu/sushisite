@@ -60,3 +60,26 @@ pub fn perform(
     })();
     result.unwrap_or_else(|e| serde_json::json!({ "id": id, "error": e }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::perform;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    #[test]
+    fn redirects_are_not_followed_outside_the_permission_check() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 4096];
+            let _ = stream.read(&mut request);
+            stream.write_all(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/not-allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+        });
+        let result = perform(1, "GET", &format!("http://127.0.0.1:{port}/"), &[], None);
+        server.join().unwrap();
+        assert_eq!(result["status"], 302, "redirect must be returned, not followed: {result}");
+    }
+}
