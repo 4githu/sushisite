@@ -1,0 +1,1 @@
+Build-only copy of NSTechBytes/WebView2 at 443b117, MIT license. NETAQ hardening removes Rainmeter host objects and frame ancestor overrides and disables web messages. No service credentials, user content, or private source are included.

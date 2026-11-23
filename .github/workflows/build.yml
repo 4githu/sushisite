@@ -1,0 +1,32 @@
+name: Build hardened Rainmeter plugin
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - uses: NuGet/setup-nuget@v2
+      - name: Restore
+        run: nuget restore WebView2-Plugin.sln
+      - name: Build x64
+        run: msbuild WebView2-Plugin.sln /m /p:Configuration=Release /p:Platform=x64
+      - name: Build x86
+        run: msbuild WebView2-Plugin.sln /m /p:Configuration=Release /p:Platform=Win32
+      - name: Collect plugin binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory out/x64,out/x86 -Force | Out-Null
+          $x64 = Get-ChildItem -Recurse -Filter WebView2.dll | Where-Object { $_.FullName -match 'x64.*Release' } | Select-Object -First 1
+          $x86 = Get-ChildItem -Recurse -Filter WebView2.dll | Where-Object { $_.FullName -match 'Win32.*Release|Release.*Win32|\\Release\\' -and $_.FullName -notmatch 'x64' } | Select-Object -First 1
+          if (!$x64 -or !$x86) { throw 'Built plugin DLLs were not found' }
+          Copy-Item $x64.FullName out/x64/NETAQWebView2.dll
+          Copy-Item $x86.FullName out/x86/NETAQWebView2.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netaq-rainmeter-plugin
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
