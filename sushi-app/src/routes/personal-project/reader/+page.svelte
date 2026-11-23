@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import {
@@ -11,7 +12,9 @@
 	import { PersonalApiError } from '$lib/personal-project/shared/api';
 	import { privateCacheUser } from '$lib/personal-project/shared/auth';
 	import PersonalTextEditor from '$lib/personal-project/editor/PersonalTextEditor.svelte';
-	import { createDocument } from '$lib/textediter/model';
+	import ReaderPdf from '$lib/personal-project/reader/ReaderPdf.svelte';
+	import { createDocument, createTextBlock } from '$lib/textediter/model';
+	import type { ReaderAnnotation } from '$lib/personal-project/reader/annotations';
 	import type { EditorDocument } from '$lib/textediter/types';
 	let segments = $state<ReaderSegment[]>([]);
 	let translations = $state<Record<string, string>>({});
@@ -27,6 +30,8 @@
 	let view = $state<'parallel' | 'stacked' | 'source'>('parallel');
 	let translationProgress = $state(0);
 	let notes = $state<Record<string, string>>({});
+	let annotations = $state<ReaderAnnotation[]>([]);
+	let fileInput: HTMLInputElement;
 	let openNotes = $state<Record<string, boolean>>({});
 	let showNotes = $state(true);
 	let selectedSegment = $state('');
@@ -74,7 +79,7 @@
 							'저장 안 됨 · 다른 탭에서 변경됨. 현재 메모를 JSON으로 내보내거나 저장본을 복구하세요';
 						return;
 					}
-					const next = JSON.stringify({ notes, richNote });
+					const next = JSON.stringify({ notes, richNote, annotations });
 					localStorage.setItem(documentKey, next);
 					storedSnapshot = next;
 					saveStatus = '이 기기에 저장됨';
@@ -124,6 +129,7 @@
 		saveStatus = '';
 		richNote = createDocument();
 		notes = {};
+		annotations = [];
 		openNotes = {};
 		const operation = ++operationId;
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
@@ -168,6 +174,7 @@
 					const restored = JSON.parse(stored);
 					if (restored.notes && typeof restored.notes === 'object') notes = restored.notes;
 					if (restored.richNote?.version === 1) richNote = restored.richNote;
+					if (Array.isArray(restored.annotations)) annotations = restored.annotations;
 					saveStatus = '이 기기에 저장된 메모 복구됨';
 				} else saveStatus = '메모를 작성하면 이 기기에 저장됩니다';
 			} catch {
@@ -218,6 +225,7 @@
 			const restored = stored ? JSON.parse(stored) : {};
 			notes = restored.notes && typeof restored.notes === 'object' ? restored.notes : {};
 			richNote = restored.richNote?.version === 1 ? restored.richNote : createDocument();
+			annotations = Array.isArray(restored.annotations) ? restored.annotations : [];
 			storedSnapshot = stored;
 			initialEditor = richNote;
 			editorKey += 1;
@@ -235,7 +243,13 @@
 			.map((segment) => ({ id: segment.id, source: segment.text, note: notes[segment.id] }));
 		const url = URL.createObjectURL(
 			new Blob(
-				[JSON.stringify({ document: fileName, notes: entries, editor: richNote }, null, 2)],
+				[
+					JSON.stringify(
+						{ document: fileName, notes: entries, editor: richNote, annotations },
+						null,
+						2
+					)
+				],
 				{
 					type: 'application/json'
 				}
@@ -303,8 +317,12 @@
 
 <div class="reader-shell">
 	<header class="topbar">
-		<a class="wordmark" href="/personal-project" aria-label="Paiper 홈"><span>paiper</span></a>
-		<a class="back-link" href="/personal-project">논문 목록</a>
+		<a class="wordmark" href={resolve('/personal-project/reader')} aria-label="Paiper 홈"
+			><span>paiper</span></a
+		>
+		<button class="back-link" type="button" disabled={busy} onclick={() => fileInput?.click()}
+			>PDF 열기</button
+		>
 		<strong class="document-title">{fileName || '논문 읽기'}</strong>
 	</header>
 
@@ -324,7 +342,14 @@
 				</div>
 				<label class="choose-button">
 					<span>{fileName ? '다른 PDF 열기' : 'PDF 열기'} <span aria-hidden="true">↗</span></span>
-					<input type="file" accept="application/pdf,.pdf" onchange={chooseFile} disabled={busy} />
+					<input
+						bind:this={fileInput}
+						id="open-pdf"
+						type="file"
+						accept="application/pdf,.pdf"
+						onchange={chooseFile}
+						disabled={busy}
+					/>
 				</label>
 			</div>
 
@@ -354,7 +379,24 @@
 					aria-expanded={showPdf}
 					onclick={() => (showPdf = !showPdf)}>{showPdf ? 'PDF 지면 닫기' : 'PDF 지면 보기'}</button
 				>
-				{#if showPdf}<iframe class="pdf-preview" title="원본 PDF 지면" src={pdfUrl}></iframe>{/if}
+				{#if showPdf}{#key pdfUrl}<ReaderPdf
+							url={pdfUrl}
+							{annotations}
+							onchange={(value) => {
+								annotations = value;
+								saveNotes();
+							}}
+							onnote={(value) => {
+								richNote = {
+									...richNote,
+									blocks: [...richNote.blocks, createTextBlock('paragraph', value)]
+								};
+								initialEditor = richNote;
+								editorKey += 1;
+								showNotes = true;
+								saveNotes();
+							}}
+						/>{/key}{/if}
 			{/if}
 
 			{#if segments.length}
@@ -388,7 +430,7 @@
 				</div>
 				<div class="reading-workspace">
 					<nav class="page-nav" aria-label="페이지 목록">
-						<strong>페이지</strong>{#each pageNumbers as number}<a href={`#p${number}-s1`}
+						<strong>페이지</strong>{#each pageNumbers as number (number)}<a href={`#p${number}-s1`}
 								>{number}</a
 							>{/each}
 					</nav>
@@ -513,8 +555,11 @@
 		</section>
 
 		<footer>
-			<span>원본 PDF는 이 화면을 벗어나지 않습니다.</span><span
-				>The source file stays in this browser session.</span
+			<span
+				>원본 PDF는 브라우저에 남습니다. 선택한 그림 설명을 요청하면 해당 영역은 전송됩니다.</span
+			>
+			<span
+				>The source file stays in this browser; a selected image region is sent when requested.</span
 			>
 		</footer>
 	</main>
@@ -538,6 +583,9 @@
 		font-size: 24px;
 	}
 	.back-link {
+		border: 0;
+		background: transparent;
+		cursor: pointer;
 		color: #202827;
 		text-decoration: none;
 		font-size: 14px;
@@ -596,12 +644,6 @@
 		margin: 1rem;
 		padding: 0.6rem 1rem;
 		cursor: pointer;
-	}
-	.pdf-preview {
-		display: block;
-		width: 100%;
-		height: min(75vh, 800px);
-		border: 0;
 	}
 	:global(body) {
 		margin: 0;

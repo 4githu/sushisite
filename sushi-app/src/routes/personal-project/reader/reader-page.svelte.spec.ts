@@ -32,7 +32,13 @@ vi.mock('$lib/personal-project/reader/reader', async (importOriginal) => {
 describe('Reader application workspace', () => {
 	it('shows a compact app header rather than a landing page or pairing prototype', async () => {
 		render(ReaderPage);
-		await expect.element(page.getByRole('link', { name: '논문 목록' })).toBeInTheDocument();
+		const button = document.querySelector<HTMLButtonElement>('header button.back-link')!;
+		expect(button.textContent).toBe('PDF 열기');
+		const input = document.querySelector<HTMLInputElement>('#open-pdf')!;
+		const click = vi.spyOn(input, 'click').mockImplementation(() => {});
+		button.click();
+		expect(click).toHaveBeenCalledOnce();
+		click.mockRestore();
 		await expect.element(page.getByText('READ AT YOUR OWN PACE · 01')).not.toBeInTheDocument();
 		await expect.element(page.getByLabelText(/번역 경로/)).not.toBeInTheDocument();
 	});
