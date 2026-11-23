@@ -1,0 +1,7 @@
+name: paiper-reader-translation
+version: 0.1.0
+description: Dedicated stdin/stdout structured translation bridge for Paiper Reader
+requires_hermes: ">=0.22.5"
+provides_cli_commands:
+  - paiper-reader-translate
+  - paiper-reader-explain-image

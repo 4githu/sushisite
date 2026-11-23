@@ -153,6 +153,7 @@ async function requestResponse(path: string, options: RequestOptions = {}): Prom
 						: undefined
 		});
 	} catch (cause) {
+		if (options.signal?.aborted) throw options.signal.reason;
 		throw new PersonalApiError(
 			0,
 			'백엔드 서버에 연결할 수 없습니다. / Cannot connect to the backend server.',
