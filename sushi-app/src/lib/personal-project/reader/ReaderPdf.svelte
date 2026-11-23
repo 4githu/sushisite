@@ -31,6 +31,7 @@
 		width = $state(30),
 		height = $state(20);
 	function selectByCoordinates() {
+		if (!ready) return;
 		const values = [left, top, width, height].map(Number);
 		if (
 			values.some((v) => !Number.isFinite(v)) ||
@@ -133,6 +134,7 @@
 		};
 	});
 	function captureSelection() {
+		if (!ready) return;
 		const selection = window.getSelection();
 		if (
 			!selection ||
@@ -147,7 +149,7 @@
 		if (rects.length) selected = { rects, text: selection.toString() };
 	}
 	function addAnnotation(kind: ReaderAnnotation['kind']) {
-		if (!selected) return;
+		if (!ready || !selected) return;
 		onchange([
 			...annotations,
 			{
@@ -169,13 +171,13 @@
 		};
 	}
 	function begin(event: PointerEvent) {
-		if (!regionMode) return;
+		if (!ready || !regionMode) return;
 		event.preventDefault();
 		start = point(event);
 		sheet.setPointerCapture(event.pointerId);
 	}
 	function end(event: PointerEvent) {
-		if (!start || !regionMode) return;
+		if (!ready || !start || !regionMode) return;
 		const last = point(event);
 		const rect = {
 			x: Math.min(start.x, last.x),
@@ -237,17 +239,22 @@
 		}
 	}
 	function changePage(value: number) {
-		selected = null;
-		explanation = '';
-		controller?.abort();
-		pageNumber = Math.max(
+		const next = Math.max(
 			1,
 			Math.min(documentPdf?.numPages || 1, Number.isFinite(value) ? Math.trunc(value) : 1)
 		);
+		if (next === pageNumber) return;
+		ready = false;
+		regionMode = false;
+		start = null;
+		selected = null;
+		explanation = '';
+		controller?.abort();
+		pageNumber = next;
 	}
 </script>
 
-<section aria-label="원본 PDF 지면" title="원본 PDF 지면" class="pdf-viewer">
+<section aria-label="원본 PDF 지면" title="원본 PDF 지면" class="pdf-viewer" aria-busy={!ready}>
 	<div class="controls">
 		<button
 			type="button"
@@ -279,21 +286,23 @@
 			disabled={zoom >= 2}
 			onclick={() => (zoom += 0.25)}>+</button
 		>
-		<button type="button" onclick={captureSelection}>텍스트 선택 확인</button><button
+		<button type="button" disabled={!ready} onclick={captureSelection}>텍스트 선택 확인</button
+		><button
 			type="button"
-			disabled={!selected?.text}
+			disabled={!ready || !selected?.text}
 			onclick={() => addAnnotation('highlight')}>선택 하이라이트 저장</button
 		>
 		<button
 			type="button"
 			aria-pressed={regionMode}
+			disabled={!ready}
 			onclick={() => {
 				regionMode = !regionMode;
 				selected = null;
 			}}>영역 선택</button
 		><button
 			type="button"
-			disabled={!selected || !!selected.text}
+			disabled={!ready || !selected || !!selected.text}
 			onclick={() => addAnnotation('region')}>영역 주석 저장</button
 		>
 	</div>
@@ -304,7 +313,7 @@
 				>위 % <input type="number" min="0" max="100" bind:value={top} /></label
 			><label>너비 % <input type="number" min="1" max="100" bind:value={width} /></label><label
 				>높이 % <input type="number" min="1" max="100" bind:value={height} /></label
-			><button type="button" onclick={selectByCoordinates}>좌표 영역 선택</button>
+			><button type="button" disabled={!ready} onclick={selectByCoordinates}>좌표 영역 선택</button>
 		</div>
 	</details>
 	{#if error}<p role="alert">{error}</p>{/if}
