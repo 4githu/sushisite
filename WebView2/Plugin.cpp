@@ -30,41 +30,11 @@ static std::atomic<bool> g_hookAlive{ false };
 
 static std::mutex g_skinMapMutex;
 
-// DllMain to load TypeLib from embedded resources
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+// NETAQ disables the Rainmeter host bridge, so no COM type library needs to
+// be extracted into the shared temporary directory at DLL load time.
+BOOL WINAPI DllMain(HINSTANCE, DWORD, LPVOID)
 {
-	if (fdwReason == DLL_PROCESS_ATTACH)
-	{
-		// Extract TypeLib from embedded resource and load it
-		wchar_t tempPath[MAX_PATH];
-		GetTempPath(MAX_PATH, tempPath);
-		wcscat_s(tempPath, L"WebView2.tlb");
-
-		// Read embedded resource: ID = 1, Type = TYPELIB
-		HRSRC hResInfo = FindResource(hinstDLL, MAKEINTRESOURCE(1), L"TYPELIB");
-		if (hResInfo)
-		{
-			HGLOBAL hRes = LoadResource(hinstDLL, hResInfo);
-			if (hRes)  // Check if LoadResource succeeded
-			{
-				LPVOID memRes = LockResource(hRes);
-				DWORD sizeRes = SizeofResource(hinstDLL, hResInfo);
-
-				HANDLE hFile = CreateFile(tempPath, GENERIC_WRITE, 0, NULL,
-					CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-				if (hFile != INVALID_HANDLE_VALUE)
-				{
-					DWORD written;
-					WriteFile(hFile, memRes, sizeRes, &written, NULL);
-					CloseHandle(hFile);
-
-					// Load the TypeLib
-					LoadTypeLib(tempPath, &g_typeLib);
-				}
-			}
-		}
-	}
-	return TRUE;
+    return TRUE;
 }
 
 // Measure constructor
