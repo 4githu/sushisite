@@ -18,9 +18,14 @@ $stop=Start-Process $hostExe -ArgumentList '--quit' -Wait -PassThru
 if($stop.ExitCode -ne 0){throw 'Host did not stop'}
 Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
 Set-Content (Join-Path $data 'preserve-marker.txt') 'keep'
+$connection=Join-Path $data 'app.chobab.netaq.desktop\widget-v1.enc'
+New-Item -ItemType Directory -Force (Split-Path $connection) | Out-Null
+[System.IO.File]::WriteAllBytes($connection,[byte[]](1,2,3,4,5,6))
+$connectionHash=(Get-FileHash $connection -Algorithm SHA256).Hash
 $upgrade=Start-Process $new.FullName -ArgumentList @('/S','/UPDATE',"/D=$dir") -PassThru -Wait
 if($upgrade.ExitCode -ne 0){throw "Update failed $($upgrade.ExitCode)"}
 if(!(Test-Path (Join-Path $data 'preserve-marker.txt'))){throw 'User data was removed'}
+if(!(Test-Path $connection) -or (Get-FileHash $connection -Algorithm SHA256).Hash -ne $connectionHash){throw 'Connection file changed during upgrade'}
 if(!(Test-Path (Join-Path $dir 'desktop-engine\packs\widgets-0.2.0.vitrine'))){throw 'Updated widget package missing'}
 $app=Start-Process "$dir\netaq-desktop.exe" -PassThru
 try {
