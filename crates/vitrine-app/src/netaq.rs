@@ -6,8 +6,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const BUNDLE_SHA256: &str = "52f13f316d9566704152ab09e21b6cdd8a9a7284d5683dd2400b699795f3bed6";
+const BUNDLE_SHA256: &str = "e260792095921ca92a562d88658400df8d12adf5f3ff01d913b91a5632ec47fd";
 const REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=day&anchor=";
+const TASK_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/task";
 const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab.app", "https://calender.chobab.app", "https://chobab.app"];
 
 #[derive(Deserialize)]
@@ -39,15 +40,30 @@ fn credentials() -> Result<Credentials, &'static str> {
     Ok(auth)
 }
 
-pub fn perform(id: u32, method: &str, url: &str) -> Value {
-    let Some(date) = date_from_request(method, url) else { return json!({"id":id,"error":"지원하지 않는 요청입니다"}); };
+pub fn perform(id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
+    let task = if method == "POST" && url == TASK_REQUEST {
+        let Some(request) = body.and_then(|b| serde_json::from_str::<Value>(b).ok()) else { return json!({"id":id,"error":"할 일을 확인해주세요"}); };
+        let source = request["source"].as_str().unwrap_or("");
+        let item = request["id"].as_str().unwrap_or("");
+        if !["event", "capture"].contains(&source) || item.is_empty() || item.len() > 200 || !request["done"].is_boolean() { return json!({"id":id,"error":"할 일을 확인해주세요"}); }
+        Some(json!({"source": source, "id": item, "done":request["done"]}).to_string())
+    } else { None };
+    let date = date_from_request(method, url);
+    if date.is_none() && task.is_none() { return json!({"id":id,"error":"지원하지 않는 요청입니다"}); }
     let auth = match credentials() { Ok(v) => v, Err(_) => return json!({"id":id,"ok":false,"status":401,"body":""}) };
+    let headers = [("Authorization".to_string(), format!("Bearer {}", auth.token)), ("Content-Type".to_string(), "application/json".to_string())];
+    if let Some(task) = task {
+        let target = format!("{}/api/personal/calendar/widget/task", auth.origin);
+        let response = crate::net::perform(id, "POST", &target, &headers, Some(&task));
+        return json!({"id":id,"ok":response["ok"],"status":response["status"],"body":"{}"});
+    }
+    let date = date.unwrap_or("");
     let target = format!("{}/api/personal/calendar/widget/feed?view=day&anchor={}", auth.origin, date);
-    let response = crate::net::perform(id, "GET", &target, &[("Authorization".to_string(), format!("Bearer {}", auth.token))], None);
+    let response = crate::net::perform(id, "GET", &target, &headers, None);
     // The daily feed may also contain private notes: return only fields used by the widget.
     if response["ok"] == true {
         if let Some(body) = response["body"].as_str().and_then(|s| serde_json::from_str::<Value>(s).ok()) {
-            let filtered = json!({"events":body["events"], "tasks":body["tasks"]});
+            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "captures":body["captures"]});
             return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
         }
         return json!({"id":id,"error":"일정을 읽지 못했어요"});
@@ -55,7 +71,7 @@ pub fn perform(id: u32, method: &str, url: &str) -> Value {
     // Reuse the existing app's encrypted cache; never show it after an explicit 401.
     if response["status"].as_u64() != Some(401) {
         if let Some(body) = auth.cache.get(&format!("day:{date}")) {
-            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "cached":true});
+            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "captures":body["captures"], "cached":true});
             return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
         }
     }
@@ -70,6 +86,14 @@ mod tests {
         assert!(date_from_request("POST", &format!("{REQUEST}2026-11-24")).is_none());
         assert!(date_from_request("GET", &format!("{REQUEST}2026-11-24&other=1")).is_none());
         assert!(date_from_request("GET", "https://evil.example/").is_none());
+    }
+    #[test] fn task_rejects_untrusted_payload_before_loading_credentials() {
+        let bad = perform(7, "POST", TASK_REQUEST, Some(r#"{"source":"event","id":"1","done":"true"}"#));
+        assert!(bad["error"].is_string());
+        let bad = perform(7, "POST", TASK_REQUEST, Some(r#"{"source":"evil","id":"1","done":true}"#));
+        assert!(bad["error"].is_string());
+        let bad = perform(7, "POST", "https://evil.example/task", Some(r#"{"source":"event","id":"1","done":true}"#));
+        assert!(bad["error"].is_string());
     }
     #[test] fn unknown_bundles_cannot_access_credentials() { assert!(!trusted_bundle("app.chobab.netaq.widgets", "today", b"untrusted")); }
 }
