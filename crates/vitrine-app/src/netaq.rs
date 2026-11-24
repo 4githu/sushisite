@@ -14,6 +14,13 @@ const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab
 #[derive(Deserialize)]
 struct Credentials { origin: String, token: String, #[serde(default)] cache: std::collections::BTreeMap<String, Value>, #[serde(default)] webapp_shortcut: String }
 
+fn decrypt_credentials(data: &[u8], key: &[u8]) -> Result<Credentials, &'static str> {
+    if data.len() < 12 { return Err("연결 정보를 읽지 못했어요"); }
+    let cipher = ChaCha20Poly1305::new_from_slice(key).map_err(|_| "보안 키를 읽지 못했어요")?;
+    let plaintext = cipher.decrypt(Nonce::from_slice(&data[..12]), &data[12..]).map_err(|_| "연결 정보를 복원하지 못했어요")?;
+    serde_json::from_slice(&plaintext).map_err(|_| "연결 정보를 읽지 못했어요")
+}
+
 pub fn trusted_bundle(package: &str, widget: &str, source: &[u8]) -> bool {
     package == "app.chobab.netaq.widgets" && widget == "today"
         && format!("{:x}", Sha256::digest(source)) == BUNDLE_SHA256
@@ -33,9 +40,7 @@ fn credentials() -> Result<Credentials, &'static str> {
     if data.len() < 12 { return Err("연결 정보를 읽지 못했어요"); }
     let entry = keyring::Entry::new("app.chobab.netaq.desktop.widget", "encryption-key").map_err(|_| "보안 저장소를 열지 못했어요")?;
     let key = STANDARD.decode(entry.get_password().map_err(|_| "NETAQ 앱에서 계정을 연결해주세요")?).map_err(|_| "보안 키를 읽지 못했어요")?;
-    let cipher = ChaCha20Poly1305::new_from_slice(&key).map_err(|_| "보안 키를 읽지 못했어요")?;
-    let plaintext = cipher.decrypt(Nonce::from_slice(&data[..12]), &data[12..]).map_err(|_| "연결 정보를 복원하지 못했어요")?;
-    let auth: Credentials = serde_json::from_slice(&plaintext).map_err(|_| "연결 정보를 읽지 못했어요")?;
+    let auth = decrypt_credentials(&data, &key)?;
     if !ALLOWED.contains(&auth.origin.as_str()) || auth.token.is_empty() || auth.token.len() > 200 || auth.token.contains(['\r','\n']) { return Err("연결 정보를 확인해주세요"); }
     Ok(auth)
 }
@@ -96,6 +101,16 @@ pub fn perform(id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn decrypts_existing_tauri_storage_format() {
+        let key = [7u8;32]; let nonce = [9u8;12];
+        let cipher = ChaCha20Poly1305::new_from_slice(&key).unwrap();
+        let plaintext = br#"{"origin":"https://netaq.chobab.app","token":"example","cache":{}}"#;
+        let mut blob = nonce.to_vec(); blob.extend(cipher.encrypt(Nonce::from_slice(&nonce), plaintext.as_slice()).unwrap());
+        let auth = decrypt_credentials(&blob, &key).unwrap();
+        assert_eq!(auth.token, "example");
+        assert!(decrypt_credentials(&blob, &[8u8;32]).is_err());
+        assert!(decrypt_credentials(&blob[..5], &key).is_err());
+    }
     #[test] fn requests_are_strictly_limited() {
         assert!(date_from_request("GET", &format!("{REQUEST}2026-11-24")).is_some());
         assert!(date_from_request("POST", &format!("{REQUEST}2026-11-24")).is_none());
