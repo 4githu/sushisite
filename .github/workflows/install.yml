@@ -1,7 +1,7 @@
 name: Verify NETAQ installer
-on: [push]
+on: [workflow_dispatch]
 permissions:
-  contents: write
+  contents: read
 jobs:
   install:
     runs-on: windows-latest
