@@ -342,6 +342,18 @@ describe('Reader real PDF extraction in the browser', () => {
 		await page.getByRole('button', { name: 'PDF 지면 보기' }).click();
 		await expect.element(page.getByTitle('원본 PDF 지면')).toBeInTheDocument();
 	});
+	it('opens a translated example with controls and notes collapsed', async () => {
+		render(ReaderPage);
+		await page.getByRole('button', { name: '예시 논문 열기' }).click();
+		await expect.poll(() => document.querySelectorAll('.segment-row').length).toBe(52);
+		await expect.element(page.getByRole('button', { name: '재번역 설정' })).toHaveAttribute('aria-expanded', 'false');
+		expect(document.querySelector('.consent-panel')).toBeNull();
+		expect(document.querySelector('.notes-panel')).toBeNull();
+		await page.getByRole('button', { name: '재번역 설정' }).click();
+		await expect.element(page.getByRole('checkbox', { name: /텍스트 전송에 동의/ })).toBeVisible();
+		await page.getByRole('button', { name: '메모 패널' }).click();
+		expect(document.querySelector('.notes-panel')).not.toBeNull();
+	}, 60000);
 	it('opens the Park example with 52 matched pairs and restores notes on mobile', async () => {
 		await page.viewport(390, 844);
 		try {
@@ -353,8 +365,8 @@ describe('Reader real PDF extraction in the browser', () => {
 			expect(document.body.textContent).toContain('ROS scavenging by NAC');
 			expect(document.body.textContent).toContain('NAC에 의한 ROS 제거가');
 			expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+			expect(document.querySelector('.page-nav')!.getBoundingClientRect().height).toBeLessThan(120);
 			for (const element of [
-				document.querySelector('.translate-button')!,
 				...rows.flatMap((row) => [row.querySelector('.source-cell')!, row.querySelector('.translation-cell')!]),
 				document.querySelector('[aria-label="p1-s1 메모"]')!
 			]) {
