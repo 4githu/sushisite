@@ -1,17 +1,17 @@
-name: Verify NETAQ installer
+name: Verify NETAQ widget upgrade
 on: [workflow_dispatch]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  install:
+  upgrade:
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Download draft installer
+      - name: Download test installers
         shell: pwsh
-        run: gh release download netaq-widget-0.14.0-ci-test --repo 4githu/sushisite --pattern '*.exe' --dir .
-      - name: Install and start
+        run: gh release download netaq-widget-0.15.0-ci-test --repo 4githu/sushisite --pattern '*.exe' --dir .
+      - name: Install and upgrade
         shell: pwsh
-        run: ./test/install.ps1
+        run: ./test/upgrade.ps1
