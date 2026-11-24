@@ -1,0 +1,33 @@
+name: Windows desktop smoke (debug build)
+on: [push]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: netaq-vitrine-engine-dev
+          run-id: 45315996891
+          github-token: ${{ github.token }}
+          path: previous-build
+      - name: Prepare build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory target/release -Force | Out-Null
+          Copy-Item previous-build/target/debug/vitrine.exe target/release/vitrine.exe
+      - name: Render widget
+        shell: pwsh
+        run: |
+          & target/release/vitrine.exe render test-widget today --cells 5x5 --out widget-preview.png
+          if ($LASTEXITCODE -ne 0 -or !(Test-Path widget-preview.png)) { throw 'Preview render failed' }
+      - name: Start desktop host
+        shell: pwsh
+        run: ./test/desktop-smoke.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netaq-vitrine-debug-preview
+          path: widget-preview.png
