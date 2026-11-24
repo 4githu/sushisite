@@ -1,7 +1,7 @@
 name: Verify NETAQ installer
 on: [push]
 permissions:
-  contents: read
+  contents: write
 jobs:
   install:
     runs-on: windows-latest
