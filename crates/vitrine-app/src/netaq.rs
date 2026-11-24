@@ -8,10 +8,10 @@ use std::path::PathBuf;
 
 const BUNDLE_DIGESTS: &[(&str, &str)] = &[
     ("today", "1d8eb0f0d46dfbfea3ca59d6cf0a660d004725066fe8860ab86a54b333473a3a"),
-    ("week", "c3c988bd67e3a5227a494b260e3d189f8e5fd1ca845f62d793395e860bfbd96e"),
-    ("month", "57b51c9c265c8db2eb6e767b95b403a1f12caa670d4351d2fb2a377e4546ea29"),
-    ("tasks", "1506f33839e3fd1a2e7b73e0f59ae4bbcf01a6111f158c31fd6e65430b9bb8c1"),
-    ("memo", "e6e2e4d1c4a531bdaa3ae1f28cd06dd6bdff57f31853ed009ade6a20fc33e562"),
+    ("week", "8275e33659d5697bda55054be02f49c62247ce684614d99e0d672ee2ea23614b"),
+    ("month", "dec59064e7aaaf4e092e31b85bb62e499c30e3340c655affea4b7fb11999e570"),
+    ("tasks", "cd910bc1b80ae3e995b20aad7b315515f32b274ebbce340da1c319eaf2ba7cac"),
+    ("memo", "32c89dee1e56694436899b6309e1714d9b1d2025fcf402c2a635ecc40784e6f5"),
 ];
 const FEED_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=";
 const TASK_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/task";
