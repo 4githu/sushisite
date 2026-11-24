@@ -110,6 +110,7 @@ describe('Reader transfer consent', () => {
 		localStorage.setItem(key, other);
 		await page.getByLabelText('p1-s1 메모 내용').fill('local draft');
 		expect(localStorage.getItem(key)).toBe(other);
+		await page.getByRole('button', { name: '메모 패널', exact: true }).click();
 		await expect.element(page.getByText(/다른 탭에서 변경/)).toBeInTheDocument();
 		await expect.element(page.getByLabelText('p1-s1 메모 내용')).toHaveValue('local draft');
 		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);

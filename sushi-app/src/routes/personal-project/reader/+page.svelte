@@ -34,7 +34,8 @@
 	let annotations = $state<ReaderAnnotation[]>([]);
 	let fileInput: HTMLInputElement;
 	let openNotes = $state<Record<string, boolean>>({});
-	let showNotes = $state(true);
+	let showNotes = $state(false);
+	let showTranslationControls = $state(false);
 	let selectedSegment = $state('');
 	let pageNumbers = $derived([
 		...new Set(
@@ -163,6 +164,8 @@
 		notes = {};
 		annotations = [];
 		openNotes = {};
+		showNotes = false;
+		showTranslationControls = false;
 		const operation = ++operationId;
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 		pdfUrl = '';
@@ -482,6 +485,11 @@
 			{/if}
 
 			{#if segments.length}
+				{#if isExample && !failedSegment}
+					<button type="button" class="pdf-toggle" aria-expanded={showTranslationControls}
+						onclick={() => (showTranslationControls = !showTranslationControls)}>재번역 설정</button>
+				{/if}
+				{#if !isExample || failedSegment || showTranslationControls}
 				<div class="consent-panel">
 					<section class="consent-copy" aria-labelledby="transfer-disclosure-title">
 						<strong id="transfer-disclosure-title">번역 전 데이터 처리 안내</strong>
@@ -496,6 +504,7 @@
 						{translating ? `번역 요청 중 ${translationProgress} / ${segments.length}` : failedSegment ? '번역 이어서 받기' : '한국어 번역 시작'}
 					</button>
 				</div>
+				{/if}
 				<div class="reader-controls">
 					<span>읽기 도구</span>
 					<button
@@ -524,6 +533,9 @@
 						>
 					</div>
 				</div>
+				{#if !showNotes && saveStatus.startsWith('저장 안 됨')}
+					<div class="feedback notice" role="status">{saveStatus} <button type="button" onclick={() => (showNotes = true)}>메모 패널 열기</button></div>
+				{/if}
 				<div class="reading-workspace" class:with-notes={showNotes}>
 					<nav class="page-nav" aria-label="페이지 목록">
 						<strong>페이지</strong>{#each pageNumbers as number (number)}<a href={`#p${number}-s1`}
@@ -1255,6 +1267,15 @@
 	@media (max-width: 800px) {
 		.reading-workspace {
 			display: block;
+		}
+		.page-nav {
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 4px;
+			padding: 8px 12px;
+			border-right: 0;
+			border-bottom: 1px solid #e4e8e6;
 		}
 		.notes-panel {
 			border-left: 0;
