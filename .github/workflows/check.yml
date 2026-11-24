@@ -14,8 +14,8 @@ jobs:
       - name: Render widget preview
         shell: pwsh
         run: |
-          & target/release/vitrine.exe render test-widget today --cells 5x5 --out widget-preview.png
-          if ($LASTEXITCODE -ne 0 -or !(Test-Path widget-preview.png)) { throw 'Preview render failed' }
+          $preview = Start-Process -FilePath 'target/release/vitrine.exe' -ArgumentList @('render','test-widget','today','--cells','5x5','--out','widget-preview.png') -PassThru -Wait
+          if ($preview.ExitCode -ne 0 -or !(Test-Path widget-preview.png)) { throw 'Preview render failed' }
       - name: Test desktop host startup
         shell: pwsh
         run: ./test/desktop-smoke.ps1

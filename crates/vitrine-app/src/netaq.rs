@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const BUNDLE_SHA256: &str = "ba4ad791486c3682704097c5523e0fa81a0a362f6bc06245a3d25febd7b6eed5";
+const BUNDLE_SHA256: &str = "52f13f316d9566704152ab09e21b6cdd8a9a7284d5683dd2400b699795f3bed6";
 const REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=day&anchor=";
 const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab.app", "https://calender.chobab.app", "https://chobab.app"];
 
