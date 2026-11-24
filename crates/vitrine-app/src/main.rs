@@ -236,7 +236,21 @@ fn strip_verbatim(p: &std::path::Path) -> PathBuf {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("--owner") {
+        if let Some(owner) = args.get(1).and_then(|s| s.parse::<u32>().ok()) {
+            args.drain(..2);
+            std::thread::spawn(move || unsafe {
+                use windows::Win32::Foundation::CloseHandle;
+                use windows::Win32::System::Threading::{OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
+                if let Ok(handle) = OpenProcess(PROCESS_SYNCHRONIZE, false, owner) {
+                    let _ = WaitForSingleObject(handle, INFINITE);
+                    let _ = CloseHandle(handle);
+                }
+                if !runtime::send_command(runtime::Runtime::CMD_QUIT) { std::process::exit(0); }
+            });
+        }
+    }
     let config = vitrine_widgets::config::Config::load(&vitrine_widgets::paths::config_path())
         .unwrap_or_default();
     i18n::init(config.language.as_deref());
