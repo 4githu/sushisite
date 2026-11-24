@@ -15,6 +15,7 @@
 	import { createDocument, createTextBlock } from '$lib/textediter/model';
 	import type { ReaderAnnotation } from '$lib/personal-project/reader/annotations';
 	import type { EditorDocument } from '$lib/textediter/types';
+	import example from '$lib/personal-project/reader/example-park-2024.json';
 	let segments = $state<ReaderSegment[]>([]);
 	let translations = $state<Record<string, string>>({});
 	let fileName = $state('');
@@ -50,6 +51,7 @@
 	let storedSnapshot: string | null = null;
 	let conflict = $state(false);
 	let translationController: AbortController | null = null;
+	let exampleController: AbortController | null = null;
 	beforeNavigate((navigation) => {
 		if (
 			saveStatus.startsWith('저장 안 됨') &&
@@ -60,6 +62,8 @@
 			return;
 		}
 		translationController?.abort();
+		exampleController?.abort();
+		operationId += 1;
 	});
 	async function saveNotes() {
 		if (!documentKey || !storageReadable) return;
@@ -105,8 +109,10 @@
 	let operationId = 0;
 	let pdfUrl = $state('');
 	let showPdf = $state(false);
+	let isExample = $state(false);
 	onDestroy(() => {
 		translationController?.abort();
+		exampleController?.abort();
 		operationId += 1;
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 	});
@@ -115,14 +121,38 @@
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
+		input.value = '';
+		await openFile(file);
+	}
+	async function openExample() {
+		if (busy) return;
+		const operation = ++operationId;
+		const controller = new AbortController();
+		exampleController = controller;
+		busy = true;
+		try {
+			const response = await fetch('/personal-project/reader/example-park-2024.pdf', { signal: controller.signal });
+			if (!response.ok) throw new Error('예시 PDF를 불러오지 못했습니다.');
+			const blob = await response.blob();
+			if (operation !== operationId || controller.signal.aborted) return;
+			await openFile(new File([blob], 'Park-2024.pdf', { type: 'application/pdf' }), true);
+		} catch (cause) {
+			if (operation !== operationId || controller.signal.aborted) return;
+			error = cause instanceof Error ? cause.message : '예시 논문을 열지 못했습니다.';
+		} finally {
+			if (exampleController === controller) exampleController = null;
+			if (operation === operationId) busy = false;
+		}
+	}
+	async function openFile(file: File, exampleRequested = false) {
 		if (
 			saveStatus.startsWith('저장 안 됨') &&
 			!confirm('저장하지 못한 메모가 사라집니다. 다른 PDF를 여시겠습니까?')
 		) {
-			input.value = '';
 			return;
 		}
 		translationController?.abort();
+		exampleController?.abort();
 		documentKey = '';
 		translationKey = '';
 		storedSnapshot = null;
@@ -137,8 +167,8 @@
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 		pdfUrl = '';
 		showPdf = false;
-		input.value = '';
 		segments = [];
+		isExample = false;
 		translations = {};
 		failedSegment = '';
 		fileName = '';
@@ -193,6 +223,22 @@
 			});
 			if (operation !== operationId) return;
 			segments = extracted;
+			if (exampleRequested) {
+				if (JSON.stringify(extracted) !== JSON.stringify(example.segments)) {
+					throw new Error('예시 논문 원문이 저장된 번역과 일치하지 않습니다.');
+				}
+				segments = extracted.map((segment) => {
+					if (segment.id === 'p9-s3') return { ...segment, text: segment.text.replace(' qRT-PCR analysis confirmed that ROS scav -', '') };
+					if (segment.id === 'p9-s4') return { ...segment, text: segment.text.replace(/^enging by NAC/, 'qRT-PCR analysis confirmed that ROS scavenging by NAC') };
+					return segment;
+				});
+				translations = {
+					...example.translations,
+					'p9-s3': example.translations['p9-s3'].replace(' qRT-PCR 분석을 통해 ROS 제거제가', ''),
+					'p9-s4': example.translations['p9-s4'].replace('NAC에 의한 enging은 3R4F로 처리한 hMSC에서 NLRP3 인플라마좀 관련 유전자의 발현을 감소시켰다', 'qRT-PCR 분석을 통해 NAC에 의한 ROS 제거가 3R4F로 처리한 hMSC에서 NLRP3 인플라마좀 관련 유전자의 발현을 감소시켰음이 확인되었다')
+				};
+				isExample = true;
+			}
 			if (documentKey && segments.length) {
 				translationKey = documentKey.replace('paiper.reader.notes.v2.', 'paiper.reader.translations.v1.');
 				try {
@@ -292,6 +338,7 @@
 		translationProgress = startIndex;
 		error = '';
 		notice = '';
+		let storageFailed = false;
 		try {
 			const result = await translateSegments(
 				segments,
@@ -307,6 +354,7 @@
 							try {
 								localStorage.setItem(translationKey, JSON.stringify({ segments, translations }));
 							} catch {
+								storageFailed = true;
 								notice = '번역을 이 기기에 저장하지 못했습니다. 페이지를 닫기 전에 확인해 주세요.';
 							}
 						}
@@ -317,7 +365,7 @@
 			);
 			if (operation !== operationId) return;
 			translations = { ...translations, ...Object.fromEntries(result.map(({ id, text }) => [id, text])) };
-			notice = '번역을 받았습니다. / Translation received.';
+			if (!storageFailed) notice = '번역을 받았습니다. / Translation received.';
 		} catch (cause) {
 			if (operation !== operationId) return;
 			failedSegment = segments[translationProgress]?.id ?? '';
@@ -381,7 +429,11 @@
 						disabled={busy}
 					/>
 				</label>
+				<button type="button" class="choose-button" disabled={busy} onclick={openExample}>예시 논문 열기</button>
 			</div>
+			{#if isExample}
+				<p>Park 외 (2024), <a href="https://doi.org/10.1186/s13287-024-03731-2">원문 및 출처</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. 원문 추출 및 한국어 번역은 수정되었으며 전체 정확성은 검증되지 않았습니다.</p>
+			{/if}
 
 			{#if busy}
 				<div class="progress-wrap" role="status" aria-live="polite">

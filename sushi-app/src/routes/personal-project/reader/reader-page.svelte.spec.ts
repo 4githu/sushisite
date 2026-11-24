@@ -1,6 +1,6 @@
 import { page, userEvent } from 'vitest/browser';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render } from 'vitest-browser-svelte';
 import ReaderPage from './+page.svelte';
 import { extractPdfSegments, translateSegments } from '$lib/personal-project/reader/reader';
 import { PersonalApiError } from '$lib/personal-project/shared/api';
@@ -29,6 +29,21 @@ vi.mock('$lib/personal-project/reader/reader', async (importOriginal) => {
 	};
 });
 
+beforeEach(async () => {
+	cleanup();
+	localStorage.clear();
+	await page.viewport(1280, 720);
+	window.scrollTo(0, 0);
+	window.parent.scrollTo(0, 0);
+});
+afterEach(async () => {
+	cleanup();
+	localStorage.clear();
+	await page.viewport(1280, 720);
+	window.scrollTo(0, 0);
+	window.parent.scrollTo(0, 0);
+});
+
 describe('Reader application workspace', () => {
 	it('shows a compact app header rather than a landing page or pairing prototype', async () => {
 		render(ReaderPage);
@@ -45,6 +60,34 @@ describe('Reader application workspace', () => {
 });
 
 describe('Reader transfer consent', () => {
+	it('keeps a translation storage failure visible after completion', async () => {
+		vi.mocked(translateSegments).mockImplementationOnce(async (_s, _p, _path, _signal, onBatch) => {
+			onBatch?.([{ id: 'p1-s1', text: '저장되지 않은 번역' }]);
+			return [{ id: 'p1-s1', text: '저장되지 않은 번역' }];
+		});
+		render(ReaderPage);
+		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['quota'], 'quota.pdf', { type: 'application/pdf' }));
+		const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+		try {
+			await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
+			await page.getByRole('button', { name: /한국어 번역 시작/ }).click();
+			await expect.element(page.getByText(/번역을 이 기기에 저장하지 못했습니다/)).toBeInTheDocument();
+		} finally { set.mockRestore(); }
+	});
+
+	it('does not replace a newer PDF when the example fetch finishes late', async () => {
+		let finish!: (value: Response) => void;
+		const fetchSpy = vi.spyOn(window, 'fetch').mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+		try {
+			render(ReaderPage);
+			await page.getByRole('button', { name: '예시 논문 열기' }).click();
+			await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(new File(['new'], 'new.pdf', { type: 'application/pdf' }));
+			await expect.element(page.getByText('Synthetic source text.')).toBeInTheDocument();
+			finish(new Response(new Blob(['old'], { type: 'application/pdf' })));
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			await expect.element(page.getByText('Synthetic source text.')).toBeInTheDocument();
+		} finally { fetchSpy.mockRestore(); }
+	});
 	it('does not overwrite a different tab and keeps the local draft exportable', async () => {
 		render(ReaderPage);
 		await page
@@ -112,7 +155,7 @@ describe('Reader transfer consent', () => {
 			.getByLabelText(/PDF 열기|다른 PDF 열기/)
 			.upload(new File(['a'], 'a.pdf', { type: 'application/pdf' }));
 		await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
-		await page.getByRole('button', { name: /Translate to Korean/ }).click();
+		await page.getByRole('button', { name: /한국어 번역 시작/ }).click();
 		await page
 			.getByLabelText(/PDF 열기|다른 PDF 열기/)
 			.upload(new File(['b'], 'b.pdf', { type: 'application/pdf' }));
@@ -157,7 +200,7 @@ describe('Reader transfer consent', () => {
 			.upload(new File(['synthetic'], 'test.pdf', { type: 'application/pdf' }));
 		await expect.element(page.getByLabelText(/번역 경로/)).not.toBeInTheDocument();
 		await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
-		await page.getByRole('button', { name: /Translate to Korean/ }).click();
+		await page.getByRole('button', { name: /한국어 번역 시작/ }).click();
 		await expect.poll(() => vi.mocked(translateSegments).mock.calls.length).toBe(1);
 		expect(vi.mocked(translateSegments).mock.calls[0][2]).toBe('shared');
 	});
@@ -171,9 +214,9 @@ describe('Reader transfer consent', () => {
 			.getByLabelText(/PDF 열기|다른 PDF 열기/)
 			.upload(new File(['synthetic'], 'unavailable.pdf', { type: 'application/pdf' }));
 		await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
-		await page.getByRole('button', { name: /Translate to Korean/ }).click();
+		await page.getByRole('button', { name: /한국어 번역 시작/ }).click();
 		await expect.element(page.getByRole('alert')).toHaveTextContent('번역 연결이 필요합니다');
-		await page.getByRole('button', { name: /Translate to Korean/ }).click();
+		await page.getByRole('button', { name: /번역 이어서 받기|한국어 번역 시작/ }).click();
 		await expect.element(page.getByText('합성 번역문.')).toBeInTheDocument();
 	});
 
@@ -214,7 +257,7 @@ describe('Reader transfer consent', () => {
 			.getByLabelText(/PDF 열기|다른 PDF 열기/)
 			.upload(new File(['synthetic file bytes'], 'synthetic.pdf', { type: 'application/pdf' }));
 		await page.getByRole('checkbox', { name: /텍스트 전송에 동의/ }).click();
-		await page.getByRole('button', { name: /Translate to Korean/ }).click();
+		await page.getByRole('button', { name: /한국어 번역 시작/ }).click();
 		await expect.element(page.getByText('합성 번역문.')).toBeInTheDocument();
 		await page.getByRole('button', { name: '원문만' }).click();
 		await expect.element(page.getByText('Synthetic source text.')).toBeInTheDocument();
@@ -233,13 +276,13 @@ describe('Reader transfer consent', () => {
 
 		const disclosure = page.getByRole('region', { name: '번역 전 데이터 처리 안내' });
 		await expect.element(disclosure).toBeInTheDocument();
-		await expect.element(disclosure).toHaveTextContent(/PDF 텍스트는 이 브라우저에서 추출/);
-		await expect.element(disclosure).toHaveTextContent(/인증된 Sushi 서버/);
+		await expect.element(disclosure).toHaveTextContent(/텍스트는 브라우저에서 추출/);
+		await expect.element(disclosure).toHaveTextContent(/Sushi 서버/);
 		await expect.element(disclosure).toHaveTextContent(/번역 제공자/);
 		await expect.element(disclosure).toHaveTextContent(/PDF 파일 자체는 전송하지 않습니다/);
 
 		const checkbox = page.getByRole('checkbox', { name: /텍스트 전송에 동의/ });
-		const translateButton = page.getByRole('button', { name: /Translate to Korean/ });
+		const translateButton = page.getByRole('button', { name: /한국어 번역 시작/ });
 		expect(
 			(disclosure.element().compareDocumentPosition(checkbox.element()) &
 				Node.DOCUMENT_POSITION_FOLLOWING) !==
