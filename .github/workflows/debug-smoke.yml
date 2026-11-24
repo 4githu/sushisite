@@ -22,7 +22,7 @@ jobs:
       - name: Render widget
         shell: pwsh
         run: |
-          $preview = Start-Process -FilePath 'target/release/vitrine.exe' -ArgumentList @('render','test-widget','today','--cells','5x5','--out','widget-preview.png') -PassThru -Wait
+          $preview = Start-Process -FilePath 'target/release/vitrine.exe' -ArgumentList @('render','test-widget-fixture','today','--cells','7x5','--out','widget-preview.png') -PassThru -Wait
           if ($preview.ExitCode -ne 0 -or !(Test-Path widget-preview.png)) { throw 'Preview render failed' }
       - name: Start desktop host
         shell: pwsh
