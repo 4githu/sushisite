@@ -9,7 +9,7 @@ use std::path::PathBuf;
 const BUNDLE_DIGESTS: &[(&str, &str)] = &[
     ("today", "1ccd2d06e13ad4fedd2015e92aaea72904f579e806987cb74cac47c6c6bb0b3b"),
     ("week", "8477514bfd28f172be94a806930f1354539c00876dcb5f8cea8d900746164d1d"),
-    ("month", "f4a9ab5a0fe863937abfd6674c154f4d189a7a2ea083091da91184e6ce015603"),
+    ("month", "17a84fa249ef589ab9bed07dd20119c0899983946b777a8037901019061eace7"),
     ("tasks", "e281bfe8e66d344a99d6afb25c20639a6157a61cd04c174e31e469eb4fce06af"),
     ("memo", "32c89dee1e56694436899b6309e1714d9b1d2025fcf402c2a635ecc40784e6f5"),
 ];
