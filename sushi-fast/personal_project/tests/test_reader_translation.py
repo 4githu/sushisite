@@ -143,7 +143,7 @@ def test_success_maps_fake_cli_response_to_api_contract_and_hides_source(app, mo
         '{"translations":[{"id":"a","text":""},{"id":"b","text":"two"}]}',
     ],
 )
-def test_malformed_cli_ids_or_output_are_sanitized(app, monkeypatch, tmp_path, bad_output):
+def test_malformed_cli_ids_or_output_are_sanitized(app, monkeypatch, tmp_path, bad_output, caplog):
     source = "SYNTH_SOURCE_SENTINEL_5ea1"
     _configure_fake_cli(monkeypatch, tmp_path, bad_output)
     response = _authenticated_client(app).post(
@@ -154,9 +154,12 @@ def test_malformed_cli_ids_or_output_are_sanitized(app, monkeypatch, tmp_path, b
     assert response.json()["detail"]["code"] == "translation_provider_error"
     assert source not in response.text
     assert "not-json" not in response.text
+    kind = "malformed_json" if bad_output.startswith("not-json") else "invalid_schema"
+    assert f"reader_cli_failure kind={kind}" in caplog.text
+    assert source not in caplog.text
 
 
-def test_timeout_and_nonzero_exit_are_sanitized(app, monkeypatch, tmp_path):
+def test_timeout_and_nonzero_exit_are_sanitized(app, monkeypatch, tmp_path, caplog):
     source = "SYNTH_TIMEOUT_SOURCE"
     _configure_fake_cli(
         monkeypatch,
@@ -170,9 +173,11 @@ def test_timeout_and_nonzero_exit_are_sanitized(app, monkeypatch, tmp_path):
     )
     assert response.status_code == 502
     assert source not in response.text
+    assert "reader_cli_failure kind=timeout" in caplog.text
+    assert source not in caplog.text
 
 
-def test_nonzero_child_exit_is_sanitized(app, monkeypatch, tmp_path):
+def test_nonzero_child_exit_is_sanitized(app, monkeypatch, tmp_path, caplog):
     _configure_fake_cli(
         monkeypatch,
         tmp_path,
@@ -186,9 +191,12 @@ def test_nonzero_child_exit_is_sanitized(app, monkeypatch, tmp_path):
     assert response.status_code == 502
     assert "SYNTH_FAILURE_SOURCE" not in response.text
     assert "SYNTH_ERROR_BODY" not in response.text
+    assert "reader_cli_failure kind=nonzero_exit returncode=9" in caplog.text
+    assert "SYNTH_FAILURE_SOURCE" not in caplog.text
+    assert "SYNTH_ERROR_BODY" not in caplog.text
 
 
-def test_oversized_child_output_is_terminated_and_sanitized(app, monkeypatch, tmp_path):
+def test_oversized_child_output_is_terminated_and_sanitized(app, monkeypatch, tmp_path, caplog):
     _configure_fake_cli(
         monkeypatch,
         tmp_path,
@@ -202,6 +210,8 @@ def test_oversized_child_output_is_terminated_and_sanitized(app, monkeypatch, tm
     )
     assert response.status_code == 502
     assert "SYNTH_BOUNDED_SOURCE" not in response.text
+    assert "reader_cli_failure kind=output_limit" in caplog.text
+    assert "SYNTH_BOUNDED_SOURCE" not in caplog.text
 
 
 def test_rejects_invalid_executable_and_profile_paths(app, monkeypatch, tmp_path):
