@@ -4,7 +4,8 @@ export type ReaderSegment = { id: string; text: string };
 export type ReaderTranslation = { id: string; text: string };
 export type ReaderEntry = { id: string; source: string; translation: string | null };
 
-const MAX_TRANSLATION_SEGMENTS = 50;
+// Bound provider requests after a real-paper batch failed with HTTP 502.
+const MAX_TRANSLATION_SEGMENTS = 2;
 const MAX_TRANSLATION_CHARS = 20_000;
 const MAX_SEGMENT_CHARS = 5_000;
 

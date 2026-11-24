@@ -111,7 +111,7 @@ describe('translateSegments', () => {
 				text: `source-${index + 1}`
 			}));
 			const result = await translateSegments(segments);
-			expect(seenBatches.map((batch) => batch.length)).toEqual([50, 1]);
+			expect(seenBatches.map((batch) => batch.length)).toEqual([...Array(25).fill(2), 1]);
 			expect(result.map(({ id }) => id)).toEqual(segments.map(({ id }) => id));
 		} finally {
 			vi.unstubAllGlobals();
@@ -138,7 +138,7 @@ describe('translateSegments', () => {
 			await translateSegments(segments);
 			expect(
 				seenBatches.map((batch) => batch.reduce((total, item) => total + item.text.length, 0))
-			).toEqual([20_000, 5_000]);
+			).toEqual([10_000, 10_000, 5_000]);
 		} finally {
 			vi.unstubAllGlobals();
 		}
