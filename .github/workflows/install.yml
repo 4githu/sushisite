@@ -1,0 +1,17 @@
+name: Verify NETAQ installer
+on: [push]
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download draft installer
+        shell: pwsh
+        run: gh release download netaq-widget-0.14.0-ci-test --repo 4githu/sushisite --pattern '*.exe' --dir .
+      - name: Install and start
+        shell: pwsh
+        run: ./test/install.ps1
