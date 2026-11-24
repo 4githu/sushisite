@@ -12,7 +12,7 @@ pub fn data_dir() -> PathBuf {
                 .map(|p| PathBuf::from(p).join("AppData").join("Roaming"))
         })
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Vitrine")
+    base.join("NETAQ Desktop Widgets")
 }
 
 pub fn packages_dir() -> PathBuf {
@@ -44,7 +44,7 @@ pub fn cache_dir() -> PathBuf {
             std::env::var_os("USERPROFILE").map(|p| PathBuf::from(p).join("AppData").join("Local"))
         })
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Vitrine").join("cache")
+    base.join("NETAQ Desktop Widgets").join("cache")
 }
 
 #[cfg(test)]
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn paths_are_under_data_dir() {
         let d = data_dir();
-        assert!(d.ends_with("Vitrine"));
+        assert!(d.ends_with("NETAQ Desktop Widgets"));
         assert_eq!(layout_path(), d.join("layout.json"));
         assert_eq!(config_path(), d.join("settings.json"));
         assert_eq!(packages_dir(), d.join("packages"));

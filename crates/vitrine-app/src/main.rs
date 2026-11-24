@@ -106,7 +106,7 @@ fn single_instance() -> bool {
     use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
     use windows::Win32::System::Threading::CreateMutexW;
     unsafe {
-        let handle = CreateMutexW(None, true, windows::core::w!("Local\\Vitrine.Singleton"));
+        let handle = CreateMutexW(None, true, windows::core::w!("Local\\NETAQVitrine.Singleton"));
         // Leaked on purpose: the mutex lives as long as the process.
         handle.is_ok() && GetLastError() != ERROR_ALREADY_EXISTS
     }

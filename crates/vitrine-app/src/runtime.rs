@@ -45,13 +45,13 @@ use crate::i18n::t;
 use crate::instance::{Effect, WidgetInstance};
 use crate::shellapi::{self, Item, Tray};
 
-pub const HOST_CLASS: PCWSTR = w!("VitrineHost");
-const WIDGET_CLASS: PCWSTR = w!("VitrineWidget");
+pub const HOST_CLASS: PCWSTR = w!("NETAQVitrineHost");
+const WIDGET_CLASS: PCWSTR = w!("NETAQVitrineWidget");
 /// Broadcast-free reload request: posted to the host window by `vitrine install`
 /// and the control panel after they change packages, layout or settings.
-pub const RELOAD_MESSAGE: PCWSTR = w!("Vitrine.Reload");
+pub const RELOAD_MESSAGE: PCWSTR = w!("NETAQVitrine.Reload");
 /// Runs a menu command (`wparam` = command id) in the running instance.
-pub const COMMAND_MESSAGE: PCWSTR = w!("Vitrine.Command");
+pub const COMMAND_MESSAGE: PCWSTR = w!("NETAQVitrine.Command");
 const HOTKEY_EDIT: i32 = 1;
 
 const WM_APP_WAKE: u32 = WM_APP + 1;
@@ -404,12 +404,12 @@ impl Runtime {
         let Some(g) = self.primary_geometry() else {
             return;
         };
-        let Some(pkg) = self.package("dev.vitrine.essentials").cloned() else {
+        let Some(pkg) = self.package("app.chobab.netaq.widgets").cloned() else {
             return;
         };
         // Essentials 3 is the Conky column; older bundles had a clock and a
         // system monitor. Otherwise whatever the pack starts with.
-        let mut seeds: Vec<&str> = ["conky", "clock", "system"]
+        let mut seeds: Vec<&str> = ["today"]
             .into_iter()
             .filter(|id| pkg.widget(id).is_some())
             .collect();

@@ -19,7 +19,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{BOOL, PCWSTR, w};
 
-const CLASS: PCWSTR = w!("Vitrine.PanelBridge");
+const CLASS: PCWSTR = w!("NETAQVitrine.PanelBridge");
 /// Tags our WM_COPYDATA payloads ("VTPN").
 const MAGIC: usize = 0x5654_504E;
 
@@ -98,7 +98,7 @@ pub fn forward(req: &Request) -> bool {
 /// panel's bridge (it may still be starting) and forwards the request to it.
 pub fn claim_or_forward(req: &Request) -> bool {
     let first = unsafe {
-        let h = CreateMutexW(None, true, w!("Local\\Vitrine.Panel"));
+        let h = CreateMutexW(None, true, w!("Local\\NETAQVitrine.Panel"));
         // Leaked on purpose: the mutex lives as long as the process.
         h.is_ok()
             && windows::Win32::Foundation::GetLastError()
