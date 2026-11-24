@@ -15,7 +15,7 @@ jobs:
         shell: pwsh
         run: |
           foreach ($widget in @('today','week','month','tasks','memo')) {
-            foreach ($size in @('180x180','400x320','650x360')) {
+            foreach ($size in @('128x128','180x180','400x320','650x360')) {
               $out = "preview-$widget-$size.png"
               $p = Start-Process -FilePath 'target/release/vitrine.exe' -ArgumentList @('render','test-widget-fixture',$widget,'--size',$size,'--wait','1500','--out',$out) -PassThru -Wait
               if ($p.ExitCode -ne 0 -or !(Test-Path $out)) { throw "Render failed $widget $size" }

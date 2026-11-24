@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const BUNDLE_DIGESTS: &[(&str, &str)] = &[
-    ("today", "1d8eb0f0d46dfbfea3ca59d6cf0a660d004725066fe8860ab86a54b333473a3a"),
-    ("week", "8275e33659d5697bda55054be02f49c62247ce684614d99e0d672ee2ea23614b"),
-    ("month", "dec59064e7aaaf4e092e31b85bb62e499c30e3340c655affea4b7fb11999e570"),
-    ("tasks", "cd910bc1b80ae3e995b20aad7b315515f32b274ebbce340da1c319eaf2ba7cac"),
+    ("today", "1ccd2d06e13ad4fedd2015e92aaea72904f579e806987cb74cac47c6c6bb0b3b"),
+    ("week", "8477514bfd28f172be94a806930f1354539c00876dcb5f8cea8d900746164d1d"),
+    ("month", "f4a9ab5a0fe863937abfd6674c154f4d189a7a2ea083091da91184e6ce015603"),
+    ("tasks", "e281bfe8e66d344a99d6afb25c20639a6157a61cd04c174e31e469eb4fce06af"),
     ("memo", "32c89dee1e56694436899b6309e1714d9b1d2025fcf402c2a635ecc40784e6f5"),
 ];
 const FEED_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=";
