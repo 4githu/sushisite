@@ -13,12 +13,12 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "CompanyName", "Vitrine"
-      VALUE "FileDescription", "Vitrine desktop widgets"
+      VALUE "CompanyName", "NETAQ"
+      VALUE "FileDescription", "NETAQ desktop widget"
       VALUE "FileVersion", "2.0.0"
-      VALUE "ProductName", "Vitrine"
+      VALUE "ProductName", "NETAQ desktop widget"
       VALUE "ProductVersion", "2.0.0"
-      VALUE "OriginalFilename", "vitrine.exe"
+      VALUE "OriginalFilename", "netaq-desktop-host.exe"
       VALUE "LegalCopyright", "MIT License"
     END
   END
