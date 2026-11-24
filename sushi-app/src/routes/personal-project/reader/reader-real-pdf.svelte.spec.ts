@@ -10,6 +10,32 @@ import attentionUrl from '../../../../tests/fixtures/reader-attention.pdf?url';
 import bertUrl from '../../../../tests/fixtures/reader-bert.pdf?url';
 
 describe('Reader real PDF extraction in the browser', () => {
+	it('restores a saved segment note on the same id after reopening a PDF', async () => {
+		const pdf = await PDFDocument.create();
+		const font = await pdf.embedFont(StandardFonts.Helvetica);
+		pdf.addPage().drawText('Synthetic note identity test.', { font });
+		const bytes = await pdf.save();
+		const file = new File([new Uint8Array(bytes).buffer as ArrayBuffer], 'note-identity.pdf', {
+			type: 'application/pdf'
+		});
+		render(ReaderPage);
+		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(file);
+		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+		await page.getByLabelText('p1-s1 메모 내용').fill('Synthetic existing note');
+		await expect
+			.poll(() =>
+				Array.from(
+					{ length: localStorage.length },
+					(_, i) => localStorage.getItem(localStorage.key(i)!) || ''
+				).some((value) => value.includes('Synthetic existing note'))
+			)
+			.toBe(true);
+		await page.getByLabelText(/다른 PDF 열기/).upload(file);
+		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+		await expect
+			.element(page.getByLabelText('p1-s1 메모 내용'))
+			.toHaveValue('Synthetic existing note');
+	});
 	it.each([
 		['attention.pdf', attentionUrl],
 		['bert.pdf', bertUrl]

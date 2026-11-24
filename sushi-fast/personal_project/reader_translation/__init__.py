@@ -79,7 +79,17 @@ def _validate_payload(payload: Any) -> tuple[list[dict[str, str]], str]:
         total_chars += len(text)
         if total_chars > MAX_TOTAL_CHARS:
             raise _bad_request("translation_text_too_large", "전체 번역 텍스트는 최대 20000자까지 허용됩니다.", 413)
-        normalized.append({"id": segment_id, "text": text})
+        item = {"id": segment_id, "text": text}
+        for key in ("context_before", "context_after", "previous_translation"):
+            if key in segment:
+                context = segment[key]
+                if not isinstance(context, str) or len(context) > 1000:
+                    raise _bad_request("invalid_context", "참고 문맥은 각각 최대 1000자 문자열이어야 합니다.")
+                total_chars += len(context)
+                if total_chars > MAX_TOTAL_CHARS:
+                    raise _bad_request("translation_text_too_large", "전체 번역 텍스트는 최대 20000자까지 허용됩니다.", 413)
+                item[key] = context
+        normalized.append(item)
 
     language = payload.get("target_language", "English")
     if not isinstance(language, str) or not language.strip() or len(language) > MAX_LANGUAGE_CHARS:

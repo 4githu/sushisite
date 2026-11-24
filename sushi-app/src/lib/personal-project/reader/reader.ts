@@ -91,32 +91,52 @@ export async function translateSegments(
 	path: 'shared' | 'local' = 'shared',
 	signal?: AbortSignal
 ): Promise<ReaderTranslation[]> {
-	const batches: ReaderSegment[][] = [];
-	let batch: ReaderSegment[] = [];
+	const contextualSegments: (ReaderSegment & {
+		context_before?: string;
+		context_after?: string;
+	})[] =
+		path === 'shared'
+			? segments.map((segment, index) => ({
+					...segment,
+					...(index > 0 ? { context_before: segments[index - 1].text.slice(-500) } : {}),
+					...(index + 1 < segments.length
+						? { context_after: segments[index + 1].text.slice(0, 500) }
+						: {})
+				}))
+			: segments;
+	const batches: (typeof contextualSegments)[] = [];
+	let batch: typeof contextualSegments = [];
 	let batchChars = 0;
-	for (const segment of segments) {
+	for (const segment of contextualSegments) {
+		const contextChars =
+			(segment.context_before?.length ?? 0) + (segment.context_after?.length ?? 0);
 		if (segment.text.length > MAX_SEGMENT_CHARS) {
 			throw new Error(
 				'번역할 한 구간은 최대 5000자까지 허용됩니다. / A translation segment can contain at most 5000 characters.'
 			);
 		}
 		if (
-			batch.length >= MAX_TRANSLATION_SEGMENTS ||
-			batchChars + segment.text.length > MAX_TRANSLATION_CHARS
+			batch.length >= (path === 'shared' ? 1 : MAX_TRANSLATION_SEGMENTS) ||
+			batchChars + segment.text.length + contextChars > MAX_TRANSLATION_CHARS
 		) {
 			batches.push(batch);
 			batch = [];
 			batchChars = 0;
 		}
 		batch.push(segment);
-		batchChars += segment.text.length;
+		batchChars += segment.text.length + contextChars;
 	}
 	if (batch.length) batches.push(batch);
 
 	const translations: ReaderTranslation[] = [];
 	for (const currentBatch of batches) {
 		signal?.throwIfAborted();
-		const body = { segments: currentBatch, target_language: 'ko' };
+		const previous = translations.at(-1)?.text;
+		const requestBatch =
+			path === 'shared' && previous
+				? [{ ...currentBatch[0], previous_translation: previous.slice(-1000) }]
+				: currentBatch;
+		const body = { segments: requestBatch, target_language: 'ko' };
 		let response: { translations: ReaderTranslation[] };
 		if (path === 'local') {
 			let result: Response;
@@ -146,8 +166,18 @@ export async function translateSegments(
 				body
 			});
 		}
-			signal?.throwIfAborted();
-		if (!Array.isArray(response?.translations)) {
+		signal?.throwIfAborted();
+		if (
+			!Array.isArray(response?.translations) ||
+			response.translations.length !== currentBatch.length ||
+			response.translations.some(
+				(item, index) =>
+					!item ||
+					item.id !== currentBatch[index].id ||
+					typeof item.text !== 'string' ||
+					!item.text.trim()
+			)
+		) {
 			throw new Error('번역 서버 응답 형식이 올바르지 않습니다. / Invalid translation response.');
 		}
 		translations.push(...response.translations);
