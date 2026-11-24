@@ -1,0 +1,34 @@
+{
+  "id": "app.chobab.netaq.widgets",
+  "name": "NETAQ",
+  "version": "0.1.0",
+  "author": "NETAQ",
+  "description": "NETAQ daily planner development preview",
+  "minEngine": "2.0.0",
+  "widgets": [
+    {
+      "id": "today",
+      "name": "오늘",
+      "description": "오늘 일정과 할 일",
+      "entry": "widgets/today/index.js",
+      "size": {
+        "default": [
+          5,
+          5
+        ],
+        "min": [
+          3,
+          3
+        ],
+        "max": [
+          12,
+          12
+        ]
+      },
+      "permissions": [
+        "net:netaq.chobab.app"
+      ],
+      "interactive": true
+    }
+  ]
+}
