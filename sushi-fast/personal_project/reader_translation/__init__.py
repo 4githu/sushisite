@@ -8,6 +8,7 @@ agent loop and does not persist or log request content.
 
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -187,8 +188,13 @@ async def _invoke_hermes_plugin(
     try:
         result = json.loads(stdout)
     except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+        logging.getLogger(__name__).warning("reader_cli_failure kind=malformed_json")
         raise RuntimeError("Hermes plugin returned malformed output") from None
-    return _validate_plugin_response(result, segments)
+    try:
+        return _validate_plugin_response(result, segments)
+    except ValueError:
+        logging.getLogger(__name__).warning("reader_cli_failure kind=invalid_schema")
+        raise
 
 
 async def _run_hermes_command(payload: bytes, command: str, executable: str, profile_home: str) -> bytes:
@@ -232,9 +238,20 @@ async def _run_hermes_command(payload: bytes, command: str, executable: str, pro
                 task.cancel()
         if isinstance(exc, asyncio.CancelledError):
             raise
+        if isinstance(exc, asyncio.TimeoutError):
+            kind = "timeout"
+        elif isinstance(exc, _OutputLimitExceeded):
+            kind = "output_limit"
+        else:
+            kind = "io_error"
+        logging.getLogger(__name__).warning("reader_cli_failure kind=%s", kind)
         raise RuntimeError("Hermes plugin invocation failed") from None
 
-    if process.returncode != 0 or not stdout.strip():
+    if process.returncode != 0:
+        logging.getLogger(__name__).warning("reader_cli_failure kind=nonzero_exit returncode=%d", process.returncode)
+        raise RuntimeError("Hermes plugin invocation failed")
+    if not stdout.strip():
+        logging.getLogger(__name__).warning("reader_cli_failure kind=empty_output")
         raise RuntimeError("Hermes plugin invocation failed")
     return stdout
 
