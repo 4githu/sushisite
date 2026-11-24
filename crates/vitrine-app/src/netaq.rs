@@ -6,8 +6,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const BUNDLE_SHA256: &str = "5d932667207f14bb31f9b470230cf8aa2ba5aa66f42b56f5badfa912d4b266e4";
-const REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=day&anchor=";
+const BUNDLE_DIGESTS: &[(&str, &str)] = &[
+    ("today", "1d8eb0f0d46dfbfea3ca59d6cf0a660d004725066fe8860ab86a54b333473a3a"),
+    ("week", "c3c988bd67e3a5227a494b260e3d189f8e5fd1ca845f62d793395e860bfbd96e"),
+    ("month", "57b51c9c265c8db2eb6e767b95b403a1f12caa670d4351d2fb2a377e4546ea29"),
+    ("tasks", "1506f33839e3fd1a2e7b73e0f59ae4bbcf01a6111f158c31fd6e65430b9bb8c1"),
+    ("memo", "e6e2e4d1c4a531bdaa3ae1f28cd06dd6bdff57f31853ed009ade6a20fc33e562"),
+];
+const FEED_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=";
 const TASK_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/task";
 const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab.app", "https://calender.chobab.app", "https://chobab.app"];
 
@@ -22,15 +28,26 @@ fn decrypt_credentials(data: &[u8], key: &[u8]) -> Result<Credentials, &'static 
 }
 
 pub fn trusted_bundle(package: &str, widget: &str, source: &[u8]) -> bool {
-    package == "app.chobab.netaq.widgets" && widget == "today"
-        && format!("{:x}", Sha256::digest(source)) == BUNDLE_SHA256
+    package == "app.chobab.netaq.widgets" && BUNDLE_DIGESTS.iter().any(|(id,digest)| *id == widget && format!("{:x}", Sha256::digest(source)) == *digest)
 }
 
-fn date_from_request<'a>(method: &str, url: &'a str) -> Option<&'a str> {
+fn feed_from_request<'a>(widget: &str, method: &str, url: &'a str) -> Option<(&'a str, &'a str)> {
     if method != "GET" { return None; }
-    let date = url.strip_prefix(REQUEST)?;
-    if date.len() != 10 || !date.bytes().enumerate().all(|(i,c)| if i == 4 || i == 7 { c == b'-' } else { c.is_ascii_digit() }) { return None; }
-    Some(date)
+    let request = url.strip_prefix(FEED_REQUEST)?;
+    let (view,date) = request.split_once("&anchor=")?;
+    let permitted = match widget { "today"|"memo"=>"day", "week"=>"week", "month"=>"month", "tasks"=>"tasks", _=>return None };
+    if view != permitted || date.len() != 10 || !date.bytes().enumerate().all(|(i,c)| if i == 4 || i == 7 { c == b'-' } else { c.is_ascii_digit() }) { return None; }
+    Some((view,date))
+}
+fn filtered_feed(widget: &str, body: &Value, cached: bool) -> Value {
+    let mut result = match widget {
+        "today" => json!({"events":body["events"],"tasks":body["tasks"],"captures":body["captures"]}),
+        "week"|"month" => json!({"events":body["events"]}),
+        "tasks" => json!({"events":body["events"],"captures":body["captures"]}),
+        "memo" => json!({"note":body["note"],"noteDate":body["noteDate"]}),
+        _ => json!({}),
+    };
+    if cached { result["cached"]=json!(true); } result
 }
 
 fn credentials() -> Result<Credentials, &'static str> {
@@ -60,16 +77,16 @@ pub fn open_app() {
     }
 }
 
-pub fn perform(id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
-    let task = if method == "POST" && url == TASK_REQUEST {
+pub fn perform(widget: &str, id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
+    let task = if ["today", "tasks"].contains(&widget) && method == "POST" && url == TASK_REQUEST {
         let Some(request) = body.and_then(|b| serde_json::from_str::<Value>(b).ok()) else { return json!({"id":id,"error":"할 일을 확인해주세요"}); };
         let source = request["source"].as_str().unwrap_or("");
         let item = request["id"].as_str().unwrap_or("");
         if !["event", "capture"].contains(&source) || item.is_empty() || item.len() > 200 || !request["done"].is_boolean() { return json!({"id":id,"error":"할 일을 확인해주세요"}); }
         Some(json!({"source": source, "id": item, "done":request["done"]}).to_string())
     } else { None };
-    let date = date_from_request(method, url);
-    if date.is_none() && task.is_none() { return json!({"id":id,"error":"지원하지 않는 요청입니다"}); }
+    let feed = feed_from_request(widget, method, url);
+    if feed.is_none() && task.is_none() { return json!({"id":id,"error":"지원하지 않는 요청입니다"}); }
     let auth = match credentials() { Ok(v) => v, Err(_) => return json!({"id":id,"ok":false,"status":401,"body":""}) };
     let headers = [("Authorization".to_string(), format!("Bearer {}", auth.token)), ("Content-Type".to_string(), "application/json".to_string())];
     if let Some(task) = task {
@@ -77,21 +94,21 @@ pub fn perform(id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
         let response = crate::net::perform(id, "POST", &target, &headers, Some(&task));
         return json!({"id":id,"ok":response["ok"],"status":response["status"],"body":"{}"});
     }
-    let date = date.unwrap_or("");
-    let target = format!("{}/api/personal/calendar/widget/feed?view=day&anchor={}", auth.origin, date);
+    let (view,date) = feed.unwrap();
+    let target = format!("{}/api/personal/calendar/widget/feed?view={}&anchor={}", auth.origin, view, date);
     let response = crate::net::perform(id, "GET", &target, &headers, None);
     // The daily feed may also contain private notes: return only fields used by the widget.
     if response["ok"] == true {
         if let Some(body) = response["body"].as_str().and_then(|s| serde_json::from_str::<Value>(s).ok()) {
-            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "captures":body["captures"]});
+            let filtered = filtered_feed(widget, &body, false);
             return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
         }
         return json!({"id":id,"error":"일정을 읽지 못했어요"});
     }
     // Reuse the existing app's encrypted cache; never show it after an explicit 401.
     if response["status"].as_u64() != Some(401) {
-        if let Some(body) = auth.cache.get(&format!("day:{date}")) {
-            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "captures":body["captures"], "cached":true});
+        if let Some(body) = auth.cache.get(&format!("{view}:{date}")) {
+            let filtered = filtered_feed(widget, body, true);
             return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
         }
     }
@@ -112,17 +129,27 @@ mod tests {
         assert!(decrypt_credentials(&blob[..5], &key).is_err());
     }
     #[test] fn requests_are_strictly_limited() {
-        assert!(date_from_request("GET", &format!("{REQUEST}2026-11-24")).is_some());
-        assert!(date_from_request("POST", &format!("{REQUEST}2026-11-24")).is_none());
-        assert!(date_from_request("GET", &format!("{REQUEST}2026-11-24&other=1")).is_none());
-        assert!(date_from_request("GET", "https://evil.example/").is_none());
+        for (widget,view) in [("today","day"),("week","week"),("month","month"),("tasks","tasks"),("memo","day")] {
+            let url=format!("{FEED_REQUEST}{view}&anchor=2026-11-24");
+            assert!(feed_from_request(widget,"GET",&url).is_some());
+            assert!(feed_from_request(widget,"POST",&url).is_none());
+            assert!(feed_from_request(widget,"GET",&format!("{url}&other=1")).is_none());
+        }
+        assert!(feed_from_request("week","GET",&format!("{FEED_REQUEST}day&anchor=2026-11-24")).is_none());
+        assert!(feed_from_request("memo","GET","https://evil.example/").is_none());
+    }
+    #[test] fn private_notes_are_visible_only_to_memo() {
+        let body=json!({"note":"secret", "noteDate":"2026-11-24", "events":[], "tasks":[], "captures":[]});
+        assert!(filtered_feed("today",&body,false).get("note").is_none());
+        assert!(filtered_feed("week",&body,false).get("note").is_none());
+        assert_eq!(filtered_feed("memo",&body,true)["note"],"secret");
     }
     #[test] fn task_rejects_untrusted_payload_before_loading_credentials() {
-        let bad = perform(7, "POST", TASK_REQUEST, Some(r#"{"source":"event","id":"1","done":"true"}"#));
+        let bad = perform("tasks", 7, "POST", TASK_REQUEST, Some(r#"{"source":"event","id":"1","done":"true"}"#));
         assert!(bad["error"].is_string());
-        let bad = perform(7, "POST", TASK_REQUEST, Some(r#"{"source":"evil","id":"1","done":true}"#));
+        let bad = perform("tasks", 7, "POST", TASK_REQUEST, Some(r#"{"source":"evil","id":"1","done":true}"#));
         assert!(bad["error"].is_string());
-        let bad = perform(7, "POST", "https://evil.example/task", Some(r#"{"source":"event","id":"1","done":true}"#));
+        let bad = perform("tasks", 7, "POST", "https://evil.example/task", Some(r#"{"source":"event","id":"1","done":true}"#));
         assert!(bad["error"].is_string());
     }
     #[test] fn unknown_bundles_cannot_access_credentials() { assert!(!trusted_bundle("app.chobab.netaq.widgets", "today", b"untrusted")); }

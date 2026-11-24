@@ -876,9 +876,10 @@ impl Runtime {
                         let tx = self.tx.clone();
                         let instance = live.entry.id.clone();
                         let trusted_netaq = live.inst.trusted_netaq;
+                        let widget_id = live.inst.widget.id.clone();
                         std::thread::spawn(move || {
                             let payload = if trusted_netaq {
-                                crate::netaq::perform(id, &method, &url, body.as_deref())
+                                crate::netaq::perform(&widget_id, id, &method, &url, body.as_deref())
                             } else {
                                 crate::net::perform(id, &method, &url, &headers, body.as_deref())
                             }.to_string();

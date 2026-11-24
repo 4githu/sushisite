@@ -1,15 +1,15 @@
 {
   "id": "app.chobab.netaq.widgets",
   "name": "NETAQ",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "NETAQ",
-  "description": "NETAQ daily planner development preview",
+  "description": "일정과 할 일, 메모를 바탕화면에서 확인하세요",
   "minEngine": "2.0.0",
   "widgets": [
     {
       "id": "today",
-      "name": "오늘",
-      "description": "오늘 일정과 할 일",
+      "name": "오늘 일정",
+      "description": "시간표와 오늘 할 일",
       "entry": "widgets/today/index.js",
       "size": {
         "default": [
@@ -17,8 +17,104 @@
           5
         ],
         "min": [
+          2,
+          2
+        ],
+        "max": [
+          12,
+          12
+        ]
+      },
+      "permissions": [
+        "net:netaq.chobab.app"
+      ],
+      "interactive": true
+    },
+    {
+      "id": "week",
+      "name": "주간 일정",
+      "description": "한 주의 시간표",
+      "entry": "widgets/week/index.js",
+      "size": {
+        "default": [
+          7,
+          5
+        ],
+        "min": [
+          3,
+          2
+        ],
+        "max": [
+          12,
+          12
+        ]
+      },
+      "permissions": [
+        "net:netaq.chobab.app"
+      ],
+      "interactive": true
+    },
+    {
+      "id": "month",
+      "name": "월간 일정",
+      "description": "한 달의 일정",
+      "entry": "widgets/month/index.js",
+      "size": {
+        "default": [
+          6,
+          5
+        ],
+        "min": [
           3,
           3
+        ],
+        "max": [
+          12,
+          12
+        ]
+      },
+      "permissions": [
+        "net:netaq.chobab.app"
+      ],
+      "interactive": true
+    },
+    {
+      "id": "tasks",
+      "name": "할 일",
+      "description": "해야 할 일과 완료",
+      "entry": "widgets/tasks/index.js",
+      "size": {
+        "default": [
+          4,
+          4
+        ],
+        "min": [
+          2,
+          2
+        ],
+        "max": [
+          12,
+          12
+        ]
+      },
+      "permissions": [
+        "net:netaq.chobab.app"
+      ],
+      "interactive": true
+    },
+    {
+      "id": "memo",
+      "name": "메모",
+      "description": "최근 일별 메모",
+      "entry": "widgets/memo/index.js",
+      "size": {
+        "default": [
+          4,
+          4
+        ],
+        "min": [
+          2,
+          2
         ],
         "max": [
           12,
