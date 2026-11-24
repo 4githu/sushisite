@@ -12,6 +12,7 @@ mod i18n;
 mod instance;
 mod logger;
 mod net;
+mod netaq;
 mod panel;
 mod peek;
 mod power;

@@ -38,6 +38,7 @@ pub enum Effect {
 
 pub struct WidgetInstance {
     pub package_id: String,
+    pub trusted_netaq: bool,
     pub widget: WidgetManifest,
     pub script: WidgetScript,
     pub renderer: WidgetRenderer,
@@ -127,6 +128,7 @@ impl WidgetInstance {
         let script = WidgetScript::new(Limits::default(), info).map_err(|e| e.to_string())?;
         let mut inst = Self {
             package_id: package.manifest.id.clone(),
+            trusted_netaq: false,
             widget,
             script,
             renderer,
@@ -137,6 +139,7 @@ impl WidgetInstance {
         let entry = package.resolve(&inst.widget.entry);
         match std::fs::read_to_string(&entry) {
             Ok(code) => {
+                inst.trusted_netaq = crate::netaq::trusted_bundle(&inst.package_id, &inst.widget.id, code.as_bytes());
                 if let Err(e) = inst.script.run_bundle(&code, &inst.widget.entry) {
                     inst.fail(format!("script error: {e}"));
                 }

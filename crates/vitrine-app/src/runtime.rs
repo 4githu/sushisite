@@ -875,10 +875,13 @@ impl Runtime {
                     } => {
                         let tx = self.tx.clone();
                         let instance = live.entry.id.clone();
+                        let trusted_netaq = live.inst.trusted_netaq;
                         std::thread::spawn(move || {
-                            let payload =
+                            let payload = if trusted_netaq {
+                                crate::netaq::perform(id, &method, &url)
+                            } else {
                                 crate::net::perform(id, &method, &url, &headers, body.as_deref())
-                                    .to_string();
+                            }.to_string();
                             if tx.send(Event::Fetch { instance, payload }).is_ok() {
                                 wake(host_id);
                             }
