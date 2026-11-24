@@ -1,7 +1,7 @@
 // Vitrine control panel — Windows 11 Fluent layout: navigation pane on the
 // left, pages on the right that cross-fade and slide when you navigate.
 
-import { Button, ComboBox, LineEdit, Palette, ProgressIndicator, ScrollView, SpinBox, Spinner, Switch } from "std-widgets.slint";
+import { AboutSlint, Button, ComboBox, LineEdit, Palette, ProgressIndicator, ScrollView, SpinBox, Spinner, Switch } from "std-widgets.slint";
 
 export struct InstanceRow {
     id: string,
@@ -1232,6 +1232,12 @@ export component PanelWindow inherits Window {
                         selected: root.page == 3;
                         clicked => { root.page = 3; }
                     }
+                    NavItem {
+                        glyph: "\u{E946}";
+                        label: "정보";
+                        selected: root.page == 8;
+                        clicked => { root.page = 8; }
+                    }
                     Rectangle { }
                     Caption {
                         text: root.status;
@@ -1640,6 +1646,13 @@ export component PanelWindow inherits Window {
                             }
                         }
                     }
+                }
+
+                Page {
+                    active: root.page == 8;
+                    PageTitle { text: "NETAQ 바탕화면 위젯"; }
+                    Caption { text: "Vitrine 오픈소스 엔진을 사용합니다 (MIT)."; }
+                    AboutSlint { width: 280px; height: 130px; }
                 }
 
                 Page {
