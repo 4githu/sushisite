@@ -901,7 +901,9 @@ impl Runtime {
                         }
                     }
                     Effect::OpenUrl(url) => {
-                        if url.starts_with("https://") || url.starts_with("http://") {
+                        if live.inst.trusted_netaq && url == "https://netaq.chobab.app/personal-project/calendar/today" {
+                            crate::netaq::open_app();
+                        } else if url.starts_with("https://") || url.starts_with("http://") {
                             shellapi::open(&url);
                         }
                     }

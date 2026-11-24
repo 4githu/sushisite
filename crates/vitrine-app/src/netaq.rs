@@ -12,7 +12,7 @@ const TASK_REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widge
 const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab.app", "https://calender.chobab.app", "https://chobab.app"];
 
 #[derive(Deserialize)]
-struct Credentials { origin: String, token: String, #[serde(default)] cache: std::collections::BTreeMap<String, Value> }
+struct Credentials { origin: String, token: String, #[serde(default)] cache: std::collections::BTreeMap<String, Value>, #[serde(default)] webapp_shortcut: String }
 
 pub fn trusted_bundle(package: &str, widget: &str, source: &[u8]) -> bool {
     package == "app.chobab.netaq.widgets" && widget == "today"
@@ -38,6 +38,21 @@ fn credentials() -> Result<Credentials, &'static str> {
     let auth: Credentials = serde_json::from_slice(&plaintext).map_err(|_| "연결 정보를 읽지 못했어요")?;
     if !ALLOWED.contains(&auth.origin.as_str()) || auth.token.is_empty() || auth.token.len() > 200 || auth.token.contains(['\r','\n']) { return Err("연결 정보를 확인해주세요"); }
     Ok(auth)
+}
+
+/// Only the bundled widget may use this to open the user's chosen installed web app.
+pub fn open_app() {
+    if let Ok(auth) = credentials() {
+        let shortcut = std::path::Path::new(&auth.webapp_shortcut);
+        if shortcut.is_file() && shortcut.extension().and_then(|s|s.to_str()).is_some_and(|s|s.eq_ignore_ascii_case("lnk")) {
+            crate::shellapi::open(&auth.webapp_shortcut);
+            return;
+        }
+    }
+    // The host is bundled at <install>/desktop-engine/; start the already installed NETAQ app.
+    if let Some(exe) = std::env::current_exe().ok().and_then(|p|p.parent()?.parent().map(|d|d.join("netaq-desktop.exe"))) {
+        if exe.is_file() { crate::shellapi::open(&exe.to_string_lossy()); }
+    }
 }
 
 pub fn perform(id: u32, method: &str, url: &str, body: Option<&str>) -> Value {
