@@ -9,6 +9,25 @@ const MAX_TRANSLATION_SEGMENTS = 2;
 const MAX_TRANSLATION_CHARS = 20_000;
 const MAX_SEGMENT_CHARS = 5_000;
 
+// Keep the existing UTF-16 size limits without splitting a surrogate pair.
+function contextPrefix(text: string, limit: number): string {
+	let end = Math.min(text.length, limit);
+	if (
+		end < text.length &&
+		/[\uD800-\uDBFF]/.test(text[end - 1]) &&
+		/[\uDC00-\uDFFF]/.test(text[end])
+	)
+		end--;
+	return text.slice(0, end);
+}
+
+function contextSuffix(text: string, limit: number): string {
+	let start = Math.max(0, text.length - limit);
+	if (start > 0 && /[\uD800-\uDBFF]/.test(text[start - 1]) && /[\uDC00-\uDFFF]/.test(text[start]))
+		start++;
+	return text.slice(start);
+}
+
 export function alignTranslations(
 	segments: ReaderSegment[],
 	translations: ReaderTranslation[]
@@ -98,9 +117,9 @@ export async function translateSegments(
 		path === 'shared'
 			? segments.map((segment, index) => ({
 					...segment,
-					...(index > 0 ? { context_before: segments[index - 1].text.slice(-500) } : {}),
+					...(index > 0 ? { context_before: contextSuffix(segments[index - 1].text, 500) } : {}),
 					...(index + 1 < segments.length
-						? { context_after: segments[index + 1].text.slice(0, 500) }
+						? { context_after: contextPrefix(segments[index + 1].text, 500) }
 						: {})
 				}))
 			: segments;
@@ -134,7 +153,7 @@ export async function translateSegments(
 		const previous = translations.at(-1)?.text;
 		const requestBatch =
 			path === 'shared' && previous
-				? [{ ...currentBatch[0], previous_translation: previous.slice(-1000) }]
+				? [{ ...currentBatch[0], previous_translation: contextSuffix(previous, 1000) }]
 				: currentBatch;
 		const body = { segments: requestBatch, target_language: 'ko' };
 		let response: { translations: ReaderTranslation[] };

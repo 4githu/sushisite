@@ -61,6 +61,40 @@ describe('extractPdfSegments', () => {
 });
 
 describe('translateSegments', () => {
+	it('keeps supplementary characters intact at each context truncation boundary', async () => {
+		const sent: Array<{
+			id: string;
+			text: string;
+			context_before?: string;
+			context_after?: string;
+			previous_translation?: string;
+		}> = [];
+		const previous = '😀' + 'x'.repeat(999);
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const body = JSON.parse(String(init?.body));
+			sent.push(...body.segments);
+			return new Response(
+				JSON.stringify({ translations: [{ id: body.segments[0].id, text: previous }] }),
+				{ status: 200 }
+			);
+		});
+		try {
+			const source = [
+				{ id: 'a', text: '😀' + 'x'.repeat(499) },
+				{ id: 'b', text: 'middle' },
+				{ id: 'c', text: 'x'.repeat(499) + '😀' }
+			];
+			const original = structuredClone(source);
+			await translateSegments(source);
+			expect(source).toEqual(original);
+			expect(sent[1].context_before).toBe('x'.repeat(499));
+			expect(sent[1].context_after).toBe('x'.repeat(499));
+			expect(sent[1].previous_translation).toBe('x'.repeat(999));
+			expect(sent.map(({ id, text }) => ({ id, text }))).toEqual(original);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 	it('sends the verified previous result sequentially and rejects a mismatched id', async () => {
 		const sent: Array<{ id: string; previous_translation?: string }> = [];
 		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
