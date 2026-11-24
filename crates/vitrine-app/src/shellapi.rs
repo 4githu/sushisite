@@ -144,7 +144,7 @@ pub fn set_menu_theme(dark: bool) -> bool {
 }
 
 const RUN_KEY: PCWSTR = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-const RUN_VALUE: PCWSTR = w!("Vitrine");
+const RUN_VALUE: PCWSTR = w!("NETAQ Desktop Widget Host");
 
 /// The `Run` value that starts `exe` at logon (quoted: the path may contain spaces).
 fn run_command(exe: &std::path::Path) -> String {

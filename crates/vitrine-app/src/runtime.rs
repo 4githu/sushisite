@@ -2082,7 +2082,7 @@ pub fn run() -> Result<(), String> {
         rt.install_bundled();
         input::start(rt.routing.clone(), host);
         start_icon_poller(rt.routing.clone());
-        rt.tray = Some(Tray::add(host, WM_APP_TRAY, "Vitrine"));
+        rt.tray = Some(Tray::add(host, WM_APP_TRAY, "NETAQ 바탕화면 위젯"));
         rt.reload();
         rt.attach();
         rt.check_power();

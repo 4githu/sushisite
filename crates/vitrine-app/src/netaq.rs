@@ -6,12 +6,12 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-const BUNDLE_SHA256: &str = "28ab46a92571932b1e06105e375d3831a0dcb244f05a30493fa6a42bf2d1eee9";
+const BUNDLE_SHA256: &str = "ba4ad791486c3682704097c5523e0fa81a0a362f6bc06245a3d25febd7b6eed5";
 const REQUEST: &str = "https://netaq.chobab.app/api/personal/calendar/widget/feed?view=day&anchor=";
 const ALLOWED: [&str; 4] = ["https://netaq.chobab.app", "https://calendar.chobab.app", "https://calender.chobab.app", "https://chobab.app"];
 
 #[derive(Deserialize)]
-struct Credentials { origin: String, token: String }
+struct Credentials { origin: String, token: String, #[serde(default)] cache: std::collections::BTreeMap<String, Value> }
 
 pub fn trusted_bundle(package: &str, widget: &str, source: &[u8]) -> bool {
     package == "app.chobab.netaq.widgets" && widget == "today"
@@ -51,6 +51,13 @@ pub fn perform(id: u32, method: &str, url: &str) -> Value {
             return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
         }
         return json!({"id":id,"error":"일정을 읽지 못했어요"});
+    }
+    // Reuse the existing app's encrypted cache; never show it after an explicit 401.
+    if response["status"].as_u64() != Some(401) {
+        if let Some(body) = auth.cache.get(&format!("day:{date}")) {
+            let filtered = json!({"events":body["events"], "tasks":body["tasks"], "cached":true});
+            return json!({"id":id,"ok":true,"status":200,"body":filtered.to_string(),"headers":{}});
+        }
     }
     json!({"id":id,"ok":false,"status":response["status"],"body":""})
 }
