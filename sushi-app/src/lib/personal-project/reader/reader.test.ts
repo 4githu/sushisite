@@ -61,6 +61,28 @@ describe('extractPdfSegments', () => {
 });
 
 describe('translateSegments', () => {
+	it('preserves completed pairs on failure and resumes with previous context', async () => {
+		const source = [{ id: 'a', text: 'first' }, { id: 'b', text: 'second' }];
+		const sent: Array<{ id: string; previous_translation?: string }> = [];
+		const received: Array<{ id: string; text: string }> = [];
+		let fail = true;
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const segment = JSON.parse(String(init?.body)).segments[0];
+			sent.push(segment);
+			if (segment.id === 'b' && fail) return new Response('failed', { status: 500 });
+			return new Response(JSON.stringify({ translations: [{ id: segment.id, text: `ko-${segment.id}` }] }), { status: 200 });
+		});
+		try {
+			await expect(translateSegments(source, () => {}, 'shared', undefined, (items) => received.push(...items))).rejects.toThrow();
+			expect(received).toEqual([{ id: 'a', text: 'ko-a' }]);
+			fail = false;
+			await translateSegments(source, () => {}, 'shared', undefined, (items) => received.push(...items), 1, received[0].text);
+			expect(received).toEqual([{ id: 'a', text: 'ko-a' }, { id: 'b', text: 'ko-b' }]);
+			expect(sent[2]).toMatchObject({ id: 'b', previous_translation: 'ko-a', context_before: 'first' });
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 	it('keeps supplementary characters intact at each context truncation boundary', async () => {
 		const sent: Array<{
 			id: string;

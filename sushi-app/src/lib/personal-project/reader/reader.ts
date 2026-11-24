@@ -108,7 +108,10 @@ export async function translateSegments(
 	segments: ReaderSegment[],
 	onProgress: (completed: number, total: number) => void = () => {},
 	path: 'shared' | 'local' = 'shared',
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	onTranslation: (items: ReaderTranslation[]) => void = () => {},
+	startIndex = 0,
+	previousTranslation = ''
 ): Promise<ReaderTranslation[]> {
 	const contextualSegments: (ReaderSegment & {
 		context_before?: string;
@@ -126,7 +129,7 @@ export async function translateSegments(
 	const batches: (typeof contextualSegments)[] = [];
 	let batch: typeof contextualSegments = [];
 	let batchChars = 0;
-	for (const segment of contextualSegments) {
+	for (const segment of contextualSegments.slice(startIndex)) {
 		const contextChars =
 			(segment.context_before?.length ?? 0) + (segment.context_after?.length ?? 0);
 		if (segment.text.length > MAX_SEGMENT_CHARS) {
@@ -150,7 +153,7 @@ export async function translateSegments(
 	const translations: ReaderTranslation[] = [];
 	for (const currentBatch of batches) {
 		signal?.throwIfAborted();
-		const previous = translations.at(-1)?.text;
+		const previous = translations.at(-1)?.text ?? previousTranslation;
 		const requestBatch =
 			path === 'shared' && previous
 				? [{ ...currentBatch[0], previous_translation: contextSuffix(previous, 1000) }]
@@ -200,7 +203,8 @@ export async function translateSegments(
 			throw new Error('번역 서버 응답 형식이 올바르지 않습니다. / Invalid translation response.');
 		}
 		translations.push(...response.translations);
-		onProgress(translations.length, segments.length);
+		onTranslation(response.translations);
+		onProgress(startIndex + translations.length, segments.length);
 	}
 	return translations;
 }
