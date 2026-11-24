@@ -61,6 +61,129 @@ describe('extractPdfSegments', () => {
 });
 
 describe('translateSegments', () => {
+	it('preserves completed pairs on failure and resumes with previous context', async () => {
+		const source = [{ id: 'a', text: 'first' }, { id: 'b', text: 'second' }];
+		const sent: Array<{ id: string; previous_translation?: string }> = [];
+		const received: Array<{ id: string; text: string }> = [];
+		let fail = true;
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const segment = JSON.parse(String(init?.body)).segments[0];
+			sent.push(segment);
+			if (segment.id === 'b' && fail) return new Response('failed', { status: 500 });
+			return new Response(JSON.stringify({ translations: [{ id: segment.id, text: `ko-${segment.id}` }] }), { status: 200 });
+		});
+		try {
+			await expect(translateSegments(source, () => {}, 'shared', undefined, (items) => received.push(...items))).rejects.toThrow();
+			expect(received).toEqual([{ id: 'a', text: 'ko-a' }]);
+			fail = false;
+			await translateSegments(source, () => {}, 'shared', undefined, (items) => received.push(...items), 1, received[0].text);
+			expect(received).toEqual([{ id: 'a', text: 'ko-a' }, { id: 'b', text: 'ko-b' }]);
+			expect(sent[2]).toMatchObject({ id: 'b', previous_translation: 'ko-a', context_before: 'first' });
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+	it('keeps supplementary characters intact at each context truncation boundary', async () => {
+		const sent: Array<{
+			id: string;
+			text: string;
+			context_before?: string;
+			context_after?: string;
+			previous_translation?: string;
+		}> = [];
+		const previous = '😀' + 'x'.repeat(999);
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const body = JSON.parse(String(init?.body));
+			sent.push(...body.segments);
+			return new Response(
+				JSON.stringify({ translations: [{ id: body.segments[0].id, text: previous }] }),
+				{ status: 200 }
+			);
+		});
+		try {
+			const source = [
+				{ id: 'a', text: '😀' + 'x'.repeat(499) },
+				{ id: 'b', text: 'middle' },
+				{ id: 'c', text: 'x'.repeat(499) + '😀' }
+			];
+			const original = structuredClone(source);
+			await translateSegments(source);
+			expect(source).toEqual(original);
+			expect(sent[1].context_before).toBe('x'.repeat(499));
+			expect(sent[1].context_after).toBe('x'.repeat(499));
+			expect(sent[1].previous_translation).toBe('x'.repeat(999));
+			expect(sent.map(({ id, text }) => ({ id, text }))).toEqual(original);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+	it('sends the verified previous result sequentially and rejects a mismatched id', async () => {
+		const sent: Array<{ id: string; previous_translation?: string }> = [];
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const body = JSON.parse(String(init?.body));
+			sent.push(...body.segments);
+			return new Response(
+				JSON.stringify({
+					translations: [{ id: body.segments[0].id, text: `ko-${body.segments[0].id}` }]
+				}),
+				{ status: 200 }
+			);
+		});
+		try {
+			await translateSegments([
+				{ id: 'a', text: 'first' },
+				{ id: 'b', text: 'second' }
+			]);
+			expect(sent).toHaveLength(2);
+			expect(sent[1]).toMatchObject({ id: 'b', previous_translation: 'ko-a' });
+		} finally {
+			vi.unstubAllGlobals();
+		}
+		vi.stubGlobal(
+			'fetch',
+			async () =>
+				new Response(JSON.stringify({ translations: [{ id: 'wrong', text: 'x' }] }), {
+					status: 200
+				})
+		);
+		try {
+			await expect(translateSegments([{ id: 'a', text: 'first' }])).rejects.toThrow();
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+	it('includes adjacent context across request boundaries without changing ids or source', async () => {
+		const sent: { id: string; text: string; context_before?: string; context_after?: string }[] =
+			[];
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const body = JSON.parse(String(init?.body));
+			sent.push(...body.segments);
+			return new Response(
+				JSON.stringify({
+					translations: body.segments.map(({ id }: { id: string }) => ({ id, text: '번역' }))
+				}),
+				{ status: 200 }
+			);
+		});
+		try {
+			const source = [
+				{ id: 'p9-s2', text: 'Earlier.' },
+				{ id: 'p9-s3', text: 'ROS scav -' },
+				{ id: 'p9-s4', text: 'enging by NAC.' }
+			];
+			const original = structuredClone(source);
+			await translateSegments(source);
+			expect(source).toEqual(original);
+			expect(sent[2]).toMatchObject({
+				id: 'p9-s4',
+				text: 'enging by NAC.',
+				context_before: 'ROS scav -'
+			});
+			expect(sent[1]).toMatchObject({ id: 'p9-s3', context_after: 'enging by NAC.' });
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 	it('stops before the next batch when the first request is cancelled', async () => {
 		const controller = new AbortController();
 		const fetchMock = vi.fn(async () => {
@@ -70,9 +193,13 @@ describe('translateSegments', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		try {
 			const segments = Array.from({ length: 51 }, (_, i) => ({ id: `${i}`, text: 'x' }));
-			await expect(translateSegments(segments, () => {}, 'shared', controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+			await expect(
+				translateSegments(segments, () => {}, 'shared', controller.signal)
+			).rejects.toMatchObject({ name: 'AbortError' });
 			expect(fetchMock).toHaveBeenCalledTimes(1);
-		} finally { vi.unstubAllGlobals(); }
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 	it('sends only explicitly selected local translations to the loopback bridge', async () => {
 		const fetchMock = vi.fn(
@@ -111,7 +238,7 @@ describe('translateSegments', () => {
 				text: `source-${index + 1}`
 			}));
 			const result = await translateSegments(segments);
-			expect(seenBatches.map((batch) => batch.length)).toEqual([...Array(25).fill(2), 1]);
+			expect(seenBatches.map((batch) => batch.length)).toEqual(Array(51).fill(1));
 			expect(result.map(({ id }) => id)).toEqual(segments.map(({ id }) => id));
 		} finally {
 			vi.unstubAllGlobals();
@@ -138,7 +265,7 @@ describe('translateSegments', () => {
 			await translateSegments(segments);
 			expect(
 				seenBatches.map((batch) => batch.reduce((total, item) => total + item.text.length, 0))
-			).toEqual([10_000, 10_000, 5_000]);
+			).toEqual(Array(5).fill(5_000));
 		} finally {
 			vi.unstubAllGlobals();
 		}

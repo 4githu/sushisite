@@ -1,15 +1,55 @@
 import { page, userEvent } from 'vitest/browser';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('$lib/personal-project/shared/auth', () => ({
 	privateCacheUser: () => 'synthetic-reader-user'
 }));
-import { render } from 'vitest-browser-svelte';
+import { cleanup, render } from 'vitest-browser-svelte';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import ReaderPage from './+page.svelte';
 import attentionUrl from '../../../../tests/fixtures/reader-attention.pdf?url';
 import bertUrl from '../../../../tests/fixtures/reader-bert.pdf?url';
 
 describe('Reader real PDF extraction in the browser', () => {
+	beforeEach(async () => {
+		cleanup();
+		localStorage.clear();
+		await page.viewport(1280, 720);
+		window.scrollTo(0, 0);
+		window.parent.scrollTo(0, 0);
+	});
+	afterEach(async () => {
+		cleanup();
+		localStorage.clear();
+		await page.viewport(1280, 720);
+		window.scrollTo(0, 0);
+		window.parent.scrollTo(0, 0);
+	});
+	it('restores a saved segment note on the same id after reopening a PDF', async () => {
+		const pdf = await PDFDocument.create();
+		const font = await pdf.embedFont(StandardFonts.Helvetica);
+		pdf.addPage().drawText('Synthetic note identity test.', { font });
+		const bytes = await pdf.save();
+		const file = new File([new Uint8Array(bytes).buffer as ArrayBuffer], 'note-identity.pdf', {
+			type: 'application/pdf'
+		});
+		render(ReaderPage);
+		await page.getByLabelText(/PDF 열기|다른 PDF 열기/).upload(file);
+		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+		await page.getByLabelText('p1-s1 메모 내용').fill('Synthetic existing note');
+		await expect
+			.poll(() =>
+				Array.from(
+					{ length: localStorage.length },
+					(_, i) => localStorage.getItem(localStorage.key(i)!) || ''
+				).some((value) => value.includes('Synthetic existing note'))
+			)
+			.toBe(true);
+		await page.getByLabelText(/다른 PDF 열기/).upload(file);
+		await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+		await expect
+			.element(page.getByLabelText('p1-s1 메모 내용'))
+			.toHaveValue('Synthetic existing note');
+	});
 	it.each([
 		['attention.pdf', attentionUrl],
 		['bert.pdf', bertUrl]
@@ -198,6 +238,16 @@ describe('Reader real PDF extraction in the browser', () => {
 				.toContain('Image crop test');
 			await page.getByRole('button', { name: '영역 선택', exact: true }).click();
 			const overlay = document.querySelector<HTMLElement>('.region-overlay')!;
+			// Vitest scales the preview iframe after viewport changes, but Playwright's
+			// drag coordinates are unscaled. Temporarily show the iframe at 1:1.
+			const preview = window.frameElement!.parentElement!;
+			const previewStyle = preview.getAttribute('style');
+			preview.style.setProperty('transform', 'none', 'important');
+			preview.style.setProperty('position', 'fixed', 'important');
+			preview.style.setProperty('left', '0', 'important');
+			preview.style.setProperty('top', '0', 'important');
+			preview.style.setProperty('margin', '0', 'important');
+			preview.style.setProperty('z-index', '99999', 'important');
 			const source = document.createElement('div'),
 				target = document.createElement('div');
 			for (const [element, x, y] of [
@@ -213,7 +263,12 @@ describe('Reader real PDF extraction in the browser', () => {
 				});
 				overlay.append(element);
 			}
-			await userEvent.dragAndDrop(source, target);
+			try {
+				await userEvent.dragAndDrop(source, target);
+			} finally {
+				if (previewStyle === null) preview.removeAttribute('style');
+				else preview.setAttribute('style', previewStyle);
+			}
 			await expect
 				.element(page.getByRole('button', { name: '선택 이미지 설명 요청' }))
 				.toBeInTheDocument();
@@ -287,4 +342,36 @@ describe('Reader real PDF extraction in the browser', () => {
 		await page.getByRole('button', { name: 'PDF 지면 보기' }).click();
 		await expect.element(page.getByTitle('원본 PDF 지면')).toBeInTheDocument();
 	});
+	it('opens the Park example with 52 matched pairs and restores notes on mobile', async () => {
+		await page.viewport(390, 844);
+		try {
+			render(ReaderPage);
+			await page.getByRole('button', { name: '예시 논문 열기' }).click();
+			await expect.poll(() => document.querySelectorAll('.segment-row').length).toBe(52);
+			const rows = [...document.querySelectorAll('.segment-row')];
+			expect(rows.every((row) => row.querySelector('.source-cell') && row.querySelector('.translation-cell'))).toBe(true);
+			expect(document.body.textContent).toContain('ROS scavenging by NAC');
+			expect(document.body.textContent).toContain('NAC에 의한 ROS 제거가');
+			expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+			for (const element of [
+				document.querySelector('.translate-button')!,
+				...rows.flatMap((row) => [row.querySelector('.source-cell')!, row.querySelector('.translation-cell')!]),
+				document.querySelector('[aria-label="p1-s1 메모"]')!
+			]) {
+				const rect = element.getBoundingClientRect();
+				expect(rect.left).toBeGreaterThanOrEqual(0);
+				expect(rect.right).toBeLessThanOrEqual(window.innerWidth);
+				expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth + 1);
+			}
+			await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+			await expect.element(page.getByRole('button', { name: 'p1-s1 메모' })).toHaveAttribute('aria-expanded', 'true');
+			await page.getByLabelText('p1-s1 메모 내용').fill('example note survives');
+			await page.getByRole('button', { name: '예시 논문 열기' }).click();
+			await expect.poll(() => document.querySelectorAll('.segment-row').length).toBe(52);
+			await page.getByRole('button', { name: 'p1-s1 메모' }).click();
+			await expect.element(page.getByLabelText('p1-s1 메모 내용')).toHaveValue('example note survives');
+		} finally {
+			await page.viewport(1280, 720);
+		}
+	}, 60000);
 });

@@ -277,6 +277,14 @@ def test_plugin_response_rejects_extra_ids_and_orders_by_input():
         )
 
 
+def test_context_survives_api_and_plugin_validation():
+    from personal_project.reader_translation import _validate_payload
+    payload = {"segments": [{"id": "p9-s4", "text": "enging by NAC.", "context_before": "ROS scav -", "context_after": "Next finding."}], "target_language": "ko"}
+    api_segments, language = _validate_payload(payload)
+    plugin_segments, _ = hermes_plugin._validate_request(json.dumps({"segments": api_segments, "target_language": language}).encode())
+    assert plugin_segments == payload["segments"]
+
+
 def test_plugin_cli_uses_plain_llm_json_when_structured_mode_is_unsupported(monkeypatch):
     source = "SYNTH_PLUGIN_SOURCE_OLLAMA"
     calls = []

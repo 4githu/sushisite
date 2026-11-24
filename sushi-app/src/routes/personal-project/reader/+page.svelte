@@ -3,7 +3,6 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import {
-		alignTranslations,
 		extractPdfSegments,
 		translateSegments,
 		type ReaderSegment
@@ -16,6 +15,7 @@
 	import { createDocument, createTextBlock } from '$lib/textediter/model';
 	import type { ReaderAnnotation } from '$lib/personal-project/reader/annotations';
 	import type { EditorDocument } from '$lib/textediter/types';
+	import example from '$lib/personal-project/reader/example-park-2024.json';
 	let segments = $state<ReaderSegment[]>([]);
 	let translations = $state<Record<string, string>>({});
 	let fileName = $state('');
@@ -29,6 +29,7 @@
 	let notice = $state('');
 	let view = $state<'parallel' | 'stacked' | 'source'>('parallel');
 	let translationProgress = $state(0);
+	let failedSegment = $state('');
 	let notes = $state<Record<string, string>>({});
 	let annotations = $state<ReaderAnnotation[]>([]);
 	let fileInput: HTMLInputElement;
@@ -41,6 +42,7 @@
 		)
 	]);
 	let documentKey = '';
+	let translationKey = '';
 	let saveStatus = $state('');
 	let richNote = $state<EditorDocument>(createDocument());
 	let initialEditor = $state<EditorDocument>(createDocument());
@@ -49,6 +51,7 @@
 	let storedSnapshot: string | null = null;
 	let conflict = $state(false);
 	let translationController: AbortController | null = null;
+	let exampleController: AbortController | null = null;
 	beforeNavigate((navigation) => {
 		if (
 			saveStatus.startsWith('저장 안 됨') &&
@@ -59,6 +62,8 @@
 			return;
 		}
 		translationController?.abort();
+		exampleController?.abort();
+		operationId += 1;
 	});
 	async function saveNotes() {
 		if (!documentKey || !storageReadable) return;
@@ -104,8 +109,10 @@
 	let operationId = 0;
 	let pdfUrl = $state('');
 	let showPdf = $state(false);
+	let isExample = $state(false);
 	onDestroy(() => {
 		translationController?.abort();
+		exampleController?.abort();
 		operationId += 1;
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 	});
@@ -114,15 +121,40 @@
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
+		input.value = '';
+		await openFile(file);
+	}
+	async function openExample() {
+		if (busy) return;
+		const operation = ++operationId;
+		const controller = new AbortController();
+		exampleController = controller;
+		busy = true;
+		try {
+			const response = await fetch('/personal-project/reader/example-park-2024.pdf', { signal: controller.signal });
+			if (!response.ok) throw new Error('예시 PDF를 불러오지 못했습니다.');
+			const blob = await response.blob();
+			if (operation !== operationId || controller.signal.aborted) return;
+			await openFile(new File([blob], 'Park-2024.pdf', { type: 'application/pdf' }), true);
+		} catch (cause) {
+			if (operation !== operationId || controller.signal.aborted) return;
+			error = cause instanceof Error ? cause.message : '예시 논문을 열지 못했습니다.';
+		} finally {
+			if (exampleController === controller) exampleController = null;
+			if (operation === operationId) busy = false;
+		}
+	}
+	async function openFile(file: File, exampleRequested = false) {
 		if (
 			saveStatus.startsWith('저장 안 됨') &&
 			!confirm('저장하지 못한 메모가 사라집니다. 다른 PDF를 여시겠습니까?')
 		) {
-			input.value = '';
 			return;
 		}
 		translationController?.abort();
+		exampleController?.abort();
 		documentKey = '';
+		translationKey = '';
 		storedSnapshot = null;
 		conflict = false;
 		storageReadable = true;
@@ -135,9 +167,10 @@
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 		pdfUrl = '';
 		showPdf = false;
-		input.value = '';
 		segments = [];
+		isExample = false;
 		translations = {};
+		failedSegment = '';
 		fileName = '';
 		consent = false;
 		translating = false;
@@ -190,6 +223,36 @@
 			});
 			if (operation !== operationId) return;
 			segments = extracted;
+			if (exampleRequested) {
+				if (JSON.stringify(extracted) !== JSON.stringify(example.segments)) {
+					throw new Error('예시 논문 원문이 저장된 번역과 일치하지 않습니다.');
+				}
+				segments = extracted.map((segment) => {
+					if (segment.id === 'p9-s3') return { ...segment, text: segment.text.replace(' qRT-PCR analysis confirmed that ROS scav -', '') };
+					if (segment.id === 'p9-s4') return { ...segment, text: segment.text.replace(/^enging by NAC/, 'qRT-PCR analysis confirmed that ROS scavenging by NAC') };
+					return segment;
+				});
+				translations = {
+					...example.translations,
+					'p9-s3': example.translations['p9-s3'].replace(' qRT-PCR 분석을 통해 ROS 제거제가', ''),
+					'p9-s4': example.translations['p9-s4'].replace('NAC에 의한 enging은 3R4F로 처리한 hMSC에서 NLRP3 인플라마좀 관련 유전자의 발현을 감소시켰다', 'qRT-PCR 분석을 통해 NAC에 의한 ROS 제거가 3R4F로 처리한 hMSC에서 NLRP3 인플라마좀 관련 유전자의 발현을 감소시켰음이 확인되었다')
+				};
+				isExample = true;
+			}
+			if (documentKey && segments.length) {
+				translationKey = documentKey.replace('paiper.reader.notes.v2.', 'paiper.reader.translations.v1.');
+				try {
+					const saved = JSON.parse(localStorage.getItem(translationKey) || 'null');
+					if (saved?.segments && JSON.stringify(saved.segments) === JSON.stringify(segments)) {
+						translations = saved.translations || {};
+						const firstMissing = segments.findIndex((segment) => !translations[segment.id]?.trim());
+						translationProgress = firstMissing < 0 ? segments.length : firstMissing;
+						failedSegment = firstMissing < 0 ? '' : segments[firstMissing].id;
+					}
+				} catch {
+					translationKey = '';
+				}
+			}
 			if (!segments.length) {
 				error =
 					'선택한 PDF에서 텍스트를 찾지 못했습니다. 스캔 이미지 PDF는 지원되지 않을 수 있습니다. / No selectable text was found. Scanned PDFs may not be supported.';
@@ -262,15 +325,20 @@
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	}
 
-	async function startTranslation() {
+	async function startTranslation(resume = false) {
 		if (!consent || translating || !segments.length) return;
+		const startIndex = resume ? Math.max(0, segments.findIndex((item) => item.id === failedSegment)) : 0;
+		const previous = startIndex > 0 ? translations[segments[startIndex - 1].id] ?? '' : '';
+		if (!resume) translations = {};
+		failedSegment = '';
 		const operation = ++operationId;
 		const controller = new AbortController();
 		translationController = controller;
 		translating = true;
-		translationProgress = 0;
+		translationProgress = startIndex;
 		error = '';
 		notice = '';
+		let storageFailed = false;
 		try {
 			const result = await translateSegments(
 				segments,
@@ -278,19 +346,29 @@
 					if (operation === operationId) translationProgress = completed;
 				},
 				translationPath,
-				controller.signal
+				controller.signal,
+				(items) => {
+					if (operation === operationId) {
+						translations = { ...translations, ...Object.fromEntries(items.map(({ id, text }) => [id, text])) };
+						if (translationKey) {
+							try {
+								localStorage.setItem(translationKey, JSON.stringify({ segments, translations }));
+							} catch {
+								storageFailed = true;
+								notice = '번역을 이 기기에 저장하지 못했습니다. 페이지를 닫기 전에 확인해 주세요.';
+							}
+						}
+					}
+				},
+				startIndex,
+				previous
 			);
 			if (operation !== operationId) return;
-			translations = Object.fromEntries(
-				alignTranslations(segments, result)
-					.filter(
-						(item): item is typeof item & { translation: string } => item.translation !== null
-					)
-					.map(({ id, translation }) => [id, translation])
-			);
-			notice = '번역을 받았습니다. / Translation received.';
+			translations = { ...translations, ...Object.fromEntries(result.map(({ id, text }) => [id, text])) };
+			if (!storageFailed) notice = '번역을 받았습니다. / Translation received.';
 		} catch (cause) {
 			if (operation !== operationId) return;
+			failedSegment = segments[translationProgress]?.id ?? '';
 			error =
 				cause instanceof PersonalApiError &&
 				cause.status === 503 &&
@@ -351,7 +429,11 @@
 						disabled={busy}
 					/>
 				</label>
+				<button type="button" class="choose-button" disabled={busy} onclick={openExample}>예시 논문 열기</button>
 			</div>
+			{#if isExample}
+				<p>Park 외 (2024), <a href="https://doi.org/10.1186/s13287-024-03731-2">원문 및 출처</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. 원문 추출 및 한국어 번역은 수정되었으며 전체 정확성은 검증되지 않았습니다.</p>
+			{/if}
 
 			{#if busy}
 				<div class="progress-wrap" role="status" aria-live="polite">
@@ -400,6 +482,20 @@
 			{/if}
 
 			{#if segments.length}
+				<div class="consent-panel">
+					<section class="consent-copy" aria-labelledby="transfer-disclosure-title">
+						<strong id="transfer-disclosure-title">번역 전 데이터 처리 안내</strong>
+						<p>번역 시 추출한 텍스트가 Sushi 서버와 번역 제공자에 전송될 수 있습니다. PDF 파일 자체는 전송하지 않습니다.</p>
+						<details><summary>자세히 보기</summary><p>텍스트는 브라우저에서 추출합니다. 진행 중인 번역과 원문 텍스트는 이어 읽기를 위해 이 기기에 저장될 수 있습니다. 제공자별 보관 및 사용 조건이 적용되며, 서비스가 설정되지 않았거나 이용 권한이 없으면 번역할 수 없습니다. 선택한 그림 설명을 요청하면 해당 영역이 전송됩니다.</p></details>
+					</section>
+					<label class="consent-check">
+						<input type="checkbox" bind:checked={consent} />
+						<span>텍스트 전송에 동의합니다</span>
+					</label>
+					<button class="translate-button" onclick={() => startTranslation(!!failedSegment)} disabled={!consent || translating}>
+						{translating ? `번역 요청 중 ${translationProgress} / ${segments.length}` : failedSegment ? '번역 이어서 받기' : '한국어 번역 시작'}
+					</button>
+				</div>
 				<div class="reader-controls">
 					<span>읽기 도구</span>
 					<button
@@ -428,7 +524,7 @@
 						>
 					</div>
 				</div>
-				<div class="reading-workspace">
+				<div class="reading-workspace" class:with-notes={showNotes}>
 					<nav class="page-nav" aria-label="페이지 목록">
 						<strong>페이지</strong>{#each pageNumbers as number (number)}<a href={`#p${number}-s1`}
 								>{number}</a
@@ -440,12 +536,10 @@
 							class:stacked={view === 'stacked' || view === 'source'}
 							aria-hidden="true"
 						>
-							<span>원문 · SOURCE</span>{#if view !== 'source'}<span>한국어 · KOREAN</span>{/if}
+							<span>원문</span>{#if view !== 'source'}<span>한국어</span>{/if}
 						</div>
 						<div class="segment-list" class:stacked={view === 'stacked' || view === 'source'}>
-							{#if segments.length}
-								<button type="button" onclick={downloadNotes}>메모 JSON 내려받기</button>
-							{/if}
+
 							{#each segments as segment (segment.id)}
 								<article
 									id={segment.id}
@@ -477,8 +571,9 @@
 										{/if}
 									</div>
 									{#if view !== 'source'}<div class="translation-cell">
-											<span class="segment-id">번역 · TRANSLATION</span>
-											<p>{translations[segment.id] ?? '번역 전 · Waiting for translation'}</p>
+											<span class="segment-id">{segment.id.replace('-', ' · ')} · 번역</span>
+											<p>{translations[segment.id] ?? (failedSegment === segment.id ? '이 구간의 번역에 실패했습니다.' : translating ? '번역 대기 중' : '번역 전')}</p>
+											{#if failedSegment === segment.id}<button type="button" disabled={translating || !consent} onclick={() => startTranslation(true)}>이 구간부터 다시 시도</button>{/if}
 										</div>{/if}
 								</article>
 							{/each}
@@ -488,6 +583,7 @@
 						<aside class="notes-panel" aria-label="메모 패널">
 							<div class="notes-heading">
 								<h2>메모</h2>
+								<button type="button" onclick={downloadNotes}>JSON 내려받기</button>
 								<span role="status">{saveStatus}</span>
 								{#if conflict}<button type="button" onclick={restoreStoredNotes}
 										>저장된 메모 복구</button
@@ -502,42 +598,7 @@
 				</div>
 			{/if}
 
-			{#if segments.length}
-				<div class="consent-panel">
-					<section class="consent-copy" aria-labelledby="transfer-disclosure-title">
-						<strong id="transfer-disclosure-title"
-							>번역 전 데이터 처리 안내 · Before you translate</strong
-						>
-						<p>
-							PDF 텍스트는 이 브라우저에서 추출됩니다. 동의하고 번역을 시작하면 추출한 텍스트가
-							인증된 Sushi 서버로 전송되고 서버에 설정된 번역 제공자에게 전달될 수 있습니다. PDF
-							파일 자체는 전송하지 않습니다. 제공자별 보관 및 사용 조건이 적용되며, 서비스가
-							설정되지 않았거나 이용 권한이 없으면 번역할 수 없습니다.
-						</p>
-						<small
-							>After consent, extracted text is sent to the authenticated Sushi service and may be
-							sent to its configured translation provider. The PDF file is not uploaded. Provider
-							retention and usage terms apply.</small
-						>
-					</section>
-					<label class="consent-check">
-						<input type="checkbox" bind:checked={consent} />
-						<span
-							>텍스트 전송에 동의합니다<br /><small>I consent to sending the extracted text</small
-							></span
-						>
-					</label>
-					<button
-						class="translate-button"
-						onclick={startTranslation}
-						disabled={!consent || translating}
-					>
-						{translating
-							? `번역 요청 중 ${translationProgress} / ${segments.length} · Translating…`
-							: '한국어 번역 시작 · Translate to Korean'} <span aria-hidden="true">→</span>
-					</button>
-				</div>
-			{:else if !busy && !error}
+			{#if !segments.length && !busy && !error}
 				<div class="empty-state">
 					<div class="paper-art" aria-hidden="true">
 						<div></div>
@@ -1146,8 +1207,11 @@
 
 	.reading-workspace {
 		display: grid;
-		grid-template-columns: 100px minmax(0, 1fr) minmax(290px, 360px);
+		grid-template-columns: 100px minmax(0, 1fr);
 		align-items: start;
+	}
+	.reading-workspace.with-notes {
+		grid-template-columns: 100px minmax(0, 1fr) minmax(290px, 360px);
 	}
 	.page-nav {
 		display: flex;
